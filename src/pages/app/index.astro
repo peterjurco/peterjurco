@@ -1,8 +1,15 @@
 ---
-// TODO(plan-2): gate this route area behind authentication.
 import BaseLayout from '../../layouts/BaseLayout.astro'
+
+// Defense in depth: the middleware already gates /app/*, but never render
+// this page without a resolved user.
+const user = Astro.locals.user
+if (!user) {
+  return Astro.redirect('/api/auth/login', 302)
+}
 ---
 
 <BaseLayout title="peterjur.co — app">
-  <h1>Authenticated area (ungated)</h1>
+  <h1>Hello, {user.email}</h1>
+  <a href="/api/auth/logout">Log out</a>
 </BaseLayout>

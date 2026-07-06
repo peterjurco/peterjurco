@@ -18,5 +18,8 @@ declare module 'cloudflare:workers' {
 type Runtime = import('@astrojs/cloudflare').Runtime
 
 declare namespace App {
-  interface Locals extends Runtime {}
+  interface Locals extends Runtime {
+    /** Set by src/middleware.ts from the session cookie; null when logged out. */
+    user: import('./lib/auth/session').SessionUser | null
+  }
 }
