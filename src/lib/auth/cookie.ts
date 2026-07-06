@@ -4,6 +4,11 @@ export const SESSION_COOKIE_NAME = 'session'
 /** ~5 years — "stay signed in indefinitely on this device". */
 export const SESSION_COOKIE_MAX_AGE_SECONDS = 5 * 365 * 24 * 60 * 60
 
+/** Transient cookies carrying OAuth state/PKCE verifier across the redirect. */
+export const OAUTH_STATE_COOKIE_NAME = 'oauth_state'
+export const OAUTH_VERIFIER_COOKIE_NAME = 'oauth_verifier'
+export const OAUTH_COOKIE_MAX_AGE_SECONDS = 10 * 60
+
 const encoder = new TextEncoder()
 
 async function importHmacKey(secret: string): Promise<CryptoKey> {

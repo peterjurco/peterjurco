@@ -2,6 +2,13 @@
 
 interface Env {
   DATABASE_URL: string
+  GOOGLE_CLIENT_ID: string
+  GOOGLE_CLIENT_SECRET: string
+  GOOGLE_REDIRECT_URI: string
+  SESSION_SECRET: string
+  AUTH_ALLOWED_EMAILS: string
+  /** Test-only Google token endpoint override — unset in production. */
+  AUTH_TOKEN_ENDPOINT?: string
 }
 
 declare module 'cloudflare:workers' {
