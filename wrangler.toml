@@ -1,0 +1,15 @@
+# Cloudflare Workers/Pages configuration for peterjur.co
+#
+# Secrets (e.g. DATABASE_URL) are NOT committed here — set them in the
+# Cloudflare dashboard (Pages project > Settings > Environment variables)
+# or via `wrangler secret put DATABASE_URL`.
+# An R2 bucket binding will be added in Plans 5/6 for photo storage.
+
+name = "peterjurco"
+compatibility_date = "2026-06-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "./dist"
+
+# Placeholder documentation of runtime bindings:
+#   DATABASE_URL  (secret) — Neon pooled connection string
+#   R2 bucket     (later)  — photo originals, added in Plan 5
