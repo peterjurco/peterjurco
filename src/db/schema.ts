@@ -44,21 +44,28 @@ export const users = pgTable(
   (table) => [uniqueIndex('users_google_sub_unique').on(table.googleSub)],
 )
 
-export const sessions = pgTable('sessions', {
-  id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
-  userId: bigint('user_id', { mode: 'number' })
-    .notNull()
-    .references(() => users.id),
-  // Opaque session token, hashed at rest.
-  tokenHash: text('token_hash').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  // Far future (e.g. +5y); refreshed on activity ("stay signed in indefinitely").
-  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-  // Kill switch (e.g. lost device).
-  revokedAt: timestamp('revoked_at', { withTimezone: true }),
-})
+export const sessions = pgTable(
+  'sessions',
+  {
+    id: bigint('id', { mode: 'number' })
+      .primaryKey()
+      .generatedAlwaysAsIdentity(),
+    userId: bigint('user_id', { mode: 'number' })
+      .notNull()
+      .references(() => users.id),
+    // Opaque session token, hashed at rest.
+    tokenHash: text('token_hash').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    // Far future (e.g. +5y); refreshed on activity ("stay signed in indefinitely").
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    // Kill switch (e.g. lost device).
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  },
+  // Session lookup by token hash happens on every authenticated request.
+  (table) => [index('sessions_token_hash_idx').on(table.tokenHash)],
+)
 
 // 2. Articles + taxonomy ---------------------------------------------------
 
