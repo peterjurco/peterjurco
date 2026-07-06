@@ -12,6 +12,7 @@ const { title = 'peterjur.co' } = Astro.props
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
+    <slot name="head" />
   </head>
   <body>
     <slot />

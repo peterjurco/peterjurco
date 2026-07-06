@@ -83,3 +83,60 @@
 .article-doc .tiptap a {
   color: #0645ad;
 }
+
+/* Metadata panel (title / category / tags / visibility / featured / delete). */
+
+.article-meta-panel {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 0.5rem 0;
+}
+
+.article-meta-title {
+  width: 100%;
+  padding: 0.4rem 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  border: none;
+  border-bottom: 1px solid #eee;
+  outline: none;
+}
+
+.article-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.article-meta-row select,
+.article-meta-row input[type="text"],
+.article-meta-row button {
+  min-height: 2rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.article-meta-row button {
+  cursor: pointer;
+}
+
+.article-meta-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+}
+
+.article-meta-delete {
+  color: #b00020;
+}
+
+.article-meta-status {
+  font-size: 0.8rem;
+  color: #888;
+}

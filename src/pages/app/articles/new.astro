@@ -1,0 +1,26 @@
+---
+import { env } from 'cloudflare:workers'
+import { getDb } from '../../../db'
+import { createArticle } from '../../../lib/articles/repo'
+import { requireEnv } from '../../../lib/env'
+
+// Defense in depth: the middleware already gates /app/*. Creation mutates
+// state → POST only (the list page submits a form here); a stray GET (link
+// prefetch, typed URL) must not create articles.
+const target = !Astro.locals.user
+  ? '/api/auth/login'
+  : Astro.request.method !== 'POST'
+    ? '/app/articles'
+    : `/app/articles/${
+        (
+          await createArticle(
+            getDb(requireEnv(env.DATABASE_URL, 'DATABASE_URL')),
+          )
+        ).id
+      }`
+if (target) {
+  return Astro.redirect(target, 302)
+}
+// Unreachable — every branch above redirects. The empty template keeps the
+// Astro language server happy (it drops a trailing top-level return).
+---

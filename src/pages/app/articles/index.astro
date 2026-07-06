@@ -1,0 +1,103 @@
+---
+import { env } from 'cloudflare:workers'
+import { getDb } from '../../../db'
+import BaseLayout from '../../../layouts/BaseLayout.astro'
+import { listForOwner } from '../../../lib/articles/repo'
+import { requireEnv } from '../../../lib/env'
+
+// Defense in depth: the middleware already gates /app/*.
+if (!Astro.locals.user) {
+  return Astro.redirect('/api/auth/login', 302)
+}
+
+const db = getDb(requireEnv(env.DATABASE_URL, 'DATABASE_URL'))
+const articles = await listForOwner(db)
+
+function formatDate(date: Date): string {
+  return date.toISOString().slice(0, 16).replace('T', ' ')
+}
+---
+
+<BaseLayout title="Articles — peterjur.co">
+  <main class="articles-list">
+    <header>
+      <h1>Articles</h1>
+      <form method="post" action="/app/articles/new">
+        <button type="submit">New article</button>
+      </form>
+    </header>
+    {articles.length === 0 && <p>No articles yet.</p>}
+    <ul>
+      {
+        articles.map((article) => (
+          <li>
+            <a href={`/app/articles/${article.id}`}>
+              {article.title || 'Untitled'}
+            </a>
+            {article.categoryName && (
+              <span class="category">{article.categoryName}</span>
+            )}
+            <span class={`badge badge-${article.visibility}`}>
+              {article.visibility}
+            </span>
+            {article.isFeatured && <span class="badge">featured</span>}
+            <time datetime={article.updatedAt.toISOString()}>
+              {formatDate(article.updatedAt)}
+            </time>
+          </li>
+        ))
+      }
+    </ul>
+    <p><a href="/app">← Back</a></p>
+  </main>
+</BaseLayout>
+
+<style>
+  .articles-list {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 1rem;
+    font-family: system-ui, sans-serif;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  ul {
+    padding: 0;
+    list-style: none;
+  }
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #eee;
+  }
+  li a {
+    font-weight: 600;
+  }
+  .category {
+    color: #666;
+    font-size: 0.85rem;
+  }
+  .badge {
+    padding: 0.05rem 0.4rem;
+    font-size: 0.75rem;
+    border: 1px solid #ccc;
+    border-radius: 999px;
+    color: #555;
+  }
+  .badge-public {
+    border-color: #2e7d32;
+    color: #2e7d32;
+  }
+  time {
+    margin-left: auto;
+    color: #999;
+    font-size: 0.8rem;
+  }
+</style>
