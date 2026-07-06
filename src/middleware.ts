@@ -1,5 +1,5 @@
-import { env } from 'cloudflare:workers'
 import { defineMiddleware } from 'astro:middleware'
+import { env } from 'cloudflare:workers'
 import { getDb } from './db'
 import { SESSION_COOKIE_NAME, verifyValue } from './lib/auth/cookie'
 import { validateSession } from './lib/auth/session'
