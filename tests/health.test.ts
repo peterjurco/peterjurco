@@ -101,7 +101,9 @@ beforeAll(async () => {
   // The dev server reads DATABASE_URL from .dev.vars (Cloudflare runtime env).
   // Point it at the Neon-HTTP-proxied test database, backing up any existing
   // developer .dev.vars to disk first so it survives even a hard crash.
-  if (existsSync(DEV_VARS_PATH)) {
+  // A leftover backup means a previous run was SIGKILLed before restoring —
+  // .dev.vars then holds test content, so the stale backup is the real file.
+  if (existsSync(DEV_VARS_PATH) && !existsSync(DEV_VARS_BACKUP_PATH)) {
     copyFileSync(DEV_VARS_PATH, DEV_VARS_BACKUP_PATH)
   }
   devVarsOverwritten = true
