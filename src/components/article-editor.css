@@ -1,0 +1,85 @@
+/* Editor island — authed area is functional-over-pretty, mobile friendly. */
+
+.article-editor {
+  max-width: 46rem;
+  margin: 0 auto;
+}
+
+.editor-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0;
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+}
+
+.editor-toolbar button,
+.editor-toolbar select {
+  /* Comfortable tap targets on mobile. */
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.9rem;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.editor-toolbar button.is-active {
+  background: #e8e8e8;
+  border-color: #999;
+}
+
+.editor-toolbar-color input[type="color"] {
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0.15rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.editor-toolbar-divider {
+  width: 1px;
+  height: 1.5rem;
+  margin: 0 0.25rem;
+  background: #ddd;
+}
+
+.editor-save-state {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: #888;
+}
+
+/* Document typography — shared look for editable and read-only content. */
+
+.article-doc .tiptap {
+  outline: none;
+  min-height: 12rem;
+  padding: 1rem 0;
+  line-height: 1.6;
+}
+
+.article-doc .tiptap blockquote {
+  margin: 1rem 0;
+  padding-left: 1rem;
+  border-left: 3px solid #ccc;
+  color: #555;
+}
+
+.article-doc .tiptap img {
+  max-width: 100%;
+  height: auto;
+}
+
+.article-doc .tiptap a {
+  color: #0645ad;
+}
