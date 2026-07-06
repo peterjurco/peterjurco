@@ -3,8 +3,9 @@
 Personal website (articles, photo hub, freeform homepage) — a ground-up rebuild
 of the old WordPress site.
 
-**Stack:** Astro (SSR, `@astrojs/cloudflare`) · TypeScript · Drizzle ORM on
-Neon Postgres · Cloudflare Pages/Workers · R2 · Biome · Vitest.
+**Stack:** Astro (SSR, `@astrojs/cloudflare`) · React islands · TipTap ·
+TypeScript · Drizzle ORM on Neon Postgres · Cloudflare Pages/Workers · R2 ·
+Biome · Vitest.
 
 ## Commands
 
