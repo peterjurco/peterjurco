@@ -1,5 +1,6 @@
 import { neon } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
+import * as schema from './schema'
 
 /**
  * Builds a Drizzle client over the Neon serverless HTTP driver
@@ -10,7 +11,7 @@ import { drizzle } from 'drizzle-orm/neon-http'
  * so no secret is baked in at build time.
  */
 export function getDb(databaseUrl: string) {
-  return drizzle(neon(databaseUrl))
+  return drizzle(neon(databaseUrl), { schema })
 }
 
 export type Db = ReturnType<typeof getDb>
