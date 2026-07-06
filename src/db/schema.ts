@@ -106,7 +106,8 @@ export const articles = pgTable(
     // No revision history — single mutable row.
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .notNull()
-      .defaultNow(),
+      .defaultNow()
+      .$onUpdate(() => new Date()),
   },
   (table) => [
     uniqueIndex('articles_public_id_unique').on(table.publicId),
@@ -159,7 +160,8 @@ export const photoAlbums = pgTable('photo_albums', {
     .defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .notNull()
-    .defaultNow(),
+    .defaultNow()
+    .$onUpdate(() => new Date()),
 })
 
 export const photoAlbumsTagsMap = pgTable(
@@ -220,5 +222,6 @@ export const homeTiles = pgTable('home_tiles', {
     .defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .notNull()
-    .defaultNow(),
+    .defaultNow()
+    .$onUpdate(() => new Date()),
 })

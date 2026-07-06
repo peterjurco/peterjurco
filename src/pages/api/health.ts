@@ -8,7 +8,8 @@ export const GET: APIRoute = async () => {
     const db = getDb(env.DATABASE_URL)
     await db.execute(sql`select 1`)
     return Response.json({ ok: true, db: 'up' })
-  } catch {
+  } catch (error) {
+    console.error('Health check failed:', error)
     return Response.json({ ok: false }, { status: 503 })
   }
 }

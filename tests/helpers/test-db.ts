@@ -1,5 +1,6 @@
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
+import { LOCAL_NEON_PROXY_HOST } from '../../src/db/local-proxy'
 import * as schema from '../../src/db/schema'
 
 export const DEFAULT_TEST_DATABASE_URL =
@@ -7,11 +8,10 @@ export const DEFAULT_TEST_DATABASE_URL =
 
 /**
  * URL handed to the *production* Neon HTTP driver in dev-server tests.
- * `db.localtest.me` resolves to 127.0.0.1; `getDb` routes it through the
- * local Neon HTTP proxy on port 4444 (see src/db/client.ts).
+ * The host marks it for routing through the local Neon HTTP proxy
+ * (see src/db/local-proxy.ts and src/db/client.ts).
  */
-export const DEFAULT_DEV_DATABASE_URL =
-  'postgresql://postgres:postgres@db.localtest.me:5544/peterjurco_test'
+export const DEFAULT_DEV_DATABASE_URL = `postgresql://postgres:postgres@${LOCAL_NEON_PROXY_HOST}:5544/peterjurco_test`
 
 /**
  * Drizzle client over the node-postgres driver for tests.

@@ -1,0 +1,28 @@
+# Local test services, mirroring the CI services in .github/workflows/ci.yml.
+# Usage: docker compose -f docker-compose.test.yml up -d
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: peterjurco_test
+    ports:
+      - "5544:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d peterjurco_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Serves the Neon serverless HTTP protocol in front of the plain Postgres
+  # service so the production neon-http driver works in the dev-server health
+  # test (see src/db/client.ts).
+  neon-http-proxy:
+    image: ghcr.io/timowilhelm/local-neon-http-proxy:main
+    environment:
+      PG_CONNECTION_STRING: postgres://postgres:postgres@postgres:5432/peterjurco_test
+    ports:
+      - "4444:4444"
+    depends_on:
+      postgres:
+        condition: service_healthy

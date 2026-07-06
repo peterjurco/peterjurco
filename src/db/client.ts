@@ -1,5 +1,9 @@
 import { neon, neonConfig } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
+import {
+  LOCAL_NEON_PROXY_FETCH_ENDPOINT,
+  LOCAL_NEON_PROXY_HOST,
+} from './local-proxy'
 import * as schema from './schema'
 
 /**
@@ -11,13 +15,10 @@ import * as schema from './schema'
  * so no secret is baked in at build time.
  */
 export function getDb(databaseUrl: string) {
-  // Local dev / CI only: the Neon HTTP driver cannot talk to plain Postgres,
-  // so a local Neon HTTP proxy (ghcr.io/timowilhelm/local-neon-http-proxy)
-  // serves the Neon wire-over-HTTP protocol at db.localtest.me:4444
-  // (db.localtest.me resolves to 127.0.0.1). Production Neon URLs are
-  // unaffected.
-  if (databaseUrl.includes('db.localtest.me')) {
-    neonConfig.fetchEndpoint = 'http://db.localtest.me:4444/sql'
+  // Local dev / CI only — route through the local Neon HTTP proxy (see
+  // src/db/local-proxy.ts). Production Neon URLs are unaffected.
+  if (databaseUrl.includes(LOCAL_NEON_PROXY_HOST)) {
+    neonConfig.fetchEndpoint = LOCAL_NEON_PROXY_FETCH_ENDPOINT
   }
   return drizzle(neon(databaseUrl), { schema })
 }

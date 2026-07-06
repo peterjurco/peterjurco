@@ -1,17 +1,29 @@
-import { randomBytes } from 'node:crypto'
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { afterAll, describe, expect, it } from 'vitest'
 import { articleCategories, articles } from '../src/db/schema'
+import { newPublicId } from '../src/lib/public-id'
 import { createTestDb } from './helpers/test-db'
 
 const { db, close } = createTestDb()
 
-// Task 6 introduces the real newPublicId() helper; the smoke test only needs
-// a unique, URL-safe stand-in.
-const randomPublicId = () => randomBytes(12).toString('base64url')
+// Rows created by the test, deleted in afterAll so failed assertions
+// don't leak rows into the shared test database.
+const createdArticleIds: number[] = []
+const createdCategoryIds: number[] = []
 
 afterAll(async () => {
-  await close()
+  try {
+    if (createdArticleIds.length > 0) {
+      await db.delete(articles).where(inArray(articles.id, createdArticleIds))
+    }
+    if (createdCategoryIds.length > 0) {
+      await db
+        .delete(articleCategories)
+        .where(inArray(articleCategories.id, createdCategoryIds))
+    }
+  } finally {
+    await close()
+  }
 })
 
 describe('schema smoke test (real Postgres)', () => {
@@ -22,8 +34,9 @@ describe('schema smoke test (real Postgres)', () => {
       .returning()
     expect(category).toBeDefined()
     if (!category) throw new Error('unreachable')
+    createdCategoryIds.push(category.id)
 
-    const publicId = randomPublicId()
+    const publicId = newPublicId()
     const content = {
       type: 'doc',
       content: [
@@ -45,6 +58,7 @@ describe('schema smoke test (real Postgres)', () => {
       .returning()
     expect(inserted).toBeDefined()
     if (!inserted) throw new Error('unreachable')
+    createdArticleIds.push(inserted.id)
 
     const found = await db.query.articles.findFirst({
       where: eq(articles.publicId, publicId),
@@ -73,11 +87,5 @@ describe('schema smoke test (real Postgres)', () => {
       const cause = (error as Error).cause as { code?: string } | undefined
       return cause?.code === '23505'
     })
-
-    // Clean up so reruns stay tidy.
-    await db.delete(articles).where(eq(articles.id, inserted.id))
-    await db
-      .delete(articleCategories)
-      .where(eq(articleCategories.id, category.id))
   })
 })
