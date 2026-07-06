@@ -1,4 +1,4 @@
-import { generateHTML } from '@tiptap/html'
+import { renderToHTMLString } from '@tiptap/static-renderer/pm/html-string'
 import { documentExtensions } from './extensions'
 
 /**
@@ -6,9 +6,11 @@ import { documentExtensions } from './extensions'
  *
  * Sanitization happens on the JSON before serialization: every node, mark and
  * attribute must pass an allow-list, unsafe URLs and style values are dropped,
- * and unknown types are removed entirely. `generateHTML` (@tiptap/html — no
- * DOM required, Workers-safe) then escapes all text content, so nothing
- * user-controlled can reach the page as markup.
+ * and unknown types are removed entirely. `renderToHTMLString`
+ * (@tiptap/static-renderer — string serialization, no DOM at all, so it runs
+ * on the Workers runtime AND in vitest) then escapes all text content, so
+ * nothing user-controlled can reach the page as markup. (@tiptap/html was
+ * rejected: its import resolves to a real-DOM build under workerd.)
  */
 
 interface JsonMark {
@@ -154,8 +156,11 @@ export function renderDoc(content: unknown): string {
   const safeDoc = sanitizeNode(content)
   if (safeDoc?.type !== 'doc') return ''
   try {
-    // biome-ignore lint/suspicious/noExplicitAny: generateHTML wants TipTap's JSONContent; the sanitizer guarantees the shape
-    return generateHTML(safeDoc as any, documentExtensions())
+    return renderToHTMLString({
+      // biome-ignore lint/suspicious/noExplicitAny: renderToHTMLString wants TipTap's JSONContent; the sanitizer guarantees the shape
+      content: safeDoc as any,
+      extensions: documentExtensions(),
+    })
   } catch (error) {
     console.error('renderDoc failed:', error)
     return ''
