@@ -1,5 +1,8 @@
+import type { AstroCookies } from 'astro'
 import { describe, expect, it } from 'vitest'
+import { SESSION_TTL_MS } from '../src/lib/auth/constants'
 import {
+  readSessionToken,
   SESSION_COOKIE_MAX_AGE_SECONDS,
   SESSION_COOKIE_NAME,
   sessionCookieOptions,
@@ -56,11 +59,40 @@ describe('session cookie attributes', () => {
     expect(SESSION_COOKIE_MAX_AGE_SECONDS).toBe(5 * 365 * 24 * 60 * 60)
   })
 
+  it('derives the cookie Max-Age from the session TTL (single source)', () => {
+    expect(SESSION_COOKIE_MAX_AGE_SECONDS).toBe(SESSION_TTL_MS / 1000)
+  })
+
   it('supports a custom max-age (short-lived OAuth state cookies)', () => {
     expect(sessionCookieOptions(600).maxAge).toBe(600)
   })
 
   it('exposes a stable cookie name', () => {
     expect(SESSION_COOKIE_NAME).toBe('session')
+  })
+})
+
+describe('readSessionToken', () => {
+  function fakeCookies(value?: string): AstroCookies {
+    return {
+      get: (name: string) =>
+        value !== undefined && name === SESSION_COOKIE_NAME
+          ? { value }
+          : undefined,
+    } as unknown as AstroCookies
+  }
+
+  it('returns the token embedded in a validly signed cookie', async () => {
+    const signed = await signValue(SECRET, 'the-token')
+    expect(await readSessionToken(fakeCookies(signed), SECRET)).toBe(
+      'the-token',
+    )
+  })
+
+  it('returns null for a missing or tampered cookie', async () => {
+    expect(await readSessionToken(fakeCookies(), SECRET)).toBeNull()
+    expect(
+      await readSessionToken(fakeCookies('tampered.value'), SECRET),
+    ).toBeNull()
   })
 })

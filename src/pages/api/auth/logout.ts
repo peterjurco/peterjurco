@@ -1,17 +1,25 @@
 import { env } from 'cloudflare:workers'
 import type { APIRoute } from 'astro'
 import { getDb } from '../../../db'
-import { SESSION_COOKIE_NAME, verifyValue } from '../../../lib/auth/cookie'
+import { readSessionToken, SESSION_COOKIE_NAME } from '../../../lib/auth/cookie'
 import { revokeSession } from '../../../lib/auth/session'
+import { requireEnv } from '../../../lib/env'
 
-/** Revokes the session server-side, clears the cookie, and returns home. */
-export const GET: APIRoute = async ({ cookies, redirect }) => {
-  const signed = cookies.get(SESSION_COOKIE_NAME)?.value
-  if (signed) {
-    const token = await verifyValue(env.SESSION_SECRET, signed)
-    if (token) {
-      await revokeSession(getDb(env.DATABASE_URL), token)
-    }
+/**
+ * Revokes the session server-side, clears the cookie, and returns home.
+ * POST only — logout mutates state, and a GET would be triggerable by a
+ * simple cross-site link or prefetch.
+ */
+export const POST: APIRoute = async ({ cookies, redirect }) => {
+  const token = await readSessionToken(
+    cookies,
+    requireEnv(env.SESSION_SECRET, 'SESSION_SECRET'),
+  )
+  if (token) {
+    await revokeSession(
+      getDb(requireEnv(env.DATABASE_URL, 'DATABASE_URL')),
+      token,
+    )
   }
   cookies.delete(SESSION_COOKIE_NAME, { path: '/' })
   return redirect('/', 302)

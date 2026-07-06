@@ -1,4 +1,5 @@
 import { CodeChallengeMethod, decodeIdToken, OAuth2Client } from 'arctic'
+import { requireEnv } from '../env'
 
 export const GOOGLE_AUTHORIZATION_ENDPOINT =
   'https://accounts.google.com/o/oauth2/v2/auth'
@@ -83,3 +84,22 @@ export function createGoogleAuth(config: GoogleAuthConfig) {
 }
 
 export type GoogleAuth = ReturnType<typeof createGoogleAuth>
+
+/**
+ * Builds the Google OAuth client from the runtime env (login + callback),
+ * failing loudly when a required variable is missing.
+ */
+export function googleAuthFromEnv(env: {
+  GOOGLE_CLIENT_ID: string | undefined
+  GOOGLE_CLIENT_SECRET: string | undefined
+  GOOGLE_REDIRECT_URI: string | undefined
+  /** Test-only stub override; undefined in production → real Google. */
+  AUTH_TOKEN_ENDPOINT?: string
+}): GoogleAuth {
+  return createGoogleAuth({
+    clientId: requireEnv(env.GOOGLE_CLIENT_ID, 'GOOGLE_CLIENT_ID'),
+    clientSecret: requireEnv(env.GOOGLE_CLIENT_SECRET, 'GOOGLE_CLIENT_SECRET'),
+    redirectUri: requireEnv(env.GOOGLE_REDIRECT_URI, 'GOOGLE_REDIRECT_URI'),
+    tokenEndpoint: env.AUTH_TOKEN_ENDPOINT,
+  })
+}

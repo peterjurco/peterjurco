@@ -8,7 +8,8 @@ import {
   sessionCookieOptions,
   signValue,
 } from '../../../lib/auth/cookie'
-import { createGoogleAuth } from '../../../lib/auth/google'
+import { googleAuthFromEnv } from '../../../lib/auth/google'
+import { requireEnv } from '../../../lib/env'
 
 /**
  * Starts the Google sign-in: stores the OAuth state + PKCE verifier in
@@ -18,22 +19,19 @@ export const GET: APIRoute = async ({ cookies, redirect }) => {
   const state = generateState()
   const codeVerifier = generateCodeVerifier()
 
-  const google = createGoogleAuth({
-    clientId: env.GOOGLE_CLIENT_ID,
-    clientSecret: env.GOOGLE_CLIENT_SECRET,
-    redirectUri: env.GOOGLE_REDIRECT_URI,
-  })
+  const google = googleAuthFromEnv(env)
   const authorizationUrl = google.createAuthorizationUrl(state, codeVerifier)
 
+  const sessionSecret = requireEnv(env.SESSION_SECRET, 'SESSION_SECRET')
   const options = sessionCookieOptions(OAUTH_COOKIE_MAX_AGE_SECONDS)
   cookies.set(
     OAUTH_STATE_COOKIE_NAME,
-    await signValue(env.SESSION_SECRET, state),
+    await signValue(sessionSecret, state),
     options,
   )
   cookies.set(
     OAUTH_VERIFIER_COOKIE_NAME,
-    await signValue(env.SESSION_SECRET, codeVerifier),
+    await signValue(sessionSecret, codeVerifier),
     options,
   )
 

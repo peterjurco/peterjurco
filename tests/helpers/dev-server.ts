@@ -98,6 +98,9 @@ export async function startDevServer(
   }
 
   function stop(): void {
+    // Unhook ourselves so repeated startDevServer calls in one process don't
+    // stack dead exit handlers.
+    process.off('exit', stop)
     stopDevServer()
     removeOwnDevLockFile()
     restoreDevVars()

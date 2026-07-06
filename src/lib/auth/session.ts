@@ -2,6 +2,9 @@ import { eq } from 'drizzle-orm'
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import type * as schema from '../../db/schema'
 import { sessions, users } from '../../db/schema'
+import { SESSION_TTL_MS } from './constants'
+
+export { SESSION_TTL_MS }
 
 /**
  * Any Drizzle Postgres client over our schema — the Neon HTTP driver in
@@ -12,11 +15,9 @@ export type AuthDb = PgDatabase<PgQueryResultHKT, typeof schema>
 
 export type SessionUser = typeof users.$inferSelect
 
-/** "Stay signed in indefinitely": sessions live ~5 years… */
-export const SESSION_TTL_MS = 5 * 365 * 24 * 60 * 60 * 1000
 /**
- * …and slide on activity: validating a session that was last refreshed more
- * than this long ago pushes expires_at back out to now + TTL.
+ * Sessions slide on activity: validating a session that was last refreshed
+ * more than this long ago pushes expires_at back out to now + SESSION_TTL_MS.
  */
 export const SESSION_REFRESH_THRESHOLD_MS = 30 * 24 * 60 * 60 * 1000
 

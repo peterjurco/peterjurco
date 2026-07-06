@@ -11,14 +11,16 @@ import {
   signValue,
   verifyValue,
 } from '../../../lib/auth/cookie'
-import { createGoogleAuth } from '../../../lib/auth/google'
+import { googleAuthFromEnv } from '../../../lib/auth/google'
 import { createSession } from '../../../lib/auth/session'
+import { requireEnv } from '../../../lib/env'
 
 /**
  * Google OAuth callback: state check → code exchange → allow-list check →
  * user upsert → session mint → signed session cookie → /app.
  */
 export const GET: APIRoute = async ({ url, cookies, redirect }) => {
+  const sessionSecret = requireEnv(env.SESSION_SECRET, 'SESSION_SECRET')
   const code = url.searchParams.get('code')
   const state = url.searchParams.get('state')
   const signedState = cookies.get(OAUTH_STATE_COOKIE_NAME)?.value
@@ -29,10 +31,10 @@ export const GET: APIRoute = async ({ url, cookies, redirect }) => {
   cookies.delete(OAUTH_VERIFIER_COOKIE_NAME, { path: '/' })
 
   const storedState = signedState
-    ? await verifyValue(env.SESSION_SECRET, signedState)
+    ? await verifyValue(sessionSecret, signedState)
     : null
   const codeVerifier = signedVerifier
-    ? await verifyValue(env.SESSION_SECRET, signedVerifier)
+    ? await verifyValue(sessionSecret, signedVerifier)
     : null
   if (!code || !state || !storedState || !codeVerifier) {
     return new Response('Missing or invalid OAuth state', { status: 400 })
@@ -41,13 +43,7 @@ export const GET: APIRoute = async ({ url, cookies, redirect }) => {
     return new Response('OAuth state mismatch', { status: 400 })
   }
 
-  const google = createGoogleAuth({
-    clientId: env.GOOGLE_CLIENT_ID,
-    clientSecret: env.GOOGLE_CLIENT_SECRET,
-    redirectUri: env.GOOGLE_REDIRECT_URI,
-    // Test-only stub override; undefined in production → real Google.
-    tokenEndpoint: env.AUTH_TOKEN_ENDPOINT,
-  })
+  const google = googleAuthFromEnv(env)
 
   let identity: Awaited<ReturnType<typeof google.exchangeCode>>
   try {
@@ -57,13 +53,17 @@ export const GET: APIRoute = async ({ url, cookies, redirect }) => {
     return new Response('Authorization code exchange failed', { status: 400 })
   }
 
-  if (!isAllowed(identity.email, env.AUTH_ALLOWED_EMAILS)) {
+  const allowedEmails = requireEnv(
+    env.AUTH_ALLOWED_EMAILS,
+    'AUTH_ALLOWED_EMAILS',
+  )
+  if (!isAllowed(identity.email, allowedEmails)) {
     return new Response('Forbidden: this Google account is not allowed', {
       status: 403,
     })
   }
 
-  const db = getDb(env.DATABASE_URL)
+  const db = getDb(requireEnv(env.DATABASE_URL, 'DATABASE_URL'))
   const [user] = await db
     .insert(users)
     .values({
@@ -88,7 +88,7 @@ export const GET: APIRoute = async ({ url, cookies, redirect }) => {
   const { token } = await createSession(db, user.id)
   cookies.set(
     SESSION_COOKIE_NAME,
-    await signValue(env.SESSION_SECRET, token),
+    await signValue(sessionSecret, token),
     sessionCookieOptions(),
   )
 

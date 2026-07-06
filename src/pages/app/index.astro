@@ -11,5 +11,7 @@ if (!user) {
 
 <BaseLayout title="peterjur.co — app">
   <h1>Hello, {user.email}</h1>
-  <a href="/api/auth/logout">Log out</a>
+  <form method="post" action="/api/auth/logout">
+    <button type="submit">Log out</button>
+  </form>
 </BaseLayout>

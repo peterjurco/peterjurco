@@ -1,8 +1,9 @@
-import type { AstroCookieSetOptions } from 'astro'
+import type { AstroCookieSetOptions, AstroCookies } from 'astro'
+import { SESSION_TTL_MS } from './constants'
 
 export const SESSION_COOKIE_NAME = 'session'
-/** ~5 years — "stay signed in indefinitely on this device". */
-export const SESSION_COOKIE_MAX_AGE_SECONDS = 5 * 365 * 24 * 60 * 60
+/** The cookie lives exactly as long as the session it carries (~5 years). */
+export const SESSION_COOKIE_MAX_AGE_SECONDS = SESSION_TTL_MS / 1000
 
 /** Transient cookies carrying OAuth state/PKCE verifier across the redirect. */
 export const OAUTH_STATE_COOKIE_NAME = 'oauth_state'
@@ -30,10 +31,15 @@ function bytesToBase64Url(bytes: Uint8Array): string {
     .replace(/=+$/, '')
 }
 
-function base64UrlToBytes(encoded: string): Uint8Array | null {
+function base64UrlToBytes(encoded: string): Uint8Array<ArrayBuffer> | null {
   const base64 = encoded.replaceAll('-', '+').replaceAll('_', '/')
   try {
-    return Uint8Array.from(atob(base64), (char) => char.charCodeAt(0))
+    const binary = atob(base64)
+    const bytes = new Uint8Array(binary.length)
+    for (let index = 0; index < binary.length; index++) {
+      bytes[index] = binary.charCodeAt(index)
+    }
+    return bytes
   } catch {
     return null
   }
@@ -71,10 +77,23 @@ export async function verifyValue(
   const valid = await crypto.subtle.verify(
     'HMAC',
     key,
-    signature as Uint8Array<ArrayBuffer>,
+    signature,
     encoder.encode(value),
   )
   return valid ? value : null
+}
+
+/**
+ * Reads and verifies the signed session cookie: returns the embedded session
+ * token, or null when the cookie is absent, malformed, or tampered with.
+ */
+export async function readSessionToken(
+  cookies: AstroCookies,
+  secret: string,
+): Promise<string | null> {
+  const signed = cookies.get(SESSION_COOKIE_NAME)?.value
+  if (!signed) return null
+  return verifyValue(secret, signed)
 }
 
 /**

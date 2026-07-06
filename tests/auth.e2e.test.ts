@@ -131,6 +131,21 @@ async function get(path: string, jar: CookieJar): Promise<Response> {
   return response
 }
 
+/**
+ * POST (form-style, no body) with manual redirects, using the jar. Sends a
+ * same-origin Origin header like a browser form submit would — Astro's CSRF
+ * protection rejects cross-origin POSTs with a 403.
+ */
+async function post(path: string, jar: CookieJar): Promise<Response> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: 'POST',
+    redirect: 'manual',
+    headers: { Cookie: jar.header(), Origin: BASE_URL },
+  })
+  jar.storeFrom(response)
+  return response
+}
+
 /** Runs /api/auth/login and returns the state Google would echo back. */
 async function startLogin(jar: CookieJar): Promise<string> {
   const response = await get('/api/auth/login', jar)
@@ -229,10 +244,13 @@ describe('auth e2e (running dev server, stubbed Google)', () => {
     expect(html).toContain(ALLOWED_EMAIL)
     expect(html).toContain('/api/auth/logout')
 
-    // 5. Logout clears the cookie and revokes the session server-side.
+    // 5. Logout (POST-only — a GET must not mutate state) clears the cookie
+    // and revokes the session server-side.
     const sessionCookie = jar.get('session')
     if (!sessionCookie) throw new Error('no session cookie in jar')
     response = await get('/api/auth/logout', jar)
+    expect(response.status).toBe(404) // GET is not routed
+    response = await post('/api/auth/logout', jar)
     expect(response.status).toBe(302)
     expect(response.headers.get('location')).toBe('/')
     expect(jar.get('session')).toBeUndefined()
