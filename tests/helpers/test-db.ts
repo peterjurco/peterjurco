@@ -6,6 +6,14 @@ export const DEFAULT_TEST_DATABASE_URL =
   'postgresql://postgres:postgres@localhost:5544/peterjurco_test'
 
 /**
+ * URL handed to the *production* Neon HTTP driver in dev-server tests.
+ * `db.localtest.me` resolves to 127.0.0.1; `getDb` routes it through the
+ * local Neon HTTP proxy on port 4444 (see src/db/client.ts).
+ */
+export const DEFAULT_DEV_DATABASE_URL =
+  'postgresql://postgres:postgres@db.localtest.me:5544/peterjurco_test'
+
+/**
  * Drizzle client over the node-postgres driver for tests.
  *
  * Production uses the Neon serverless HTTP driver (`src/db/client.ts`), which
