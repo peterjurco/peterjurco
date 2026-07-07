@@ -263,3 +263,23 @@ export async function getPublicTagByPublicId(
   if (!tag) return null
   return { ...tag, albums: await listByTag(db, tag.id) }
 }
+
+/** Owner-side album lookup with tags — drives the edit page (404 on null). */
+export async function getAlbumById(
+  db: PhotosDb,
+  id: number,
+): Promise<AlbumWithTags | null> {
+  const [album] = await db
+    .select()
+    .from(photoAlbums)
+    .where(eq(photoAlbums.id, id))
+    .limit(1)
+  if (!album) return null
+  const tags = await db
+    .select({ tag: photoTags })
+    .from(photoAlbumsTagsMap)
+    .innerJoin(photoTags, eq(photoAlbumsTagsMap.tagId, photoTags.id))
+    .where(eq(photoAlbumsTagsMap.albumId, id))
+    .orderBy(photoTags.name)
+  return { ...album, tags: tags.map((row) => row.tag) }
+}

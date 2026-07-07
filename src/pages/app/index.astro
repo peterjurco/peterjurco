@@ -19,8 +19,8 @@ const db = getAppDb()
 const [featured, recent, photoHubs, apps] = await Promise.all([
   listFeatured(db),
   listRecent(db, 10),
-  // Widget slots: render whatever exists today, empty-state otherwise.
-  // Fully wired in Plan 5 (photo hub pages) and Plan 7 (apps CRUD).
+  // Photo hubs = photo tags (REQUIREMENTS "Google Photos hub widget"),
+  // linking into the hub's per-tag pages. Apps stays a slot until Plan 7.
   db.select().from(photoTags).orderBy(asc(photoTags.name)),
   db.select().from(appsTable).orderBy(asc(appsTable.sortOrder)),
 ])
@@ -52,7 +52,7 @@ const [featured, recent, photoHubs, apps] = await Promise.all([
         {
           photoHubs.map((hub) => (
             <li>
-              {hub.name}
+              <a href={`/app/photos/tags/${hub.id}`}>{hub.name}</a>
               <span class={`badge badge-${hub.visibility}`}>
                 {hub.visibility}
               </span>

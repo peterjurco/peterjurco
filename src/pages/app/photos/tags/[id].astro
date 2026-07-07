@@ -1,0 +1,132 @@
+---
+import AppNav from '../../../../components/AppNav.astro'
+import { getAppDb } from '../../../../db'
+import BaseLayout from '../../../../layouts/BaseLayout.astro'
+import { imageUrl } from '../../../../lib/media/image-url'
+import { getTagById, listByTag } from '../../../../lib/photos/repo'
+
+// Defense in depth: the middleware already gates /app/*.
+if (!Astro.locals.user) {
+  return Astro.redirect('/api/auth/login', 302)
+}
+
+// Auth-only listing pages use the plain internal id (DATA_MODEL: no
+// enumeration risk behind the login wall).
+const id = Number(Astro.params.id)
+if (!Number.isInteger(id) || id <= 0) {
+  return new Response('Not found', { status: 404 })
+}
+
+const db = getAppDb()
+const tag = await getTagById(db, id)
+if (!tag) {
+  return new Response('Not found', { status: 404 })
+}
+const albums = await listByTag(db, id)
+const nextVisibility = tag.visibility === 'private' ? 'public' : 'private'
+---
+
+<BaseLayout title={`#${tag.name} — peterjur.co`}>
+  <AppNav />
+  <main class="tag-page">
+    <header>
+      <h1>Tag: {tag.name}</h1>
+      <span class={`badge badge-${tag.visibility}`}>{tag.visibility}</span>
+      <button type="button" id="toggle-visibility" data-tag-id={tag.id} data-next={nextVisibility}>
+        Make {nextVisibility}
+      </button>
+      {
+        tag.visibility === 'public' && (
+          <a href={`/t/${tag.publicId}`} target="_blank" rel="noreferrer">
+            Public link
+          </a>
+        )
+      }
+    </header>
+    {albums.length === 0 && <p>No albums with this tag.</p>}
+    <ul>
+      {
+        albums.map((album) => (
+          <li>
+            {album.coverImageKey && (
+              <img
+                src={imageUrl(album.coverImageKey, { width: 480 })}
+                alt=""
+                loading="lazy"
+              />
+            )}
+            <a
+              href={album.googlePhotosUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {album.name}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+    <p><a href="/app/photos">← Photo hub</a></p>
+  </main>
+</BaseLayout>
+
+<script>
+  // Owner-side "mark a tag as public" (REQUIREMENTS) — PATCH then reload so
+  // the badge and public link re-render server-side.
+  const button = document.getElementById('toggle-visibility')
+  button?.addEventListener('click', async () => {
+    const { tagId, next } = (button as HTMLElement).dataset
+    const response = await fetch(`/api/photos/tags/${tagId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ visibility: next }),
+    })
+    if (response.ok) window.location.reload()
+  })
+</script>
+
+<style>
+  .tag-page {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 1rem;
+    font-family: system-ui, sans-serif;
+  }
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  ul {
+    padding: 0;
+    list-style: none;
+  }
+  li {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #eee;
+  }
+  li a {
+    font-weight: 600;
+  }
+  img {
+    width: 7rem;
+    max-width: 30%;
+    height: auto;
+    border-radius: 4px;
+  }
+  .badge {
+    padding: 0.05rem 0.4rem;
+    font-size: 0.75rem;
+    border: 1px solid #ccc;
+    border-radius: 999px;
+    color: #555;
+  }
+  .badge-public {
+    border-color: #2e7d32;
+    color: #2e7d32;
+  }
+</style>

@@ -1,0 +1,109 @@
+---
+import AppNav from '../../../components/AppNav.astro'
+import { getAppDb } from '../../../db'
+import BaseLayout from '../../../layouts/BaseLayout.astro'
+import { imageUrl } from '../../../lib/media/image-url'
+import { listAlbums } from '../../../lib/photos/repo'
+
+// Defense in depth: the middleware already gates /app/*.
+if (!Astro.locals.user) {
+  return Astro.redirect('/api/auth/login', 302)
+}
+
+const db = getAppDb()
+const albums = await listAlbums(db)
+---
+
+<BaseLayout title="Photo hub — peterjur.co">
+  <AppNav />
+  <main class="photos-list">
+    <header>
+      <h1>Photo hub</h1>
+      <a class="add-album" href="/app/photos/new">Add album</a>
+    </header>
+    {albums.length === 0 && <p>No albums yet.</p>}
+    <ul>
+      {
+        albums.map((album) => (
+          <li>
+            {album.coverImageKey && (
+              <img
+                src={imageUrl(album.coverImageKey, { width: 480 })}
+                alt=""
+                loading="lazy"
+              />
+            )}
+            <div class="album-meta">
+              <a
+                href={album.googlePhotosUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {album.name}
+              </a>
+              <span class="album-tags">
+                {album.tags.map((tag) => (
+                  <a class="tag" href={`/app/photos/tags/${tag.id}`}>
+                    #{tag.name}
+                  </a>
+                ))}
+              </span>
+              <a class="edit" href={`/app/photos/${album.id}/edit`}>
+                Edit
+              </a>
+            </div>
+          </li>
+        ))
+      }
+    </ul>
+    <p><a href="/app">← Back</a></p>
+  </main>
+</BaseLayout>
+
+<style>
+  .photos-list {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 1rem;
+    font-family: system-ui, sans-serif;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  ul {
+    padding: 0;
+    list-style: none;
+  }
+  li {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #eee;
+  }
+  img {
+    width: 7rem;
+    max-width: 30%;
+    height: auto;
+    border-radius: 4px;
+  }
+  .album-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+  .album-meta > a {
+    font-weight: 600;
+  }
+  .tag {
+    color: #666;
+    font-size: 0.85rem;
+  }
+  .edit {
+    font-size: 0.85rem;
+  }
+</style>

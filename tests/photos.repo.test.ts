@@ -6,6 +6,7 @@ import {
   createAlbum,
   createTag,
   deleteAlbum,
+  getAlbumById,
   getPublicTagByPublicId,
   getTagById,
   listAlbums,
@@ -180,6 +181,22 @@ describe('listAlbums / listByTag', () => {
 
     const albums = await listByTag(db, tag.id)
     expect(albums.map((album) => album.name)).toEqual(['Tagged'])
+  })
+})
+
+describe('getAlbumById', () => {
+  it('returns the album with tags, or null when missing', async () => {
+    const album = await createAlbum(db, {
+      name: 'Looked up',
+      googlePhotosUrl: GPHOTOS_URL,
+    })
+    await setAlbumTags(db, album.id, ['b-tag', 'a-tag'])
+
+    const found = await getAlbumById(db, album.id)
+    expect(found?.name).toBe('Looked up')
+    expect(found?.tags.map((tag) => tag.name)).toEqual(['a-tag', 'b-tag'])
+
+    expect(await getAlbumById(db, 999999)).toBeNull()
   })
 })
 

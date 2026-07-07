@@ -1,0 +1,99 @@
+---
+import { getAppDb } from '../../db'
+import BaseLayout from '../../layouts/BaseLayout.astro'
+import { imageUrl } from '../../lib/media/image-url'
+import { getPublicTagByPublicId } from '../../lib/photos/repo'
+
+// Public tag page (REQUIREMENTS "Public sharing via tags"): reachable only
+// through the tag's opaque public id (TECH_DECISIONS §9), no auth. The
+// accessor is SQL-filtered to visibility='public', so private tags 404 here
+// by construction. Pure SSR — no islands shipped.
+const db = getAppDb()
+const tag = await getPublicTagByPublicId(db, Astro.params.publicId ?? '')
+if (!tag) {
+  return new Response('Not found', { status: 404 })
+}
+
+const title = `${tag.name} — photo albums`
+const description = `Photo albums tagged “${tag.name}”.`
+const canonicalUrl = new URL(Astro.url.pathname, Astro.url)
+const firstCover = tag.albums.find((album) => album.coverImageKey)
+const ogImage = firstCover?.coverImageKey
+  ? imageUrl(firstCover.coverImageKey, { width: 1200 })
+  : null
+---
+
+<BaseLayout title={title}>
+  <Fragment slot="head">
+    <meta name="description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta
+      name="twitter:card"
+      content={ogImage ? 'summary_large_image' : 'summary'}
+    />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
+  </Fragment>
+  <main class="public-tag">
+    <h1>{tag.name}</h1>
+    {tag.albums.length === 0 && <p>No albums here yet.</p>}
+    <ul class="album-grid">
+      {
+        tag.albums.map((album) => (
+          <li>
+            <a
+              href={album.googlePhotosUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {album.coverImageKey && (
+                <img
+                  src={imageUrl(album.coverImageKey, { width: 480 })}
+                  alt={album.name}
+                  loading="lazy"
+                />
+              )}
+              <span>{album.name}</span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </main>
+</BaseLayout>
+
+<style>
+  .public-tag {
+    max-width: 52rem;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 4rem;
+    font-family: system-ui, sans-serif;
+  }
+  .album-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+    gap: 1rem;
+    padding: 0;
+    list-style: none;
+  }
+  .album-grid a {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+  }
+  .album-grid img {
+    width: 100%;
+    height: auto;
+    border-radius: 6px;
+    display: block;
+    margin-bottom: 0.35rem;
+  }
+  .album-grid span {
+    font-weight: 600;
+  }
+</style>
