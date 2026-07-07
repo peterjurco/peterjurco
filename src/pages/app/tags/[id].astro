@@ -3,6 +3,7 @@ import AppNav from '../../../components/AppNav.astro'
 import ArticleList from '../../../components/ArticleList.astro'
 import { getAppDb } from '../../../db'
 import BaseLayout from '../../../layouts/BaseLayout.astro'
+import { parseId } from '../../../lib/api'
 import { getTagById, listByTag } from '../../../lib/articles/queries'
 
 // Defense in depth: the middleware already gates /app/*.
@@ -12,8 +13,8 @@ if (!Astro.locals.user) {
 
 // Auth-only listing pages use the plain internal id (DATA_MODEL: no
 // enumeration risk behind the login wall).
-const id = Number(Astro.params.id)
-if (!Number.isInteger(id) || id <= 0) {
+const id = parseId(Astro.params.id)
+if (id === null) {
   return new Response('Not found', { status: 404 })
 }
 

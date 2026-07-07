@@ -147,7 +147,8 @@ describe('POST /api/media/presign', () => {
     expect(url).toContain(`/${BUCKET}/${key}`)
     expect(url).toContain('X-Amz-Signature=')
 
-    // Anyone holding the URL can PUT — no extra credentials.
+    // Anyone holding the URL can PUT (no extra credentials) — but only with
+    // the content type that was presigned (bound into the signature).
     const put = await fetch(url, {
       method: 'PUT',
       headers: { 'Content-Type': 'image/png' },
@@ -159,5 +160,35 @@ describe('POST /api/media/presign', () => {
     const get = await minio.fetch(`${MINIO_ENDPOINT}/${BUCKET}/${key}`)
     expect(get.status).toBe(200)
     expect(await get.text()).toBe('png-bytes')
+  })
+
+  it('rejects a PUT whose Content-Type differs from the presigned one', async () => {
+    const response = await presign({
+      contentType: 'image/png',
+      size: 9,
+      filename: 'typed.png',
+    })
+    expect(response.status).toBe(200)
+    const { url, key } = (await response.json()) as { url: string; key: string }
+
+    // Mismatched type → the SigV4 signature no longer matches → rejected.
+    const mismatched = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'image/jpeg' },
+      body: 'png-bytes',
+    })
+    expect(mismatched.status).toBe(403)
+    const missing = await minio.fetch(`${MINIO_ENDPOINT}/${BUCKET}/${key}`)
+    expect(missing.status).toBe(404)
+
+    // The declared type still works — the URL is not burned by the attempt.
+    const matching = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'image/png' },
+      body: 'png-bytes',
+    })
+    expect(matching.status).toBe(200)
+    const stored = await minio.fetch(`${MINIO_ENDPOINT}/${BUCKET}/${key}`)
+    expect(stored.status).toBe(200)
   })
 })

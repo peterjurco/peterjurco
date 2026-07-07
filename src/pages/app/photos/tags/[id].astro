@@ -2,6 +2,7 @@
 import AppNav from '../../../../components/AppNav.astro'
 import { getAppDb } from '../../../../db'
 import BaseLayout from '../../../../layouts/BaseLayout.astro'
+import { parseId } from '../../../../lib/api'
 import { imageUrl } from '../../../../lib/media/image-url'
 import { getTagById, listByTag } from '../../../../lib/photos/repo'
 
@@ -12,8 +13,8 @@ if (!Astro.locals.user) {
 
 // Auth-only listing pages use the plain internal id (DATA_MODEL: no
 // enumeration risk behind the login wall).
-const id = Number(Astro.params.id)
-if (!Number.isInteger(id) || id <= 0) {
+const id = parseId(Astro.params.id)
+if (id === null) {
   return new Response('Not found', { status: 404 })
 }
 
@@ -72,16 +73,22 @@ const nextVisibility = tag.visibility === 'private' ? 'public' : 'private'
 
 <script>
   // Owner-side "mark a tag as public" (REQUIREMENTS) — PATCH then reload so
-  // the badge and public link re-render server-side.
+  // the badge and public link re-render server-side. Failures alert instead
+  // of silently doing nothing — this is a single-owner admin page.
   const button = document.getElementById('toggle-visibility')
   button?.addEventListener('click', async () => {
     const { tagId, next } = (button as HTMLElement).dataset
-    const response = await fetch(`/api/photos/tags/${tagId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ visibility: next }),
-    })
-    if (response.ok) window.location.reload()
+    try {
+      const response = await fetch(`/api/photos/tags/${tagId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visibility: next }),
+      })
+      if (!response.ok) throw new Error(`PATCH failed (${response.status})`)
+      window.location.reload()
+    } catch {
+      window.alert('Could not change the tag visibility — please try again.')
+    }
   })
 </script>
 

@@ -1,6 +1,7 @@
 ---
 import { getAppDb } from '../../db'
 import BaseLayout from '../../layouts/BaseLayout.astro'
+import { absoluteUrl } from '../../lib/absolute-url'
 import { imageUrl } from '../../lib/media/image-url'
 import { getPublicTagByPublicId } from '../../lib/photos/repo'
 
@@ -18,8 +19,10 @@ const title = `${tag.name} — photo albums`
 const description = `Photo albums tagged “${tag.name}”.`
 const canonicalUrl = new URL(Astro.url.pathname, Astro.url)
 const firstCover = tag.albums.find((album) => album.coverImageKey)
+// og:image must be absolute — imageUrl is zone-relative when transforms are
+// on (see its docblock), so absolutize against the request URL.
 const ogImage = firstCover?.coverImageKey
-  ? imageUrl(firstCover.coverImageKey, { width: 1200 })
+  ? absoluteUrl(imageUrl(firstCover.coverImageKey, { width: 1200 }), Astro.url)
   : null
 ---
 

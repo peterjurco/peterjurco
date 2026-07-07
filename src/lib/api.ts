@@ -9,7 +9,7 @@ export function unauthorized(): Response {
   return jsonError(401, 'Unauthorized')
 }
 
-/** Parses a positive-integer route param; null drives the 400. */
+/** Parses a positive-integer route param; null drives the 400 (API) / 404 (pages). */
 export function parseId(raw: string | undefined): number | null {
   if (raw === undefined || !/^\d+$/.test(raw)) return null
   const id = Number(raw)

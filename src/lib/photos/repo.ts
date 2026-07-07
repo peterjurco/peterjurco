@@ -92,9 +92,12 @@ export async function createTag(db: PhotosDb, name: string): Promise<PhotoTag> {
 
 /**
  * Replaces the album's tag set. Tags are addressed by name; missing ones are
- * created on the fly (private, with a public id), and tags left without any
- * album reference after the replacement are garbage-collected — mirroring
- * articles repo.setTags.
+ * created on the fly (private, with a public id). PRIVATE tags left without
+ * any album reference after the replacement are garbage-collected — but
+ * PUBLIC tags always survive: their opaque public id anchors a live `/t/`
+ * share URL, which must keep working (listed with zero albums) until the tag
+ * is explicitly deleted. The articles repo.setTags GC analogy stops there —
+ * article tags carry no share URLs.
  */
 export async function setAlbumTags(
   db: PhotosDb,
@@ -149,7 +152,8 @@ export async function setAlbumTags(
     )
   }
 
-  // GC: tags this album just dropped that no other album references.
+  // GC: PRIVATE tags this album just dropped that no other album references.
+  // Public tags are never GCed here — their /t/ share URL must stay alive.
   const kept = new Set(existingByName.values())
   const removed = previous
     .map((row) => row.tagId)
@@ -160,6 +164,7 @@ export async function setAlbumTags(
       .where(
         and(
           inArray(photoTags.id, removed),
+          eq(photoTags.visibility, 'private'),
           notInArray(
             photoTags.id,
             db

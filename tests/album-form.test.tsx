@@ -131,6 +131,68 @@ describe('AlbumForm — edit', () => {
     expect(init.method).toBe('DELETE')
   })
 
+  it('ignores a second Save while one is in flight (double-submit guard)', async () => {
+    let resolveFetch: (response: Response) => void = () => {}
+    fetchMock.mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve
+        }),
+    )
+    render(
+      <AlbumForm
+        albumId={42}
+        initialName="Once"
+        initialGooglePhotosUrl="https://photos.app.goo.gl/Old"
+        navigate={navigate}
+      />,
+    )
+    const save = screen.getByRole('button', {
+      name: 'Save',
+    }) as HTMLButtonElement
+
+    fireEvent.click(save)
+    fireEvent.click(save)
+    expect(save.disabled).toBe(true)
+
+    resolveFetch(new Response(JSON.stringify({ ok: true }), { status: 200 }))
+    await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith('/app/photos'))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('disables Save and Delete while a cover upload is in flight', async () => {
+    // The presign fetch never resolves — the upload stays in flight.
+    fetchMock.mockImplementation(() => new Promise<Response>(() => {}))
+    render(
+      <AlbumForm
+        albumId={42}
+        initialName="Uploading"
+        initialGooglePhotosUrl="https://photos.app.goo.gl/Old"
+        navigate={navigate}
+      />,
+    )
+    const input = screen.getByLabelText('Cover image') as HTMLInputElement
+    fireEvent.change(input, {
+      target: { files: [new File(['bytes'], 'c.png', { type: 'image/png' })] },
+    })
+
+    await screen.findByText('Uploading…')
+    const save = screen.getByRole('button', {
+      name: 'Save',
+    }) as HTMLButtonElement
+    const del = screen.getByRole('button', {
+      name: 'Delete',
+    }) as HTMLButtonElement
+    expect(save.disabled).toBe(true)
+    expect(del.disabled).toBe(true)
+
+    // Wait for the presign call to be issued, then attempt a submit: it must
+    // not fire the album request while the upload is still in flight.
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    fireEvent.click(save)
+    expect(fetchMock).toHaveBeenCalledTimes(1) // still just the presign call
+  })
+
   it('shows the failure state when saving errors', async () => {
     fetchMock.mockImplementation(
       async () => new Response(JSON.stringify({ error: 'x' }), { status: 500 }),

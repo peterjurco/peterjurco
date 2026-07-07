@@ -48,9 +48,14 @@ jobs:
             -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
             minio/minio server /data
           for i in $(seq 1 30); do
-            curl -sf http://localhost:9000/minio/health/live && break
+            if curl -sf http://localhost:9000/minio/health/live; then
+              exit 0
+            fi
             sleep 1
           done
+          echo "MinIO did not become healthy within 30s" >&2
+          docker logs minio >&2 || true
+          exit 1
 
       - uses: pnpm/action-setup@v4
 

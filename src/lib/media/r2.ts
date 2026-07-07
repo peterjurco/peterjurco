@@ -51,11 +51,18 @@ function endpointFor(env: R2Env): string {
 }
 
 /**
- * Short-lived presigned PUT URL for `key`. Only `host` is query-signed —
- * content-type/size policy is enforced by the presign API endpoint before a
- * URL is ever minted (src/pages/api/media/presign.ts).
+ * Short-lived presigned PUT URL for `key`, with `contentType` bound into the
+ * signature (X-Amz-SignedHeaders) — the holder can only PUT that exact
+ * Content-Type. Which types (and declared sizes) are acceptable is decided by
+ * the presign API endpoint before a URL is ever minted
+ * (src/pages/api/media/presign.ts); actual byte size is not re-verified by
+ * storage.
  */
-export async function presignPut(env: R2Env, key: string): Promise<string> {
+export async function presignPut(
+  env: R2Env,
+  key: string,
+  contentType: string,
+): Promise<string> {
   const client = new AwsClient({
     accessKeyId: requireEnv(env.R2_ACCESS_KEY_ID, 'R2_ACCESS_KEY_ID'),
     secretAccessKey: requireEnv(
@@ -68,8 +75,14 @@ export async function presignPut(env: R2Env, key: string): Promise<string> {
   const bucket = requireEnv(env.R2_BUCKET, 'R2_BUCKET')
   const url = new URL(`${endpointFor(env)}/${bucket}/${key}`)
   url.searchParams.set('X-Amz-Expires', String(PRESIGN_EXPIRES_SECONDS))
-  const signed = await client.sign(new Request(url, { method: 'PUT' }), {
-    aws: { signQuery: true },
-  })
+  // allHeaders: aws4fetch skips content-type by default (UNSIGNABLE_HEADERS);
+  // the only header on this request is the Content-Type we want signed.
+  const signed = await client.sign(
+    new Request(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': contentType },
+    }),
+    { aws: { signQuery: true, allHeaders: true } },
+  )
   return signed.url
 }

@@ -41,7 +41,7 @@ describe('presignPut', () => {
   }
 
   it('returns a short-lived SigV4 query-signed PUT URL on the R2 endpoint', async () => {
-    const url = new URL(await presignPut(env, 'covers/abc.jpg'))
+    const url = new URL(await presignPut(env, 'covers/abc.jpg', 'image/jpeg'))
     expect(url.origin).toBe('https://acct123.r2.cloudflarestorage.com')
     expect(url.pathname).toBe('/photos/covers/abc.jpg')
     expect(url.searchParams.get('X-Amz-Expires')).toBe('600')
@@ -50,11 +50,24 @@ describe('presignPut', () => {
     expect(url.searchParams.get('X-Amz-Credential')).toContain('AKIATEST')
   })
 
+  it('binds the content type into the signed headers', async () => {
+    const url = new URL(await presignPut(env, 'covers/abc.jpg', 'image/png'))
+    expect(url.searchParams.get('X-Amz-SignedHeaders')).toContain(
+      'content-type',
+    )
+    // A different content type must change the signature.
+    const other = new URL(await presignPut(env, 'covers/abc.jpg', 'image/gif'))
+    expect(other.searchParams.get('X-Amz-Signature')).not.toBe(
+      url.searchParams.get('X-Amz-Signature'),
+    )
+  })
+
   it('honors an endpoint override (MinIO in tests)', async () => {
     const url = new URL(
       await presignPut(
         { ...env, R2_ENDPOINT: 'http://localhost:9000' },
         'covers/abc.jpg',
+        'image/jpeg',
       ),
     )
     expect(url.origin).toBe('http://localhost:9000')
@@ -64,7 +77,11 @@ describe('presignPut', () => {
 
   it('fails loudly when R2 config is missing', async () => {
     await expect(
-      presignPut({ ...env, R2_BUCKET: undefined }, 'covers/abc.jpg'),
+      presignPut(
+        { ...env, R2_BUCKET: undefined },
+        'covers/abc.jpg',
+        'image/jpeg',
+      ),
     ).rejects.toThrow('R2_BUCKET')
   })
 })

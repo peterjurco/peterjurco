@@ -140,6 +140,39 @@ describe('setAlbumTags', () => {
     const mine = albums.find((entry) => entry.id === album.id)
     expect(mine?.tags.map((tag) => tag.name)).toEqual(['fresh'])
   })
+
+  it('keeps a PUBLIC tag alive when its last album drops it (share URL anchor)', async () => {
+    const album = await createAlbum(db, {
+      name: 'Shares',
+      googlePhotosUrl: GPHOTOS_URL,
+    })
+    await setAlbumTags(db, album.id, ['travel'])
+    const tag = (await listTags(db)).find((entry) => entry.name === 'travel')
+    if (!tag) throw new Error('tag not created')
+    await setTagVisibility(db, tag.id, 'public')
+
+    await setAlbumTags(db, album.id, [])
+
+    // The tag survives with zero albums — its /t/ URL keeps working.
+    expect((await getTagById(db, tag.id))?.visibility).toBe('public')
+    const shared = await getPublicTagByPublicId(db, tag.publicId)
+    expect(shared?.name).toBe('travel')
+    expect(shared?.albums).toEqual([])
+  })
+
+  it('GCs a PRIVATE tag when its last album drops it', async () => {
+    const album = await createAlbum(db, {
+      name: 'Private stuff',
+      googlePhotosUrl: GPHOTOS_URL,
+    })
+    await setAlbumTags(db, album.id, ['fleeting'])
+    const tag = (await listTags(db)).find((entry) => entry.name === 'fleeting')
+    if (!tag) throw new Error('tag not created')
+
+    await setAlbumTags(db, album.id, [])
+
+    expect(await getTagById(db, tag.id)).toBeNull()
+  })
 })
 
 describe('listAlbums / listByTag', () => {

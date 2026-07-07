@@ -20,7 +20,7 @@ interface AlbumFormProps {
   navigate?: (url: string) => void
 }
 
-type Status = '' | 'Saving…' | 'Save failed'
+type Status = '' | 'Saving…' | 'Deleting…' | 'Save failed'
 
 export function AlbumForm({
   albumId,
@@ -37,7 +37,13 @@ export function AlbumForm({
   const [tagsText, setTagsText] = useState(initialTags.join(', '))
   const [coverImageKey, setCoverImageKey] = useState(initialCoverImageKey)
   const [status, setStatus] = useState<Status>('')
+  const [uploading, setUploading] = useState(false)
   const [validationError, setValidationError] = useState('')
+
+  // Derived, not stored: a request (or cover upload) is in flight. Guards the
+  // double-submit race — Save/Delete early-return and render disabled, and a
+  // Save can never race an unfinished cover upload out of its key.
+  const busy = status === 'Saving…' || status === 'Deleting…' || uploading
 
   function parseTags(text: string): string[] {
     return text
@@ -56,6 +62,7 @@ export function AlbumForm({
   }
 
   async function save(): Promise<void> {
+    if (busy) return
     const error = validate()
     if (error) {
       setValidationError(error)
@@ -90,8 +97,10 @@ export function AlbumForm({
   }
 
   async function remove(): Promise<void> {
+    if (busy) return
     if (albumId === undefined) return
     if (!window.confirm('Delete this album? This cannot be undone.')) return
+    setStatus('Deleting…')
     try {
       const response = await fetch(`/api/photos/albums/${albumId}`, {
         method: 'DELETE',
@@ -145,13 +154,19 @@ export function AlbumForm({
       </label>
       <div>
         Cover {coverImageKey ? '(uploaded)' : '(none)'}
-        <CoverUpload onUploaded={(key) => setCoverImageKey(key)} />
+        <CoverUpload
+          onUploaded={(key) => setCoverImageKey(key)}
+          onUploadingChange={setUploading}
+          disabled={busy && !uploading}
+        />
       </div>
       {validationError && <p role="alert">{validationError}</p>}
       <div className="album-form-actions">
-        <button type="submit">Save</button>
+        <button type="submit" disabled={busy}>
+          Save
+        </button>
         {albumId !== undefined && (
-          <button type="button" onClick={() => void remove()}>
+          <button type="button" disabled={busy} onClick={() => void remove()}>
             Delete
           </button>
         )}

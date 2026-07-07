@@ -4,6 +4,7 @@ import { ArticleEditor } from '../../../components/ArticleEditor'
 import { ArticleMetaPanel } from '../../../components/ArticleMetaPanel'
 import { getAppDb } from '../../../db'
 import BaseLayout from '../../../layouts/BaseLayout.astro'
+import { parseId } from '../../../lib/api'
 import { getById, listCategories } from '../../../lib/articles/repo'
 
 // Defense in depth: the middleware already gates /app/*.
@@ -11,8 +12,8 @@ if (!Astro.locals.user) {
   return Astro.redirect('/api/auth/login', 302)
 }
 
-const id = Number(Astro.params.id)
-if (!Number.isInteger(id) || id <= 0) {
+const id = parseId(Astro.params.id)
+if (id === null) {
   return new Response('Not found', { status: 404 })
 }
 

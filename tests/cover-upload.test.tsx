@@ -198,4 +198,63 @@ describe('CoverUpload component', () => {
     await screen.findByText('Upload failed')
     expect(onUploaded).not.toHaveBeenCalled()
   })
+
+  it('resets the input after a failed upload so the same file retries', async () => {
+    const fetchMock = vi.fn(
+      async () => new Response('{"error":"nope"}', { status: 500 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<CoverUpload onUploaded={vi.fn()} />)
+    const input = screen.getByLabelText('Cover image') as HTMLInputElement
+    const file = new File(['bytes'], 'cover.png', { type: 'image/png' })
+
+    fireEvent.change(input, { target: { files: [file] } })
+    await screen.findByText('Upload failed')
+    // The value was reset, so re-selecting the very same file fires change.
+    expect(input.value).toBe('')
+
+    fireEvent.change(input, { target: { files: [file] } })
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    await screen.findByText('Upload failed')
+  })
+
+  it('disables the input while an upload is in flight', async () => {
+    // Presign never resolves — the upload stays in flight.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise<Response>(() => {})),
+    )
+
+    render(<CoverUpload onUploaded={vi.fn()} />)
+    const input = screen.getByLabelText('Cover image') as HTMLInputElement
+    const file = new File(['bytes'], 'cover.png', { type: 'image/png' })
+    fireEvent.change(input, { target: { files: [file] } })
+
+    await screen.findByText('Uploading…')
+    expect(input.disabled).toBe(true)
+  })
+
+  it('reports upload state via onUploadingChange', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) =>
+      String(input) === '/api/media/presign'
+        ? Response.json({ url: 'http://s3/put', key: 'covers/done.png' })
+        : new Response(null, { status: 200 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const onUploadingChange = vi.fn()
+
+    render(
+      <CoverUpload
+        onUploaded={vi.fn()}
+        onUploadingChange={onUploadingChange}
+      />,
+    )
+    const input = screen.getByLabelText('Cover image') as HTMLInputElement
+    const file = new File(['bytes'], 'cover.png', { type: 'image/png' })
+    fireEvent.change(input, { target: { files: [file] } })
+
+    await screen.findByText('Uploaded')
+    expect(onUploadingChange.mock.calls).toEqual([[true], [false]])
+  })
 })

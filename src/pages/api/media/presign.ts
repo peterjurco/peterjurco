@@ -13,9 +13,11 @@ import {
  * image upload. Body: `{contentType, size, filename}` → `{url, key}`.
  *
  * Owner-only (defense in depth beyond the middleware). Upload policy is
- * enforced HERE — the URL itself only signs host+key: content type must be a
- * real image type and the declared size within the cap, so no URL is ever
- * minted for anything else.
+ * enforced HERE — content type must be a real image type and the declared
+ * size within the cap, so no URL is ever minted for anything else. The
+ * approved content type is then bound into the URL's signature (presignPut),
+ * so the holder can't PUT a different type; the size stays a declared-value
+ * check only.
  */
 
 interface PresignRequest {
@@ -67,7 +69,7 @@ export const POST: APIRoute = async ({ locals, request }) => {
   try {
     // The filename is untrusted — objectKey keeps only a sane extension.
     const key = objectKey('covers', parsed.filename)
-    const url = await presignPut(env, key)
+    const url = await presignPut(env, key, parsed.contentType)
     return Response.json({ url, key })
   } catch (error) {
     console.error('Presign failed:', error)

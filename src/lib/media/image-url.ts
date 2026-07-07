@@ -35,12 +35,22 @@ export function envImageUrlConfig(): ImageUrlConfig {
   }
 }
 
-/** URL serving the R2 object `key` at the requested display size. */
+/**
+ * URL serving the R2 object `key` at the requested display size.
+ *
+ * NOTE the relative-vs-absolute asymmetry: with transforms ON the result is a
+ * zone-relative path (`/cdn-cgi/image/…`), with transforms OFF it is the
+ * absolute original URL. Contexts that need an absolute URL (og:image et al.)
+ * must absolutize the result — see src/lib/absolute-url.ts.
+ */
 export function imageUrl(
   key: string,
   options: ImageTransformOptions = {},
   config: ImageUrlConfig = envImageUrlConfig(),
 ): string {
+  // Failure mode: an empty baseUrl (PUBLIC_R2_PUBLIC_BASE_URL unset) degrades
+  // to a root-relative `/<key>` URL that 404s — images break visibly, but
+  // pages still render instead of throwing on a misconfigured build.
   const base = config.baseUrl.replace(/\/+$/, '')
   const original = `${base}/${key}`
   if (!config.transforms) return original
