@@ -4,6 +4,9 @@ import {
   articles,
   articleTags,
   articleTagsMap,
+  photoAlbums,
+  photoAlbumsTagsMap,
+  photoTags,
   users,
 } from '../src/db/schema'
 import { listFeatured } from '../src/lib/articles/queries'
@@ -80,11 +83,15 @@ function featuredSection(html: string): string {
 }
 
 beforeAll(async () => {
-  // Deterministic listings: start from empty article tables (FK order).
+  // Deterministic listings and widget slots: start from empty article and
+  // photo tables (FK order).
   await db.delete(articleTagsMap)
   await db.delete(articles)
   await db.delete(articleTags)
   await db.delete(articleCategories)
+  await db.delete(photoAlbumsTagsMap)
+  await db.delete(photoAlbums)
+  await db.delete(photoTags)
 
   const [user] = await db
     .insert(users)

@@ -8,3 +8,10 @@ export function jsonError(status: number, message: string): Response {
 export function unauthorized(): Response {
   return jsonError(401, 'Unauthorized')
 }
+
+/** Parses a positive-integer route param; null drives the 400. */
+export function parseId(raw: string | undefined): number | null {
+  if (raw === undefined || !/^\d+$/.test(raw)) return null
+  const id = Number(raw)
+  return Number.isSafeInteger(id) && id > 0 ? id : null
+}

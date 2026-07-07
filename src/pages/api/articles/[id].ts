@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro'
 import { getAppDb } from '../../../db'
-import { jsonError, unauthorized } from '../../../lib/api'
+import { jsonError, parseId, unauthorized } from '../../../lib/api'
 import {
   type ArticleContent,
   type ArticlesDb,
@@ -80,12 +80,6 @@ function parsePatch(body: Record<string, unknown>): ParsedPatch | string {
   }
   if (Object.keys(patch).length === 0) return 'no updatable fields'
   return patch
-}
-
-function parseId(raw: string | undefined): number | null {
-  if (raw === undefined || !/^\d+$/.test(raw)) return null
-  const id = Number(raw)
-  return Number.isSafeInteger(id) && id > 0 ? id : null
 }
 
 /** Applies the patch; returns false when the article doesn't exist. */
