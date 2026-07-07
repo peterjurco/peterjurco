@@ -3,13 +3,18 @@
 # Secrets (e.g. DATABASE_URL) are NOT committed here — set them in the
 # Cloudflare dashboard (Pages project > Settings > Environment variables)
 # or via `wrangler secret put DATABASE_URL`.
-# An R2 bucket binding will be added in Plans 5/6 for photo storage.
+# R2 is reached via its S3 API with presigned URLs (src/lib/media/r2.ts),
+# so no R2 bucket *binding* is needed — only the R2_* secrets below.
 
 name = "peterjurco"
 compatibility_date = "2026-06-01"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "./dist"
 
-# Placeholder documentation of runtime bindings:
-#   DATABASE_URL  (secret) — Neon pooled connection string
-#   R2 bucket     (later)  — photo originals, added in Plan 5
+# Placeholder documentation of runtime secrets (see .env.example):
+#   DATABASE_URL           (secret) — Neon pooled connection string
+#   R2_ACCOUNT_ID          (secret) — R2 S3-API endpoint account
+#   R2_ACCESS_KEY_ID       (secret) — R2 S3-API credentials
+#   R2_SECRET_ACCESS_KEY   (secret) — R2 S3-API credentials
+#   R2_BUCKET              (secret) — photo originals bucket
+# Build-time public vars: PUBLIC_R2_PUBLIC_BASE_URL, PUBLIC_IMAGE_TRANSFORMS.
