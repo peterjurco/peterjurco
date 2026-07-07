@@ -4,8 +4,6 @@
  * Photo hub / Apps / Admin targets ship in Plans 5 and 7 — the hrefs are
  * fixed now so they light up when those pages land.
  */
-const current = Astro.url.pathname
-
 const links = [
   { href: '/app', label: 'Home' },
   { href: '/app/articles', label: 'Articles' },
@@ -13,6 +11,18 @@ const links = [
   { href: '/app/admin/apps', label: 'Apps' },
   { href: '/app/admin', label: 'Admin' },
 ]
+
+// Longest-prefix match on path segments, trailing slash normalized: `/app/`
+// lights Home, `/app/articles/5` lights Articles (not Home), and
+// `/app/admin/apps` lights only Apps even though `/app/admin` also prefixes.
+const current = Astro.url.pathname.replace(/\/+$/, '') || '/'
+const active = links
+  .map((link) => link.href)
+  .filter((href) => current === href || current.startsWith(`${href}/`))
+  .reduce<string | null>(
+    (best, href) => (best !== null && best.length >= href.length ? best : href),
+    null,
+  )
 ---
 
 <nav class="app-nav" aria-label="App">
@@ -20,7 +30,7 @@ const links = [
     links.map((link) => (
       <a
         href={link.href}
-        aria-current={current === link.href ? 'page' : undefined}
+        aria-current={active === link.href ? 'page' : undefined}
       >
         {link.label}
       </a>

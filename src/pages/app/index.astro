@@ -1,6 +1,7 @@
 ---
 import { asc } from 'drizzle-orm'
 import AppNav from '../../components/AppNav.astro'
+import ArticleList from '../../components/ArticleList.astro'
 import { FeaturedReorder } from '../../components/FeaturedReorder'
 import { getAppDb } from '../../db'
 import { apps as appsTable, photoTags } from '../../db/schema'
@@ -23,10 +24,6 @@ const [featured, recent, photoHubs, apps] = await Promise.all([
   db.select().from(photoTags).orderBy(asc(photoTags.name)),
   db.select().from(appsTable).orderBy(asc(appsTable.sortOrder)),
 ])
-
-function formatDate(date: Date): string {
-  return date.toISOString().slice(0, 16).replace('T', ' ')
-}
 ---
 
 <BaseLayout title="peterjur.co — app">
@@ -44,24 +41,7 @@ function formatDate(date: Date): string {
 
     <section aria-labelledby="recent-heading">
       <h2 id="recent-heading">Recent articles</h2>
-      {recent.length === 0 && <p>No articles yet.</p>}
-      <ul class="recent-list">
-        {
-          recent.map((article) => (
-            <li>
-              <a href={`/app/articles/${article.id}`}>
-                {article.title || 'Untitled'}
-              </a>
-              <span class={`badge badge-${article.visibility}`}>
-                {article.visibility}
-              </span>
-              <time datetime={article.updatedAt.toISOString()}>
-                {formatDate(article.updatedAt)}
-              </time>
-            </li>
-          ))
-        }
-      </ul>
+      <ArticleList articles={recent} emptyState="No articles yet." />
       <p><a href="/app/articles">All articles →</a></p>
     </section>
 
@@ -115,6 +95,8 @@ function formatDate(date: Date): string {
     border-bottom: 1px solid #eee;
     padding-bottom: 0.25rem;
   }
+  /* Widget-slot lists (Photo hubs, My apps) — article lists render via the
+     shared ArticleList component. */
   ul {
     padding: 0;
     list-style: none;
@@ -139,10 +121,5 @@ function formatDate(date: Date): string {
   .badge-public {
     border-color: #2e7d32;
     color: #2e7d32;
-  }
-  time {
-    margin-left: auto;
-    color: #999;
-    font-size: 0.8rem;
   }
 </style>

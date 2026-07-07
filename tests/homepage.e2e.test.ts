@@ -143,6 +143,17 @@ describe('featured-order endpoint — auth and validation', () => {
       expect(response.status, JSON.stringify(body)).toBe(400)
     }
   })
+
+  it('rejects orderedIds arrays longer than 100 with 400', async () => {
+    const response = await request('/api/articles/featured-order', {
+      method: 'POST',
+      authed: true,
+      body: { orderedIds: Array.from({ length: 101 }, (_, i) => i + 1) },
+    })
+    expect(response.status).toBe(400)
+    const payload = (await response.json()) as { error: string }
+    expect(payload.error).toContain('100')
+  })
 })
 
 describe('homepage — featured reordering persists', () => {

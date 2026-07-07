@@ -33,6 +33,16 @@ export type ArticleTag = typeof articleTags.$inferSelect
 export type ArticleCategory = typeof articleCategories.$inferSelect
 export type ArticleVisibility = Article['visibility']
 
+/**
+ * Shared listing order: `updated_at DESC` — "recent" means recently touched,
+ * so a just-edited old article floats up (REQUIREMENTS "Recent articles");
+ * `id DESC` breaks same-millisecond ties.
+ */
+export const newestFirst = [
+  desc(articles.updatedAt),
+  desc(articles.id),
+] as const
+
 /** A TipTap / ProseMirror document as stored in `articles.content`. */
 export type ArticleContent = Record<string, unknown>
 
@@ -80,6 +90,26 @@ export async function setFeatured(
   isFeatured: boolean,
 ): Promise<void> {
   await db.update(articles).set({ isFeatured }).where(eq(articles.id, id))
+}
+
+/**
+ * Persists a drag order: each article's `featured_position` becomes its index
+ * in `orderedIds`. Non-featured or unknown ids are ignored (the position is
+ * meaningful only while `is_featured`). Sequential UPDATEs — see the
+ * no-transactions invariant above; an interruption mid-way leaves some rows
+ * on old positions, which is harmless (ordering stays deterministic) and
+ * repaired by the next reorder.
+ */
+export async function reorderFeatured(
+  db: ArticlesDb,
+  orderedIds: number[],
+): Promise<void> {
+  for (const [position, id] of orderedIds.entries()) {
+    await db
+      .update(articles)
+      .set({ featuredPosition: position })
+      .where(and(eq(articles.id, id), eq(articles.isFeatured, true)))
+  }
 }
 
 /** Sets or clears (null) the article's single category. */
@@ -236,7 +266,7 @@ export async function listForOwner(db: ArticlesDb): Promise<ArticleListItem[]> {
     .select({ article: articles, categoryName: articleCategories.name })
     .from(articles)
     .leftJoin(articleCategories, eq(articles.categoryId, articleCategories.id))
-    .orderBy(desc(articles.updatedAt), desc(articles.id))
+    .orderBy(...newestFirst)
   return rows.map((row) => ({ ...row.article, categoryName: row.categoryName }))
 }
 

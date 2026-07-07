@@ -1,0 +1,52 @@
+/* Featured-reorder island — functional styling matching the app listings. */
+
+.featured-reorder ol {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.featured-reorder li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #eee;
+}
+
+.featured-reorder li a {
+  font-weight: 600;
+}
+
+.featured-grip {
+  color: #999;
+  cursor: grab;
+}
+
+.featured-controls {
+  display: flex;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.featured-controls button {
+  /* Comfortable tap targets on mobile. */
+  min-width: 2rem;
+  min-height: 2rem;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.featured-status {
+  display: block;
+  min-height: 1.2rem;
+  color: #666;
+  font-size: 0.8rem;
+}
+
+.featured-empty {
+  color: #666;
+}

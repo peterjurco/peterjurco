@@ -13,7 +13,6 @@ import {
   listByTag,
   listFeatured,
   listRecent,
-  reorderFeatured,
 } from '../src/lib/articles/queries'
 import {
   createArticle,
@@ -171,48 +170,6 @@ describe('listFeatured', () => {
       positioned.id,
       unpositioned.id,
     ])
-  })
-})
-
-describe('reorderFeatured', () => {
-  it('writes positions from array index; listFeatured follows the new order', async () => {
-    const a = await createTitled('a')
-    const b = await createTitled('b')
-    const c = await createTitled('c')
-    for (const article of [a, b, c]) {
-      await setFeatured(db, article.id, true)
-    }
-
-    await reorderFeatured(db, [b.id, c.id, a.id])
-    expect((await listFeatured(db)).map((article) => article.id)).toEqual([
-      b.id,
-      c.id,
-      a.id,
-    ])
-
-    await reorderFeatured(db, [a.id, b.id, c.id])
-    expect((await listFeatured(db)).map((article) => article.id)).toEqual([
-      a.id,
-      b.id,
-      c.id,
-    ])
-  })
-
-  it('ignores non-featured and unknown ids', async () => {
-    const featured = await createTitled('featured')
-    await setFeatured(db, featured.id, true)
-    const plain = await createTitled('plain')
-
-    await reorderFeatured(db, [plain.id, 999_999, featured.id])
-
-    expect((await listFeatured(db)).map((article) => article.id)).toEqual([
-      featured.id,
-    ])
-    const [plainRow] = await db
-      .select()
-      .from(articles)
-      .where(eq(articles.id, plain.id))
-    expect(plainRow?.featuredPosition).toBeNull()
   })
 })
 

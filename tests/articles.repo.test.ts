@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import {
   articleCategories,
@@ -5,6 +6,7 @@ import {
   articleTags,
   articleTagsMap,
 } from '../src/db/schema'
+import { listFeatured } from '../src/lib/articles/queries'
 import {
   createArticle,
   createCategory,
@@ -15,6 +17,7 @@ import {
   listCategories,
   listForOwner,
   listTags,
+  reorderFeatured,
   setCategory,
   setFeatured,
   setTags,
@@ -108,6 +111,54 @@ describe('setFeatured', () => {
     expect((await getById(db, article.id))?.isFeatured).toBe(true)
     await setFeatured(db, article.id, false)
     expect((await getById(db, article.id))?.isFeatured).toBe(false)
+  })
+})
+
+describe('reorderFeatured', () => {
+  async function createTitled(title: string) {
+    const article = await createArticle(db)
+    await updateArticle(db, article.id, { title })
+    return article
+  }
+
+  it('writes positions from array index; listFeatured follows the new order', async () => {
+    const a = await createTitled('a')
+    const b = await createTitled('b')
+    const c = await createTitled('c')
+    for (const article of [a, b, c]) {
+      await setFeatured(db, article.id, true)
+    }
+
+    await reorderFeatured(db, [b.id, c.id, a.id])
+    expect((await listFeatured(db)).map((article) => article.id)).toEqual([
+      b.id,
+      c.id,
+      a.id,
+    ])
+
+    await reorderFeatured(db, [a.id, b.id, c.id])
+    expect((await listFeatured(db)).map((article) => article.id)).toEqual([
+      a.id,
+      b.id,
+      c.id,
+    ])
+  })
+
+  it('ignores non-featured and unknown ids', async () => {
+    const featured = await createTitled('featured')
+    await setFeatured(db, featured.id, true)
+    const plain = await createTitled('plain')
+
+    await reorderFeatured(db, [plain.id, 999_999, featured.id])
+
+    expect((await listFeatured(db)).map((article) => article.id)).toEqual([
+      featured.id,
+    ])
+    const [plainRow] = await db
+      .select()
+      .from(articles)
+      .where(eq(articles.id, plain.id))
+    expect(plainRow?.featuredPosition).toBeNull()
   })
 })
 

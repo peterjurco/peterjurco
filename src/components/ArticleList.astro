@@ -1,0 +1,71 @@
+---
+import type { Article } from '../lib/articles/repo'
+import { formatDate } from '../lib/format-date'
+
+/**
+ * Shared article listing for the authed pages (homepage Recent, category and
+ * tag pages): title linking to the editor, visibility badge, last-updated
+ * timestamp. The Featured section stays a React island (drag reorder).
+ */
+type ListedArticle = Pick<Article, 'id' | 'title' | 'visibility' | 'updatedAt'>
+
+interface Props {
+  articles: ListedArticle[]
+  emptyState: string
+}
+
+const { articles, emptyState } = Astro.props
+---
+
+{articles.length === 0 && <p>{emptyState}</p>}
+<ul class="article-list">
+  {
+    articles.map((article) => (
+      <li>
+        <a href={`/app/articles/${article.id}`}>
+          {article.title || 'Untitled'}
+        </a>
+        <span class={`badge badge-${article.visibility}`}>
+          {article.visibility}
+        </span>
+        <time datetime={article.updatedAt.toISOString()}>
+          {formatDate(article.updatedAt)}
+        </time>
+      </li>
+    ))
+  }
+</ul>
+
+<style>
+  ul {
+    padding: 0;
+    list-style: none;
+  }
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #eee;
+  }
+  li a {
+    font-weight: 600;
+  }
+  .badge {
+    padding: 0.05rem 0.4rem;
+    font-size: 0.75rem;
+    border: 1px solid #ccc;
+    border-radius: 999px;
+    color: #555;
+  }
+  .badge-public {
+    border-color: #2e7d32;
+    color: #2e7d32;
+  }
+  time {
+    margin-left: auto;
+    color: #999;
+    font-size: 0.8rem;
+  }
+</style>

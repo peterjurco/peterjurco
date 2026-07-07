@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro'
 import { getAppDb } from '../../../db'
 import { jsonError, unauthorized } from '../../../lib/api'
-import { reorderFeatured } from '../../../lib/articles/queries'
+import { reorderFeatured } from '../../../lib/articles/repo'
 
 /**
  * POST /api/articles/featured-order — persists the drag order of featured
@@ -27,6 +27,11 @@ export const POST: APIRoute = async ({ locals, request }) => {
     orderedIds.some((id) => !Number.isInteger(id) || (id as number) <= 0)
   ) {
     return jsonError(400, 'orderedIds must be an array of positive integers')
+  }
+  // Featured lists are hand-curated and tiny; a huge array is garbage input,
+  // and each id costs one sequential UPDATE (no-transactions invariant).
+  if (orderedIds.length > 100) {
+    return jsonError(400, 'orderedIds must contain at most 100 ids')
   }
 
   try {
