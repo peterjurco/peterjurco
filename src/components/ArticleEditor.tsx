@@ -99,9 +99,11 @@ export function ArticleEditor({
   }, [editor, editable])
 
   // Unsaved work must survive navigation/unmount: flush whatever is still
-  // pending with keepalive so the request outlives the page.
+  // pending with keepalive so the request outlives the page. Runs on React
+  // unmount (client-side transitions) AND on pagehide — Astro is an MPA, so
+  // hard navigations skip React cleanups entirely.
   useEffect(() => {
-    return () => {
+    const flushPendingWithKeepalive = () => {
       clearTimeout(debounceTimer.current)
       const content = pendingContent.current
       pendingContent.current = null
@@ -112,6 +114,11 @@ export function ArticleEditor({
         body: JSON.stringify({ content }),
         keepalive: true,
       })
+    }
+    window.addEventListener('pagehide', flushPendingWithKeepalive)
+    return () => {
+      window.removeEventListener('pagehide', flushPendingWithKeepalive)
+      flushPendingWithKeepalive()
     }
   }, [articleId])
 
