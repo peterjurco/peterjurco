@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers'
 import type { APIRoute } from 'astro'
-import { getDb } from '../../../db'
+import { getAppDb } from '../../../db'
 import { users } from '../../../db/schema'
 import { isAllowed } from '../../../lib/auth/allowlist'
 import {
@@ -63,7 +63,7 @@ export const GET: APIRoute = async ({ url, cookies, redirect }) => {
     })
   }
 
-  const db = getDb(requireEnv(env.DATABASE_URL, 'DATABASE_URL'))
+  const db = getAppDb()
   const [user] = await db
     .insert(users)
     .values({

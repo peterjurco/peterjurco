@@ -29,7 +29,11 @@ interface JsonNode {
 /** http(s), mailto or relative — never javascript:, data:, vbscript:, … */
 function isSafeUrl(value: unknown): value is string {
   if (typeof value !== 'string' || value.length === 0) return false
-  const scheme = /^\s*([a-z][a-z0-9+.-]*):/i.exec(value)
+  // Browsers strip ASCII control chars and whitespace when parsing URLs, so
+  // `java\nscript:alert(1)` still runs — strip them BEFORE scheme matching.
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: that's the point
+  const normalized = value.replace(/[\u0000-\u0020]/g, '')
+  const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(normalized)
   if (!scheme?.[1]) return true // relative URL
   return ['http', 'https', 'mailto'].includes(scheme[1].toLowerCase())
 }

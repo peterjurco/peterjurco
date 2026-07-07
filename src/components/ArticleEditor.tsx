@@ -39,6 +39,9 @@ export function ArticleEditor({
 }: ArticleEditorProps) {
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  /** Latest unsaved document — null when everything typed has been sent. */
+  const pendingContent = useRef<Record<string, unknown> | null>(null)
+  const inFlight = useRef(false)
 
   const editor = useEditor({
     extensions: documentExtensions(),
@@ -49,25 +52,40 @@ export function ArticleEditor({
     immediatelyRender: false,
     onUpdate: ({ editor }) => {
       if (!editor.isEditable) return
+      // Capture the JSON now: at unmount time the editor is already destroyed.
+      pendingContent.current = editor.getJSON()
       setSaveState('dirty')
       clearTimeout(debounceTimer.current)
-      debounceTimer.current = setTimeout(() => {
-        void save(editor)
-      }, autosaveDelayMs)
+      debounceTimer.current = setTimeout(() => void flush(), autosaveDelayMs)
     },
   })
 
-  async function save(editor: Editor): Promise<void> {
+  /**
+   * Sends the pending document. Saves are serialized — never two PATCHes in
+   * flight: edits arriving mid-flight stay pending and re-fire on completion,
+   * and a response for an already-stale document never drives the indicator.
+   */
+  async function flush(): Promise<void> {
+    if (inFlight.current) return // the in-flight save re-fires on completion
+    const content = pendingContent.current
+    if (content === null) return
+    pendingContent.current = null
+    inFlight.current = true
     setSaveState('saving')
     try {
       const response = await fetch(`/api/articles/${articleId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: editor.getJSON() }),
+        body: JSON.stringify({ content }),
       })
-      setSaveState(response.ok ? 'saved' : 'error')
+      if (pendingContent.current === null) {
+        setSaveState(response.ok ? 'saved' : 'error')
+      }
     } catch {
-      setSaveState('error')
+      if (pendingContent.current === null) setSaveState('error')
+    } finally {
+      inFlight.current = false
+      if (pendingContent.current !== null) void flush()
     }
   }
 
@@ -75,15 +93,44 @@ export function ArticleEditor({
     if (editor && onReady) onReady(editor)
   }, [editor, onReady])
 
-  // Never leave a scheduled save behind after unmount.
-  useEffect(() => () => clearTimeout(debounceTimer.current), [])
+  // Keep the live instance in sync when the `editable` prop changes.
+  useEffect(() => {
+    if (editor && editor.isEditable !== editable) editor.setEditable(editable)
+  }, [editor, editable])
+
+  // Unsaved work must survive navigation/unmount: flush whatever is still
+  // pending with keepalive so the request outlives the page.
+  useEffect(() => {
+    return () => {
+      clearTimeout(debounceTimer.current)
+      const content = pendingContent.current
+      pendingContent.current = null
+      if (content === null) return
+      void fetch(`/api/articles/${articleId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+        keepalive: true,
+      })
+    }
+  }, [articleId])
+
+  // While dirty or saving, warn before the tab closes; gone once saved.
+  useEffect(() => {
+    if (saveState !== 'dirty' && saveState !== 'saving') return
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+    }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [saveState])
 
   return (
     <div className="article-editor">
       {editable && editor && (
         <EditorToolbar editor={editor} saveLabel={SAVE_LABELS[saveState]} />
       )}
-      <EditorContent editor={editor} className="article-doc" />
+      <EditorContent editor={editor} className="article-doc article-body" />
     </div>
   )
 }

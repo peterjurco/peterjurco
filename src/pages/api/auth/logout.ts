@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers'
 import type { APIRoute } from 'astro'
-import { getDb } from '../../../db'
+import { getAppDb } from '../../../db'
 import { readSessionToken, SESSION_COOKIE_NAME } from '../../../lib/auth/cookie'
 import { revokeSession } from '../../../lib/auth/session'
 import { requireEnv } from '../../../lib/env'
@@ -16,10 +16,7 @@ export const POST: APIRoute = async ({ cookies, redirect }) => {
     requireEnv(env.SESSION_SECRET, 'SESSION_SECRET'),
   )
   if (token) {
-    await revokeSession(
-      getDb(requireEnv(env.DATABASE_URL, 'DATABASE_URL')),
-      token,
-    )
+    await revokeSession(getAppDb(), token)
   }
   cookies.delete(SESSION_COOKIE_NAME, { path: '/' })
   return redirect('/', 302)

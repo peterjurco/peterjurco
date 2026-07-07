@@ -155,6 +155,33 @@ describe('renderDoc — XSS safety', () => {
     expect(html).not.toContain('javascript:')
   })
 
+  it('drops link hrefs that smuggle a scheme past whitespace/control chars', () => {
+    for (const href of [
+      'java\nscript:alert(1)',
+      'java\tscript:alert(1)',
+      '\u0001javascript:alert(1)',
+      ' javascript:alert(1)',
+    ]) {
+      const html = renderDoc(
+        doc(paragraph(text('bait', [{ type: 'link', attrs: { href } }]))),
+      )
+      expect(html, JSON.stringify(href)).not.toContain('<a')
+      expect(html, JSON.stringify(href)).not.toContain('script:alert')
+      expect(html).toContain('bait')
+    }
+  })
+
+  it('drops image srcs that smuggle a scheme past whitespace/control chars', () => {
+    for (const src of [
+      'java\nscript:alert(1)',
+      'java\u0000script:alert(1)',
+      '\tvbscript:msgbox(1)',
+    ]) {
+      const html = renderDoc(doc({ type: 'image', attrs: { src } }))
+      expect(html, JSON.stringify(src)).not.toContain('<img')
+    }
+  })
+
   it('drops unknown node types instead of rendering them', () => {
     const html = renderDoc(
       doc(

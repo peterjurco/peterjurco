@@ -1,16 +1,14 @@
 ---
-import { env } from 'cloudflare:workers'
-import { getDb } from '../../../db'
+import { getAppDb } from '../../../db'
 import BaseLayout from '../../../layouts/BaseLayout.astro'
 import { listForOwner } from '../../../lib/articles/repo'
-import { requireEnv } from '../../../lib/env'
 
 // Defense in depth: the middleware already gates /app/*.
 if (!Astro.locals.user) {
   return Astro.redirect('/api/auth/login', 302)
 }
 
-const db = getDb(requireEnv(env.DATABASE_URL, 'DATABASE_URL'))
+const db = getAppDb()
 const articles = await listForOwner(db)
 
 function formatDate(date: Date): string {

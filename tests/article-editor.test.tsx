@@ -174,4 +174,74 @@ describe('ArticleEditor — editable mode', () => {
     })
     await screen.findByText('Save failed')
   })
+
+  it('flushes a pending autosave on unmount with keepalive', async () => {
+    const { editor, unmount } = await renderEditor(true)
+    act(() => {
+      editor.commands.insertContentAt(editor.state.doc.content.size, {
+        type: 'paragraph',
+        content: [{ type: 'text', text: 'Last words' }],
+      })
+    })
+    unmount() // before the debounce elapses
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ]
+    expect(url).toBe('/api/articles/7')
+    expect(init.method).toBe('PATCH')
+    expect(init.keepalive).toBe(true)
+    expect(String(init.body)).toContain('Last words')
+  })
+
+  it('never overlaps PATCHes — an edit mid-flight re-fires after completion', async () => {
+    let release: ((response: Response) => void) | undefined
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = resolve
+        }),
+    )
+    const { editor } = await renderEditor(true)
+    const insert = (text: string) =>
+      act(() => {
+        editor.commands.insertContentAt(editor.state.doc.content.size, {
+          type: 'paragraph',
+          content: [{ type: 'text', text }],
+        })
+      })
+
+    insert('first')
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+    // Edit while the first PATCH hangs; its debounce elapses mid-flight.
+    insert('second')
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    expect(fetchMock).toHaveBeenCalledTimes(1) // no concurrent PATCH
+
+    act(() => {
+      release?.(new Response(JSON.stringify({ ok: true }), { status: 200 }))
+    })
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    const [, init] = fetchMock.mock.calls[1] as unknown as [string, RequestInit]
+    expect(String(init.body)).toContain('second')
+    await screen.findByText('Saved')
+  })
+
+  it('keeps the live instance in sync when the editable prop flips', async () => {
+    const { editor, rerender } = await renderEditor(true)
+    rerender(
+      <ArticleEditor
+        articleId={7}
+        editable={false}
+        initialContent={CONTENT}
+        autosaveDelayMs={30}
+      />,
+    )
+    await waitFor(() => {
+      expect(editor.isEditable).toBe(false)
+    })
+  })
 })

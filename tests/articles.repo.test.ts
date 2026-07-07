@@ -208,6 +208,49 @@ describe('setTags', () => {
     await setTags(db, article.id, [])
     expect((await getById(db, article.id))?.tags).toEqual([])
   })
+
+  it('garbage-collects tags left without any article references', async () => {
+    const article = await createArticle(db)
+    const other = await createArticle(db)
+    await setTags(db, article.id, ['orphaned', 'shared'])
+    await setTags(db, other.id, ['shared'])
+
+    await setTags(db, article.id, [])
+
+    // 'orphaned' had no remaining references — gone; 'shared' is still used
+    // by the other article and survives.
+    expect((await listTags(db)).map((tag) => tag.name)).toEqual(['shared'])
+    expect((await getById(db, other.id))?.tags.map((tag) => tag.name)).toEqual([
+      'shared',
+    ])
+  })
+
+  it('enforces unique tag names at the database level', async () => {
+    await db.insert(articleTags).values({ name: 'dup' })
+    await expect(
+      db.insert(articleTags).values({ name: 'dup' }),
+    ).rejects.toThrow()
+  })
+
+  it('resolves a duplicate-name create race to a single tag row', async () => {
+    const first = await createArticle(db)
+    const second = await createArticle(db)
+    // Both writers believe the tag is missing and try to create it —
+    // ON CONFLICT DO NOTHING + re-select must leave one row, both mapped.
+    await Promise.all([
+      setTags(db, first.id, ['race']),
+      setTags(db, second.id, ['race']),
+    ])
+    expect(
+      (await listTags(db)).filter((tag) => tag.name === 'race'),
+    ).toHaveLength(1)
+    expect((await getById(db, first.id))?.tags.map((tag) => tag.name)).toEqual([
+      'race',
+    ])
+    expect((await getById(db, second.id))?.tags.map((tag) => tag.name)).toEqual(
+      ['race'],
+    )
+  })
 })
 
 describe('deleteArticle', () => {

@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray, notInArray } from 'drizzle-orm'
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import type * as schema from '../../db/schema'
 import {
@@ -8,6 +8,18 @@ import {
   articleTagsMap,
 } from '../../db/schema'
 import { newPublicId } from '../public-id'
+
+/**
+ * INVARIANT — no interactive transactions. Production runs on the Neon HTTP
+ * driver (drizzle-orm/neon-http), which executes one statement per HTTP
+ * round-trip and does not support `db.transaction()`. Multi-statement writes
+ * in this module therefore run as ordered, independent statements.
+ *
+ * Write-ordering convention: sequence statements so that an interruption
+ * between any two of them leaves the data referentially consistent — insert
+ * referenced rows (tags) before the join rows that point at them, and delete
+ * join rows before the rows they reference.
+ */
 
 /**
  * Any Drizzle Postgres client over our schema — the Neon HTTP driver in
@@ -81,7 +93,8 @@ export async function setCategory(
 
 /**
  * Replaces the article's tag set. Tags are addressed by name; missing ones
- * are created on the fly (tag admin UI comes later — Plan 7).
+ * are created on the fly (tag admin UI comes later — Plan 7), and tags left
+ * without any article reference after the replacement are garbage-collected.
  */
 export async function setTags(
   db: ArticlesDb,
@@ -103,12 +116,29 @@ export async function setTags(
 
   const missing = names.filter((name) => !existingByName.has(name))
   if (missing.length > 0) {
+    // ON CONFLICT DO NOTHING (unique index on name) makes a concurrent
+    // create-by-name race safe; rows the other writer won are re-selected.
     const created = await db
       .insert(articleTags)
       .values(missing.map((name) => ({ name })))
+      .onConflictDoNothing({ target: articleTags.name })
       .returning()
     for (const tag of created) existingByName.set(tag.name, tag.id)
+
+    const lost = missing.filter((name) => !existingByName.has(name))
+    if (lost.length > 0) {
+      const raced = await db
+        .select()
+        .from(articleTags)
+        .where(inArray(articleTags.name, lost))
+      for (const tag of raced) existingByName.set(tag.name, tag.id)
+    }
   }
+
+  const previous = await db
+    .select({ tagId: articleTagsMap.tagId })
+    .from(articleTagsMap)
+    .where(eq(articleTagsMap.articleId, id))
 
   await db.delete(articleTagsMap).where(eq(articleTagsMap.articleId, id))
   if (names.length > 0) {
@@ -120,11 +150,43 @@ export async function setTags(
       }),
     )
   }
+
+  // GC: tags this article just dropped that no other article references.
+  const kept = new Set(existingByName.values())
+  const removed = previous
+    .map((row) => row.tagId)
+    .filter((tagId) => !kept.has(tagId))
+  if (removed.length > 0) {
+    await db
+      .delete(articleTags)
+      .where(
+        and(
+          inArray(articleTags.id, removed),
+          notInArray(
+            articleTags.id,
+            db.select({ tagId: articleTagsMap.tagId }).from(articleTagsMap),
+          ),
+        ),
+      )
+  }
 }
 
 export async function deleteArticle(db: ArticlesDb, id: number): Promise<void> {
   await db.delete(articleTagsMap).where(eq(articleTagsMap.articleId, id))
   await db.delete(articles).where(eq(articles.id, id))
+}
+
+/** Cheap existence probe (no tags join) for handlers that must 404. */
+export async function articleExists(
+  db: ArticlesDb,
+  id: number,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: articles.id })
+    .from(articles)
+    .where(eq(articles.id, id))
+    .limit(1)
+  return row !== undefined
 }
 
 export type ArticleWithTags = Article & { tags: ArticleTag[] }

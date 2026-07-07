@@ -1,5 +1,8 @@
 /* Editor island — authed area is functional-over-pretty, mobile friendly. */
 
+/* Document typography shared with the public read page. */
+@import "../styles/article-body.css";
+
 .article-editor {
   max-width: 46rem;
   margin: 0 auto;
@@ -59,29 +62,13 @@
   color: #888;
 }
 
-/* Document typography — shared look for editable and read-only content. */
+/* Editor-only document chrome; the content look lives in article-body.css. */
 
 .article-doc .tiptap {
   outline: none;
   min-height: 12rem;
   padding: 1rem 0;
   line-height: 1.6;
-}
-
-.article-doc .tiptap blockquote {
-  margin: 1rem 0;
-  padding-left: 1rem;
-  border-left: 3px solid #ccc;
-  color: #555;
-}
-
-.article-doc .tiptap img {
-  max-width: 100%;
-  height: auto;
-}
-
-.article-doc .tiptap a {
-  color: #0645ad;
 }
 
 /* Metadata panel (title / category / tags / visibility / featured / delete). */

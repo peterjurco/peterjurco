@@ -1,11 +1,9 @@
 ---
-import { env } from 'cloudflare:workers'
 import { ArticleEditor } from '../../../components/ArticleEditor'
 import { ArticleMetaPanel } from '../../../components/ArticleMetaPanel'
-import { getDb } from '../../../db'
+import { getAppDb } from '../../../db'
 import BaseLayout from '../../../layouts/BaseLayout.astro'
 import { getById, listCategories } from '../../../lib/articles/repo'
-import { requireEnv } from '../../../lib/env'
 
 // Defense in depth: the middleware already gates /app/*.
 if (!Astro.locals.user) {
@@ -17,7 +15,7 @@ if (!Number.isInteger(id) || id <= 0) {
   return new Response('Not found', { status: 404 })
 }
 
-const db = getDb(requireEnv(env.DATABASE_URL, 'DATABASE_URL'))
+const db = getAppDb()
 const [article, categories] = await Promise.all([
   getById(db, id),
   listCategories(db),

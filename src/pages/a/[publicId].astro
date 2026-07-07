@@ -1,15 +1,14 @@
 ---
-import { env } from 'cloudflare:workers'
-import { getDb } from '../../db'
+import { getAppDb } from '../../db'
 import BaseLayout from '../../layouts/BaseLayout.astro'
 import { deriveExcerpt } from '../../lib/articles/excerpt'
 import { renderDoc } from '../../lib/articles/render-doc'
 import { getByPublicId } from '../../lib/articles/repo'
-import { requireEnv } from '../../lib/env'
+import '../../styles/article-body.css'
 
 // Public read view (TECH_DECISIONS §9): pure SSR — no editor JS is shipped.
 // getByPublicId returns only public articles, so private ids 404 here.
-const db = getDb(requireEnv(env.DATABASE_URL, 'DATABASE_URL'))
+const db = getAppDb()
 const article = await getByPublicId(db, Astro.params.publicId ?? '')
 if (!article) {
   return new Response('Not found', { status: 404 })
@@ -60,18 +59,5 @@ const imageUrl = article.featuredPhotoKey
   }
   .public-article h1 {
     line-height: 1.2;
-  }
-  .article-body blockquote {
-    margin: 1rem 0;
-    padding-left: 1rem;
-    border-left: 3px solid #ccc;
-    color: #555;
-  }
-  .article-body img {
-    max-width: 100%;
-    height: auto;
-  }
-  .article-body a {
-    color: #0645ad;
   }
 </style>

@@ -1,6 +1,6 @@
 import { defineMiddleware } from 'astro:middleware'
 import { env } from 'cloudflare:workers'
-import { getDb } from './db'
+import { getAppDb } from './db'
 import { readSessionToken, SESSION_COOKIE_NAME } from './lib/auth/cookie'
 import { validateSession } from './lib/auth/session'
 import { requireEnv } from './lib/env'
@@ -20,7 +20,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
       requireEnv(env.SESSION_SECRET, 'SESSION_SECRET'),
     )
     if (token) {
-      const db = getDb(requireEnv(env.DATABASE_URL, 'DATABASE_URL'))
+      const db = getAppDb()
       try {
         context.locals.user = await validateSession(db, token)
       } catch (error) {

@@ -135,6 +135,7 @@ describe('articles API — owner CRUD', () => {
   it('rejects malformed PATCH bodies with 400', async () => {
     const id = await createArticleViaApi()
     for (const body of [
+      {}, // no updatable fields
       { title: 42 },
       { content: 'not a doc' },
       { visibility: 'friends-only' },
@@ -152,6 +153,7 @@ describe('articles API — owner CRUD', () => {
   })
 
   it('404s a PATCH to a missing article and 400s a bad id', async () => {
+    // Content patch — existence proven by updateArticle's returning().
     const missing = await request('/api/articles/999999', {
       method: 'PATCH',
       authed: true,
@@ -159,12 +161,22 @@ describe('articles API — owner CRUD', () => {
     })
     expect(missing.status).toBe(404)
 
-    const bad = await request('/api/articles/not-a-number', {
+    // Metadata-only patch — existence needs its own probe.
+    const missingMeta = await request('/api/articles/999999', {
       method: 'PATCH',
       authed: true,
-      body: { title: 'x' },
+      body: { visibility: 'public' },
     })
-    expect(bad.status).toBe(400)
+    expect(missingMeta.status).toBe(404)
+
+    for (const badId of ['not-a-number', '1.5', '1e3', '-1']) {
+      const bad = await request(`/api/articles/${badId}`, {
+        method: 'PATCH',
+        authed: true,
+        body: { title: 'x' },
+      })
+      expect(bad.status, badId).toBe(400)
+    }
   })
 
   it('supports the full authoring + public-by-link sharing loop', async () => {

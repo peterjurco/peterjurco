@@ -1,20 +1,18 @@
-import { env } from 'cloudflare:workers'
 import type { APIRoute } from 'astro'
-import { getDb } from '../../../db'
+import { getAppDb } from '../../../db'
 import { jsonError, unauthorized } from '../../../lib/api'
 import {
   type ArticleContent,
   type ArticlesDb,
   type ArticleVisibility,
+  articleExists,
   deleteArticle,
-  getById,
   setCategory,
   setFeatured,
   setTags,
   setVisibility,
   updateArticle,
 } from '../../../lib/articles/repo'
-import { requireEnv } from '../../../lib/env'
 
 /**
  * PATCH /api/articles/:id — partial update. Carries either the autosave
@@ -80,24 +78,31 @@ function parsePatch(body: Record<string, unknown>): ParsedPatch | string {
     }
     patch.isFeatured = body.isFeatured
   }
+  if (Object.keys(patch).length === 0) return 'no updatable fields'
   return patch
 }
 
 function parseId(raw: string | undefined): number | null {
+  if (raw === undefined || !/^\d+$/.test(raw)) return null
   const id = Number(raw)
-  return Number.isInteger(id) && id > 0 ? id : null
+  return Number.isSafeInteger(id) && id > 0 ? id : null
 }
 
+/** Applies the patch; returns false when the article doesn't exist. */
 async function applyPatch(
   db: ArticlesDb,
   id: number,
   patch: ParsedPatch,
-): Promise<void> {
+): Promise<boolean> {
   if (patch.title !== undefined || patch.content !== undefined) {
-    await updateArticle(db, id, {
+    // updateArticle's returning() doubles as the existence check.
+    const updated = await updateArticle(db, id, {
       ...(patch.title !== undefined ? { title: patch.title } : {}),
       ...(patch.content !== undefined ? { content: patch.content } : {}),
     })
+    if (updated === null) return false
+  } else if (!(await articleExists(db, id))) {
+    return false
   }
   if (patch.visibility !== undefined) {
     await setVisibility(db, id, patch.visibility)
@@ -109,6 +114,7 @@ async function applyPatch(
   if (patch.isFeatured !== undefined) {
     await setFeatured(db, id, patch.isFeatured)
   }
+  return true
 }
 
 export const PATCH: APIRoute = async ({ locals, params, request }) => {
@@ -130,11 +136,10 @@ export const PATCH: APIRoute = async ({ locals, params, request }) => {
   if (typeof patch === 'string') return jsonError(400, patch)
 
   try {
-    const db = getDb(requireEnv(env.DATABASE_URL, 'DATABASE_URL'))
-    if ((await getById(db, id)) === null) {
+    const db = getAppDb()
+    if (!(await applyPatch(db, id, patch))) {
       return jsonError(404, 'Article not found')
     }
-    await applyPatch(db, id, patch)
     return Response.json({ ok: true })
   } catch (error) {
     console.error('Article patch failed:', error)
@@ -149,8 +154,8 @@ export const DELETE: APIRoute = async ({ locals, params }) => {
   if (id === null) return jsonError(400, 'Invalid article id')
 
   try {
-    const db = getDb(requireEnv(env.DATABASE_URL, 'DATABASE_URL'))
-    if ((await getById(db, id)) === null) {
+    const db = getAppDb()
+    if (!(await articleExists(db, id))) {
       return jsonError(404, 'Article not found')
     }
     await deleteArticle(db, id)

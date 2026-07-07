@@ -78,10 +78,18 @@ export const articleCategories = pgTable('article_categories', {
     .defaultNow(),
 })
 
-export const articleTags = pgTable('article_tags', {
-  id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
-  name: text('name').notNull(),
-})
+export const articleTags = pgTable(
+  'article_tags',
+  {
+    id: bigint('id', { mode: 'number' })
+      .primaryKey()
+      .generatedAlwaysAsIdentity(),
+    name: text('name').notNull(),
+  },
+  // Tags are addressed by name (repo.setTags) — the unique index makes
+  // concurrent create-by-name race-safe via ON CONFLICT.
+  (table) => [uniqueIndex('article_tags_name_unique').on(table.name)],
+)
 
 export const articles = pgTable(
   'articles',

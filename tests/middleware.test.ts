@@ -8,7 +8,7 @@ import { env } from './helpers/stub-cloudflare-workers'
 // The middleware's DB / session dependencies are mocked: these tests cover
 // the middleware's own behavior (cookie → locals.user resolution, /app
 // gating, resilience to session-validation failures), not session logic.
-vi.mock('../src/db', () => ({ getDb: vi.fn(() => ({})) }))
+vi.mock('../src/db', () => ({ getAppDb: vi.fn(() => ({})) }))
 vi.mock('../src/lib/auth/session', () => ({ validateSession: vi.fn() }))
 
 const validateSessionMock = vi.mocked(validateSession)
