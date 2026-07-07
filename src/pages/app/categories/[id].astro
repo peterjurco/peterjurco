@@ -1,4 +1,5 @@
 ---
+import AppNav from '../../../components/AppNav.astro'
 import { getAppDb } from '../../../db'
 import BaseLayout from '../../../layouts/BaseLayout.astro'
 import { getCategoryById, listByCategory } from '../../../lib/articles/queries'
@@ -28,6 +29,7 @@ function formatDate(date: Date): string {
 ---
 
 <BaseLayout title={`${category.name} — peterjur.co`}>
+  <AppNav />
   <main class="taxonomy-list">
     <header>
       <h1>Category: {category.name}</h1>

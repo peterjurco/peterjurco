@@ -1,0 +1,60 @@
+---
+/**
+ * Shared menu for the authenticated section (REQUIREMENTS: "Has a menu").
+ * Photo hub / Apps / Admin targets ship in Plans 5 and 7 — the hrefs are
+ * fixed now so they light up when those pages land.
+ */
+const current = Astro.url.pathname
+
+const links = [
+  { href: '/app', label: 'Home' },
+  { href: '/app/articles', label: 'Articles' },
+  { href: '/app/photos', label: 'Photo hub' },
+  { href: '/app/admin/apps', label: 'Apps' },
+  { href: '/app/admin', label: 'Admin' },
+]
+---
+
+<nav class="app-nav" aria-label="App">
+  {
+    links.map((link) => (
+      <a
+        href={link.href}
+        aria-current={current === link.href ? 'page' : undefined}
+      >
+        {link.label}
+      </a>
+    ))
+  }
+  <form method="post" action="/api/auth/logout">
+    <button type="submit">Log out</button>
+  </form>
+</nav>
+
+<style>
+  .app-nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #eee;
+    font-family: system-ui, sans-serif;
+    font-size: 0.9rem;
+  }
+  a {
+    color: #333;
+    text-decoration: none;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
+  a[aria-current='page'] {
+    font-weight: 700;
+  }
+  form {
+    margin-left: auto;
+  }
+</style>

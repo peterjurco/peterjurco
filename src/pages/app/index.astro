@@ -1,5 +1,11 @@
 ---
+import { asc } from 'drizzle-orm'
+import AppNav from '../../components/AppNav.astro'
+import { FeaturedReorder } from '../../components/FeaturedReorder'
+import { getAppDb } from '../../db'
+import { apps as appsTable, photoTags } from '../../db/schema'
 import BaseLayout from '../../layouts/BaseLayout.astro'
+import { listFeatured, listRecent } from '../../lib/articles/queries'
 
 // Defense in depth: the middleware already gates /app/*, but never render
 // this page without a resolved user.
@@ -7,11 +13,136 @@ const user = Astro.locals.user
 if (!user) {
   return Astro.redirect('/api/auth/login', 302)
 }
+
+const db = getAppDb()
+const [featured, recent, photoHubs, apps] = await Promise.all([
+  listFeatured(db),
+  listRecent(db, 10),
+  // Widget slots: render whatever exists today, empty-state otherwise.
+  // Fully wired in Plan 5 (photo hub pages) and Plan 7 (apps CRUD).
+  db.select().from(photoTags).orderBy(asc(photoTags.name)),
+  db.select().from(appsTable).orderBy(asc(appsTable.sortOrder)),
+])
+
+function formatDate(date: Date): string {
+  return date.toISOString().slice(0, 16).replace('T', ' ')
+}
 ---
 
 <BaseLayout title="peterjur.co — app">
-  <h1>Hello, {user.email}</h1>
-  <form method="post" action="/api/auth/logout">
-    <button type="submit">Log out</button>
-  </form>
+  <AppNav />
+  <main class="app-home">
+    <h1>Hello, {user.email}</h1>
+
+    <section aria-labelledby="featured-heading">
+      <h2 id="featured-heading">Featured articles</h2>
+      <FeaturedReorder
+        client:load
+        items={featured.map(({ id, title }) => ({ id, title }))}
+      />
+    </section>
+
+    <section aria-labelledby="recent-heading">
+      <h2 id="recent-heading">Recent articles</h2>
+      {recent.length === 0 && <p>No articles yet.</p>}
+      <ul class="recent-list">
+        {
+          recent.map((article) => (
+            <li>
+              <a href={`/app/articles/${article.id}`}>
+                {article.title || 'Untitled'}
+              </a>
+              <span class={`badge badge-${article.visibility}`}>
+                {article.visibility}
+              </span>
+              <time datetime={article.updatedAt.toISOString()}>
+                {formatDate(article.updatedAt)}
+              </time>
+            </li>
+          ))
+        }
+      </ul>
+      <p><a href="/app/articles">All articles →</a></p>
+    </section>
+
+    <section aria-labelledby="photo-hubs-heading">
+      <h2 id="photo-hubs-heading">Photo hubs</h2>
+      {photoHubs.length === 0 && <p>No photo hubs yet.</p>}
+      <ul class="hub-list">
+        {
+          photoHubs.map((hub) => (
+            <li>
+              {hub.name}
+              <span class={`badge badge-${hub.visibility}`}>
+                {hub.visibility}
+              </span>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <section aria-labelledby="my-apps-heading">
+      <h2 id="my-apps-heading">My apps</h2>
+      {apps.length === 0 && <p>No apps yet.</p>}
+      <ul class="app-list">
+        {
+          apps.map((app) => (
+            <li>
+              <a href={app.url} target="_blank" rel="noreferrer">
+                {app.name}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+  </main>
 </BaseLayout>
+
+<style>
+  .app-home {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 1rem;
+    font-family: system-ui, sans-serif;
+  }
+  section {
+    margin-bottom: 2rem;
+  }
+  h2 {
+    font-size: 1.1rem;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 0.25rem;
+  }
+  ul {
+    padding: 0;
+    list-style: none;
+  }
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.35rem 0;
+  }
+  li a {
+    font-weight: 600;
+  }
+  .badge {
+    padding: 0.05rem 0.4rem;
+    font-size: 0.75rem;
+    border: 1px solid #ccc;
+    border-radius: 999px;
+    color: #555;
+  }
+  .badge-public {
+    border-color: #2e7d32;
+    color: #2e7d32;
+  }
+  time {
+    margin-left: auto;
+    color: #999;
+    font-size: 0.8rem;
+  }
+</style>

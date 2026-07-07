@@ -1,4 +1,5 @@
 ---
+import AppNav from '../../../components/AppNav.astro'
 import { getAppDb } from '../../../db'
 import BaseLayout from '../../../layouts/BaseLayout.astro'
 import { listForOwner } from '../../../lib/articles/repo'
@@ -17,6 +18,7 @@ function formatDate(date: Date): string {
 ---
 
 <BaseLayout title="Articles — peterjur.co">
+  <AppNav />
   <main class="articles-list">
     <header>
       <h1>Articles</h1>

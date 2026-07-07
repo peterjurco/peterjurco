@@ -1,4 +1,5 @@
 ---
+import AppNav from '../../../components/AppNav.astro'
 import { ArticleEditor } from '../../../components/ArticleEditor'
 import { ArticleMetaPanel } from '../../../components/ArticleMetaPanel'
 import { getAppDb } from '../../../db'
@@ -26,8 +27,8 @@ if (!article) {
 ---
 
 <BaseLayout title={`${article.title || 'Untitled'} — peterjur.co`}>
+  <AppNav />
   <main class="article-editor-page">
-    <nav><a href="/app/articles">← Articles</a></nav>
     <ArticleMetaPanel
       client:load
       articleId={article.id}
@@ -52,10 +53,5 @@ if (!article) {
   .article-editor-page {
     padding: 1rem;
     font-family: system-ui, sans-serif;
-  }
-  nav {
-    max-width: 46rem;
-    margin: 0 auto;
-    font-size: 0.9rem;
   }
 </style>
