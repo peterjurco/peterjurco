@@ -1,3 +1,4 @@
+import { AwsClient } from 'aws4fetch'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { users } from '../src/db/schema'
 import { signValue } from '../src/lib/auth/cookie'
@@ -14,6 +15,15 @@ const PORT = 43115
 const BASE_URL = `http://localhost:${PORT}`
 const SESSION_SECRET = 'photos-e2e-secret-32-characters!!'
 const GPHOTOS_URL = 'https://photos.app.goo.gl/PhotosE2E'
+
+const MINIO_ENDPOINT = 'http://localhost:9000'
+const BUCKET = 'peterjurco-test'
+const minio = new AwsClient({
+  accessKeyId: 'minioadmin',
+  secretAccessKey: 'minioadmin',
+  service: 's3',
+  region: 'auto',
+})
 
 const { db, close } = createTestDb()
 let server: DevServerHandle | undefined
@@ -61,6 +71,18 @@ async function createAlbumViaApi(
 }
 
 beforeAll(async () => {
+  // The MinIO test bucket (docker-compose.test.yml) — covers PUT here go
+  // through the same presign path production uses against R2.
+  const bucket = await minio.fetch(`${MINIO_ENDPOINT}/${BUCKET}`, {
+    method: 'PUT',
+  })
+  if (!bucket.ok && bucket.status !== 409) {
+    throw new Error(
+      `MinIO bucket create failed (${bucket.status}) — is MinIO up? ` +
+        'docker compose -f docker-compose.test.yml up -d',
+    )
+  }
+
   const [user] = await db
     .insert(users)
     .values({
@@ -73,6 +95,11 @@ beforeAll(async () => {
   const { token } = await createSession(db, user.id)
   sessionCookie = await signValue(SESSION_SECRET, token)
 
+  // Image URLs on the pages resolve straight to the MinIO objects: the
+  // dev server inherits these build-time PUBLIC_ vars from process.env.
+  process.env.PUBLIC_R2_PUBLIC_BASE_URL = `${MINIO_ENDPOINT}/${BUCKET}`
+  process.env.PUBLIC_IMAGE_TRANSFORMS = 'off'
+
   server = await startDevServer({
     port: PORT,
     vars: {
@@ -82,6 +109,11 @@ beforeAll(async () => {
       GOOGLE_CLIENT_SECRET: 'unused',
       GOOGLE_REDIRECT_URI: `${BASE_URL}/api/auth/callback`,
       AUTH_ALLOWED_EMAILS: 'owner@example.com',
+      R2_ACCOUNT_ID: 'unused-local',
+      R2_ACCESS_KEY_ID: 'minioadmin',
+      R2_SECRET_ACCESS_KEY: 'minioadmin',
+      R2_BUCKET: BUCKET,
+      R2_ENDPOINT: MINIO_ENDPOINT,
     },
   })
 }, 120_000)
@@ -278,5 +310,135 @@ describe('photos API — tags', () => {
     expect(againTag.id).toBe(firstTag.id)
     const tags = await listTags(db)
     expect(tags.filter((tag) => tag.name === name)).toHaveLength(1)
+  })
+})
+
+describe('photo hub — pages and public sharing flow', () => {
+  it('gates the authed pages behind login', async () => {
+    for (const path of ['/app/photos', '/app/photos/tags/1']) {
+      const response = await request(path)
+      expect(response.status, path).toBe(302)
+      expect(response.headers.get('location')).toBe('/api/auth/login')
+    }
+  })
+
+  it('404s unknown tags and albums on the authed pages', async () => {
+    const tagPage = await request('/app/photos/tags/999999', { authed: true })
+    expect(tagPage.status).toBe(404)
+    const badTagId = await request('/app/photos/tags/not-a-number', {
+      authed: true,
+    })
+    expect(badTagId.status).toBe(404)
+    const editPage = await request('/app/photos/999999/edit', { authed: true })
+    expect(editPage.status).toBe(404)
+  })
+
+  it('runs the full add → list → tag page → public share → revoke loop', async () => {
+    // 1. Upload a cover exactly like CoverUpload does: presign, then PUT.
+    const presign = await request('/api/media/presign', {
+      method: 'POST',
+      authed: true,
+      body: { contentType: 'image/png', size: 9, filename: 'hub.png' },
+    })
+    expect(presign.status).toBe(200)
+    const { url, key } = (await presign.json()) as { url: string; key: string }
+    const put = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'image/png' },
+      body: 'png-bytes',
+    })
+    expect(put.status).toBe(200)
+
+    // 2. Create the album with the stored cover and a fresh tag.
+    const tagName = `family-hub-${Date.now()}`
+    const albumId = await createAlbumViaApi({
+      name: 'Family summer',
+      coverImageKey: key,
+      tags: [tagName],
+    })
+    const tag = (await listTags(db)).find((entry) => entry.name === tagName)
+    if (!tag) throw new Error('tag was not created with the album')
+
+    // 3. The hub list shows the album: cover, name, tag link, edit link.
+    const listPage = await request('/app/photos', { authed: true })
+    expect(listPage.status).toBe(200)
+    const listHtml = await listPage.text()
+    expect(listHtml).toContain('Family summer')
+    expect(listHtml).toContain(`/app/photos/tags/${tag.id}`)
+    expect(listHtml).toContain(`/app/photos/${albumId}/edit`)
+    // Transforms are off in tests → the cover img points at the object.
+    expect(listHtml).toContain(`${MINIO_ENDPOINT}/${BUCKET}/${key}`)
+
+    // 4. The tag page lists the album and shows visibility.
+    const tagPage = await request(`/app/photos/tags/${tag.id}`, {
+      authed: true,
+    })
+    expect(tagPage.status).toBe(200)
+    const tagHtml = await tagPage.text()
+    expect(tagHtml).toContain('Family summer')
+    expect(tagHtml).toContain('private')
+    expect(tagHtml).not.toContain(`/t/${tag.publicId}`)
+
+    // 5. The homepage widget links to the hub's tag page.
+    const homePage = await request('/app', { authed: true })
+    const homeHtml = await homePage.text()
+    expect(homeHtml).toContain(`/app/photos/tags/${tag.id}`)
+    expect(homeHtml).toContain(tagName)
+
+    // 6. Still private: the public URL must 404 (no leak).
+    const whilePrivate = await request(`/t/${tag.publicId}`)
+    expect(whilePrivate.status).toBe(404)
+
+    // 7. Mark the tag public; the tag page now offers the public link.
+    const publish = await request(`/api/photos/tags/${tag.id}`, {
+      method: 'PATCH',
+      authed: true,
+      body: { visibility: 'public' },
+    })
+    expect(publish.status).toBe(200)
+    const publicTagHtml = await (
+      await request(`/app/photos/tags/${tag.id}`, { authed: true })
+    ).text()
+    expect(publicTagHtml).toContain(`/t/${tag.publicId}`)
+
+    // 8. Open the public page logged-out.
+    const publicPage = await request(`/t/${tag.publicId}`) // no cookie
+    expect(publicPage.status).toBe(200)
+    const publicHtml = await publicPage.text()
+    expect(publicHtml).toContain(tagName)
+    expect(publicHtml).toContain('Family summer')
+    // Album links OUT to Google Photos, hardened with rel=noopener.
+    expect(publicHtml).toContain(`href="${GPHOTOS_URL}"`)
+    expect(publicHtml).toMatch(/rel="noopener[^"]*"/)
+    // The cover renders from storage, and the object really serves.
+    const coverUrl = `${MINIO_ENDPOINT}/${BUCKET}/${key}`
+    expect(publicHtml).toContain(coverUrl)
+
+    // Share-card OG meta.
+    expect(publicHtml).toMatch(
+      new RegExp(`<meta property="og:title" content="${tagName}[^"]*"`),
+    )
+    expect(publicHtml).toContain('<meta property="og:description"')
+    expect(publicHtml).toContain(`property="og:url" content="${BASE_URL}/t/`)
+    expect(publicHtml).toContain(`property="og:image" content="${coverUrl}"`)
+    expect(publicHtml).toContain('name="twitter:card"')
+
+    // Pure SSR public page — no islands, nothing editable.
+    expect(publicHtml).not.toContain('astro-island')
+
+    // 9. Back to private — the public URL 404s again (revoke).
+    const unpublish = await request(`/api/photos/tags/${tag.id}`, {
+      method: 'PATCH',
+      authed: true,
+      body: { visibility: 'private' },
+    })
+    expect(unpublish.status).toBe(200)
+    const afterUnpublish = await request(`/t/${tag.publicId}`)
+    expect(afterUnpublish.status).toBe(404)
+  }, 60_000)
+
+  it('404s unknown public ids without leaking anything', async () => {
+    const response = await request('/t/definitely-not-a-real-id')
+    expect(response.status).toBe(404)
   })
 })
