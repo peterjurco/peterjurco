@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "photo_tags_name_unique" ON "photo_tags" USING btree ("name");

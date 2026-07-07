@@ -161,7 +161,12 @@ export const photoTags = pgTable(
     // Always generated for consistency; only meaningful while visibility = public.
     publicId: text('public_id').notNull(),
   },
-  (table) => [uniqueIndex('photo_tags_public_id_unique').on(table.publicId)],
+  (table) => [
+    uniqueIndex('photo_tags_public_id_unique').on(table.publicId),
+    // Tags are addressed by name (repo.setAlbumTags) — the unique index makes
+    // concurrent create-by-name race-safe via ON CONFLICT.
+    uniqueIndex('photo_tags_name_unique').on(table.name),
+  ],
 )
 
 export const photoAlbums = pgTable('photo_albums', {
