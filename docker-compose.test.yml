@@ -14,6 +14,23 @@ services:
       timeout: 5s
       retries: 10
 
+  # S3-compatible store standing in for R2 in the presign/upload integration
+  # tests (tests/media.presign.e2e.test.ts) — the presigner points here via
+  # R2_ENDPOINT. The test bucket is created by the test setup over the S3 API.
+  minio:
+    image: minio/minio
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   # Serves the Neon serverless HTTP protocol in front of the plain Postgres
   # service so the production neon-http driver works in the dev-server health
   # test (see src/db/client.ts).
