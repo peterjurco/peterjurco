@@ -20,7 +20,7 @@ interface AlbumFormProps {
   navigate?: (url: string) => void
 }
 
-type Status = '' | 'Saving…' | 'Deleting…' | 'Save failed'
+type Status = '' | 'Saving…' | 'Deleting…' | 'Save failed' | 'Delete failed'
 
 export function AlbumForm({
   albumId,
@@ -108,10 +108,10 @@ export function AlbumForm({
       if (response.ok) {
         navigate('/app/photos')
       } else {
-        setStatus('Save failed')
+        setStatus('Delete failed')
       }
     } catch {
-      setStatus('Save failed')
+      setStatus('Delete failed')
     }
   }
 
