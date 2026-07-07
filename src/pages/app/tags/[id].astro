@@ -1,0 +1,95 @@
+---
+import { getAppDb } from '../../../db'
+import BaseLayout from '../../../layouts/BaseLayout.astro'
+import { getTagById, listByTag } from '../../../lib/articles/queries'
+
+// Defense in depth: the middleware already gates /app/*.
+if (!Astro.locals.user) {
+  return Astro.redirect('/api/auth/login', 302)
+}
+
+// Auth-only listing pages use the plain internal id (DATA_MODEL: no
+// enumeration risk behind the login wall).
+const id = Number(Astro.params.id)
+if (!Number.isInteger(id) || id <= 0) {
+  return new Response('Not found', { status: 404 })
+}
+
+const db = getAppDb()
+const tag = await getTagById(db, id)
+if (!tag) {
+  return new Response('Not found', { status: 404 })
+}
+const articles = await listByTag(db, id)
+
+function formatDate(date: Date): string {
+  return date.toISOString().slice(0, 16).replace('T', ' ')
+}
+---
+
+<BaseLayout title={`#${tag.name} — peterjur.co`}>
+  <main class="taxonomy-list">
+    <header>
+      <h1>Tag: {tag.name}</h1>
+    </header>
+    {articles.length === 0 && <p>No articles with this tag.</p>}
+    <ul>
+      {
+        articles.map((article) => (
+          <li>
+            <a href={`/app/articles/${article.id}`}>
+              {article.title || 'Untitled'}
+            </a>
+            <span class={`badge badge-${article.visibility}`}>
+              {article.visibility}
+            </span>
+            <time datetime={article.updatedAt.toISOString()}>
+              {formatDate(article.updatedAt)}
+            </time>
+          </li>
+        ))
+      }
+    </ul>
+    <p><a href="/app/articles">← Articles</a></p>
+  </main>
+</BaseLayout>
+
+<style>
+  .taxonomy-list {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 1rem;
+    font-family: system-ui, sans-serif;
+  }
+  ul {
+    padding: 0;
+    list-style: none;
+  }
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #eee;
+  }
+  li a {
+    font-weight: 600;
+  }
+  .badge {
+    padding: 0.05rem 0.4rem;
+    font-size: 0.75rem;
+    border: 1px solid #ccc;
+    border-radius: 999px;
+    color: #555;
+  }
+  .badge-public {
+    border-color: #2e7d32;
+    color: #2e7d32;
+  }
+  time {
+    margin-left: auto;
+    color: #999;
+    font-size: 0.8rem;
+  }
+</style>
