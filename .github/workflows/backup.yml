@@ -1,0 +1,46 @@
+# Scheduled Neon → R2 database backup (TECH_DECISIONS §4): pg_dump can't run
+# on the Workers runtime, so the dump runs here — see scripts/backup-db.sh.
+#
+# Required repository secrets:
+#   DATABASE_URL                  Neon connection string
+#   R2_BACKUP_ENDPOINT_URL        https://<account-id>.r2.cloudflarestorage.com
+#   R2_BACKUP_BUCKET              destination bucket
+#   R2_BACKUP_ACCESS_KEY_ID       R2 S3-API credentials
+#   R2_BACKUP_SECRET_ACCESS_KEY
+name: DB backup
+
+on:
+  schedule:
+    # Daily, 03:17 UTC — an off-peak minute; on-the-hour crons get delayed
+    # or dropped when GitHub's schedulers are busy.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # pg_dump's major version must match the Neon server (Postgres 17 —
+      # see docker-compose.test.yml mirroring it); the runner's default
+      # client can lag behind, so install from PGDG.
+      - name: Install postgresql-client-17
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client-17
+
+      - name: Dump, upload, prune
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          R2_BACKUP_ENDPOINT_URL: ${{ secrets.R2_BACKUP_ENDPOINT_URL }}
+          R2_BACKUP_BUCKET: ${{ secrets.R2_BACKUP_BUCKET }}
+          R2_BACKUP_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_ACCESS_KEY_ID }}
+          R2_BACKUP_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_SECRET_ACCESS_KEY }}
+        run: ./scripts/backup-db.sh
