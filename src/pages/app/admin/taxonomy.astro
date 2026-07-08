@@ -1,0 +1,46 @@
+---
+import AppNav from '../../../components/AppNav.astro'
+import { TaxonomyAdmin } from '../../../components/TaxonomyAdmin'
+import { getAppDb } from '../../../db'
+import BaseLayout from '../../../layouts/BaseLayout.astro'
+import {
+  listTags as listArticleTags,
+  listCategories,
+} from '../../../lib/articles/repo'
+import { listTags as listPhotoTags } from '../../../lib/photos/repo'
+
+// Defense in depth: the middleware already gates /app/*.
+if (!Astro.locals.user) {
+  return Astro.redirect('/api/auth/login', 302)
+}
+
+const db = getAppDb()
+const [categories, articleTags, photoTags] = await Promise.all([
+  listCategories(db),
+  listArticleTags(db),
+  listPhotoTags(db),
+])
+---
+
+<BaseLayout title="Categories & tags — peterjur.co">
+  <AppNav />
+  <main class="taxonomy-admin-page">
+    <h1>Categories & tags</h1>
+    <TaxonomyAdmin
+      client:load
+      initialCategories={categories}
+      initialArticleTags={articleTags}
+      initialPhotoTags={photoTags}
+    />
+    <p><a href="/app/admin">← Admin</a></p>
+  </main>
+</BaseLayout>
+
+<style>
+  .taxonomy-admin-page {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 1rem;
+    font-family: system-ui, sans-serif;
+  }
+</style>
