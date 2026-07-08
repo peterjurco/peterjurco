@@ -1,0 +1,83 @@
+---
+import AppNav from '../../../components/AppNav.astro'
+import BaseLayout from '../../../layouts/BaseLayout.astro'
+
+// Defense in depth: the middleware already gates /app/*.
+if (!Astro.locals.user) {
+  return Astro.redirect('/api/auth/login', 302)
+}
+
+// Hub for the small owner-only admin surfaces (REQUIREMENTS "Admin").
+// Deliberately NOT here: any design/theme/visual-customization control —
+// visual changes are done in code by AI agents, never through the admin.
+const links = [
+  {
+    href: '/app/admin/apps',
+    label: 'My apps',
+    description: 'Add, reorder and remove the app links shown on the homepage.',
+  },
+  {
+    href: '/app/admin/taxonomy',
+    label: 'Categories & tags',
+    description:
+      'Rename or delete article categories, article tags and photo tags.',
+  },
+  {
+    href: '/app/home-editor',
+    label: 'Home canvas',
+    description: 'Arrange the photo/quote tiles on the public homepage.',
+  },
+]
+---
+
+<BaseLayout title="Admin — peterjur.co">
+  <AppNav />
+  <main class="admin-page">
+    <h1>Admin</h1>
+    <ul class="admin-links">
+      {
+        links.map((link) => (
+          <li>
+            <a href={link.href}>{link.label}</a>
+            <p>{link.description}</p>
+          </li>
+        ))
+      }
+    </ul>
+    <p class="admin-note">
+      Database backups run automatically on a schedule via the
+      <code>backup.yml</code> GitHub Action — nothing to do here.
+    </p>
+  </main>
+</BaseLayout>
+
+<style>
+  .admin-page {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 1rem;
+    font-family: system-ui, sans-serif;
+  }
+  .admin-links {
+    padding: 0;
+    list-style: none;
+  }
+  .admin-links li {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #eee;
+  }
+  .admin-links a {
+    font-weight: 600;
+    font-size: 1.05rem;
+  }
+  .admin-links p {
+    margin: 0.25rem 0 0;
+    color: #555;
+    font-size: 0.9rem;
+  }
+  .admin-note {
+    margin-top: 1.5rem;
+    color: #555;
+    font-size: 0.9rem;
+  }
+</style>
