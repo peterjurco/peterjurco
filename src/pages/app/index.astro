@@ -4,9 +4,11 @@ import AppNav from '../../components/AppNav.astro'
 import ArticleList from '../../components/ArticleList.astro'
 import { FeaturedReorder } from '../../components/FeaturedReorder'
 import { getAppDb } from '../../db'
-import { apps as appsTable, photoTags } from '../../db/schema'
+import { photoTags } from '../../db/schema'
 import BaseLayout from '../../layouts/BaseLayout.astro'
+import { listOrdered } from '../../lib/apps/repo'
 import { listFeatured, listRecent } from '../../lib/articles/queries'
+import { imageUrl } from '../../lib/media/image-url'
 
 // Defense in depth: the middleware already gates /app/*, but never render
 // this page without a resolved user.
@@ -20,9 +22,9 @@ const [featured, recent, photoHubs, apps] = await Promise.all([
   listFeatured(db),
   listRecent(db, 10),
   // Photo hubs = photo tags (REQUIREMENTS "Google Photos hub widget"),
-  // linking into the hub's per-tag pages. Apps stays a slot until Plan 7.
+  // linking into the hub's per-tag pages.
   db.select().from(photoTags).orderBy(asc(photoTags.name)),
-  db.select().from(appsTable).orderBy(asc(appsTable.sortOrder)),
+  listOrdered(db),
 ])
 ---
 
@@ -69,6 +71,14 @@ const [featured, recent, photoHubs, apps] = await Promise.all([
         {
           apps.map((app) => (
             <li>
+              {app.iconKey && (
+                <img
+                  class="app-icon"
+                  src={imageUrl(app.iconKey, { width: 32, height: 32 })}
+                  alt=""
+                  loading="lazy"
+                />
+              )}
               <a href={app.url} target="_blank" rel="noreferrer">
                 {app.name}
               </a>
@@ -76,6 +86,7 @@ const [featured, recent, photoHubs, apps] = await Promise.all([
           ))
         }
       </ul>
+      <p><a href="/app/admin/apps">Manage apps →</a></p>
     </section>
   </main>
 </BaseLayout>
@@ -110,6 +121,12 @@ const [featured, recent, photoHubs, apps] = await Promise.all([
   }
   li a {
     font-weight: 600;
+  }
+  .app-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 4px;
+    object-fit: cover;
   }
   .badge {
     padding: 0.05rem 0.4rem;

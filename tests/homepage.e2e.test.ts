@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
+  apps,
   articleCategories,
   articles,
   articleTags,
@@ -92,6 +93,7 @@ beforeAll(async () => {
   await db.delete(photoAlbumsTagsMap)
   await db.delete(photoAlbums)
   await db.delete(photoTags)
+  await db.delete(apps)
 
   const [user] = await db
     .insert(users)

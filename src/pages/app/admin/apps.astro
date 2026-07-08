@@ -1,0 +1,32 @@
+---
+import AppNav from '../../../components/AppNav.astro'
+import { AppsAdmin } from '../../../components/AppsAdmin'
+import { getAppDb } from '../../../db'
+import BaseLayout from '../../../layouts/BaseLayout.astro'
+import { listOrdered } from '../../../lib/apps/repo'
+
+// Defense in depth: the middleware already gates /app/*.
+if (!Astro.locals.user) {
+  return Astro.redirect('/api/auth/login', 302)
+}
+
+const apps = await listOrdered(getAppDb())
+---
+
+<BaseLayout title="My apps — peterjur.co">
+  <AppNav />
+  <main class="apps-admin-page">
+    <h1>My apps</h1>
+    <AppsAdmin client:load initialApps={apps} />
+    <p><a href="/app/admin">← Admin</a></p>
+  </main>
+</BaseLayout>
+
+<style>
+  .apps-admin-page {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 1rem;
+    font-family: system-ui, sans-serif;
+  }
+</style>
