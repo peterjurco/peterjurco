@@ -1,13 +1,18 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { imageUrl } from '../lib/media/image-url'
 import { CoverUpload } from './CoverUpload'
 
 /**
  * Admin CRUD for the "My apps" list (REQUIREMENTS "My apps"): a manually
- * ordered list of app links with an optional icon. Reordering swaps
- * `sort_order` with the neighbor and PATCHes both — simplest correct
- * approach, no drag library needed for a handful of rows. One busy guard
- * covers reorder/delete/add/icon-upload so nothing double-submits.
+ * ordered list of app links with an optional icon. Reordering posts the
+ * whole new order to `/api/apps/reorder` (mirroring `FeaturedReorder` +
+ * `featured-order`) rather than PATCHing two rows' `sort_order` in parallel —
+ * a pairwise swap can leave two rows sharing a `sort_order` if only one of
+ * its two independent requests fails; a full-list rewrite either lands
+ * entirely or is rolled back entirely. One busy guard serializes every
+ * mutation (move/add/delete/icon-upload), so overlapping moves can't happen
+ * through this UI; the request-sequence guard is a cheap defense-in-depth
+ * match for `FeaturedReorder`'s pattern in case that ever changes.
  */
 
 export interface AppItem {
@@ -24,19 +29,6 @@ interface AppsAdminProps {
 
 type Status = '' | 'Saving…' | 'Save failed' | 'Deleting…' | 'Delete failed'
 
-async function patchSortOrder(id: number, sortOrder: number): Promise<boolean> {
-  try {
-    const response = await fetch(`/api/apps/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sortOrder }),
-    })
-    return response.ok
-  } catch {
-    return false
-  }
-}
-
 export function AppsAdmin({ initialApps }: AppsAdminProps) {
   const [apps, setApps] = useState(initialApps)
   const [status, setStatus] = useState<Status>('')
@@ -45,6 +37,7 @@ export function AppsAdmin({ initialApps }: AppsAdminProps) {
   const [iconKey, setIconKey] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [validationError, setValidationError] = useState('')
+  const reorderSeq = useRef(0)
 
   // Derived, not stored: a request (or icon upload) is in flight. Guards the
   // double-submit race across reorder/delete/add.
@@ -54,22 +47,34 @@ export function AppsAdmin({ initialApps }: AppsAdminProps) {
     if (busy) return
     const targetIndex = index + direction
     if (targetIndex < 0 || targetIndex >= apps.length) return
-    const current = apps[index]
-    const target = apps[targetIndex]
-    if (!current || !target) return
+    const previous = apps
+    const next = [...apps]
+    const [moved] = next.splice(index, 1)
+    if (!moved) return
+    next.splice(targetIndex, 0, moved)
 
+    const seq = ++reorderSeq.current
+    setApps(next) // optimistic
     setStatus('Saving…')
-    const [currentOk, targetOk] = await Promise.all([
-      patchSortOrder(current.id, target.sortOrder),
-      patchSortOrder(target.id, current.sortOrder),
-    ])
-    if (currentOk && targetOk) {
-      const next = [...apps]
-      next[index] = { ...target, sortOrder: current.sortOrder }
-      next[targetIndex] = { ...current, sortOrder: target.sortOrder }
-      setApps(next)
+    let ok = false
+    try {
+      const response = await fetch('/api/apps/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderedIds: next.map((app) => app.id) }),
+      })
+      ok = response.ok
+    } catch {
+      ok = false
+    }
+    // Only the latest reorder may settle the UI — a stale failure must not
+    // roll back past an order a newer request already confirmed.
+    if (seq !== reorderSeq.current) return
+    if (ok) {
+      setApps(next.map((app, i) => ({ ...app, sortOrder: i })))
       setStatus('')
     } else {
+      setApps(previous)
       setStatus('Save failed')
     }
   }

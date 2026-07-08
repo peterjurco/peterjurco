@@ -6,6 +6,7 @@ import {
   deleteApp,
   listOrdered,
   nextSortOrder,
+  reorderApps,
   updateApp,
 } from '../src/lib/apps/repo'
 import { createTestDb } from './helpers/test-db'
@@ -133,6 +134,36 @@ describe('listOrdered', () => {
 
     const ordered = await listOrdered(db)
     expect(ordered.map((app) => app.id)).toEqual([second.id, first.id])
+  })
+})
+
+describe('reorderApps', () => {
+  it('rewrites sort_order to match the array index for every id', async () => {
+    const first = await createApp(db, {
+      name: 'First',
+      url: 'https://first.com',
+      sortOrder: 0,
+    })
+    const second = await createApp(db, {
+      name: 'Second',
+      url: 'https://second.com',
+      sortOrder: 1,
+    })
+    const third = await createApp(db, {
+      name: 'Third',
+      url: 'https://third.com',
+      sortOrder: 2,
+    })
+
+    await reorderApps(db, [third.id, first.id, second.id])
+
+    const ordered = await listOrdered(db)
+    expect(ordered.map((app) => app.id)).toEqual([
+      third.id,
+      first.id,
+      second.id,
+    ])
+    expect(ordered.map((app) => app.sortOrder)).toEqual([0, 1, 2])
   })
 })
 

@@ -76,3 +76,18 @@ export async function nextSortOrder(db: AppsDb): Promise<number> {
   const last = ordered.at(-1)
   return last ? last.sortOrder + 1 : 0
 }
+
+/**
+ * Persists a full reorder: each id's `sort_order` becomes its index. One
+ * request for the whole list (mirroring `reorderFeatured`) instead of a
+ * pairwise swap — a swap risks leaving two rows sharing a `sort_order` if
+ * one of its two independent PATCHes fails, which a full-list rewrite can't.
+ */
+export async function reorderApps(
+  db: AppsDb,
+  orderedIds: number[],
+): Promise<void> {
+  for (const [sortOrder, id] of orderedIds.entries()) {
+    await db.update(apps).set({ sortOrder }).where(eq(apps.id, id))
+  }
+}

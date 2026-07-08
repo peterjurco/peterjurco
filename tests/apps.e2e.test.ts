@@ -92,6 +92,7 @@ describe('apps API — auth is enforced in every handler', () => {
       ['/api/apps', 'POST'],
       ['/api/apps/1', 'PATCH'],
       ['/api/apps/1', 'DELETE'],
+      ['/api/apps/reorder', 'POST'],
     ] as const) {
       const response = await request(path, { method, body: {} })
       expect(response.status, `${method} ${path}`).toBe(401)
@@ -149,6 +150,23 @@ describe('apps API — validation', () => {
     })
     expect(empty.status).toBe(400)
   })
+
+  it('rejects invalid /api/apps/reorder bodies', async () => {
+    for (const body of [
+      {}, // no orderedIds
+      { orderedIds: 'nope' },
+      { orderedIds: [1, -2] },
+      { orderedIds: [1, 1.5] },
+      { orderedIds: Array.from({ length: 101 }, (_, i) => i + 1) },
+    ]) {
+      const response = await request('/api/apps/reorder', {
+        method: 'POST',
+        authed: true,
+        body,
+      })
+      expect(response.status, JSON.stringify(body)).toBe(400)
+    }
+  })
 })
 
 describe('apps API — CRUD, ordering and the homepage widget', () => {
@@ -199,6 +217,31 @@ describe('apps API — CRUD, ordering and the homepage widget', () => {
     expect(del.status).toBe(200)
     const afterDelete = await listOrdered(db)
     expect(afterDelete.some((app) => app.id === first.id)).toBe(false)
+  })
+
+  it('POST /api/apps/reorder rewrites sort_order for the full list', async () => {
+    const first = await createAppViaApi({ name: 'Alpha' })
+    const second = await createAppViaApi({ name: 'Beta' })
+    const third = await createAppViaApi({ name: 'Gamma' })
+
+    const reorder = await request('/api/apps/reorder', {
+      method: 'POST',
+      authed: true,
+      body: { orderedIds: [third.id, first.id, second.id] },
+    })
+    expect(reorder.status).toBe(200)
+
+    // Other tests in this file leave apps behind (only `beforeAll` clears
+    // the table), so filter to the three ids this test owns rather than
+    // asserting on the full, shared list.
+    const ids = new Set([first.id, second.id, third.id])
+    const ordered = (await listOrdered(db)).filter((app) => ids.has(app.id))
+    expect(ordered.map((app) => app.id)).toEqual([
+      third.id,
+      first.id,
+      second.id,
+    ])
+    expect(ordered.map((app) => app.sortOrder)).toEqual([0, 1, 2])
   })
 
   it('renames and clears the icon via PATCH', async () => {

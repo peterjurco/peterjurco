@@ -21,6 +21,14 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((res) => {
+    resolve = res
+  })
+  return { promise, resolve }
+}
+
 const APPS = [
   {
     id: 1,
@@ -39,27 +47,57 @@ const APPS = [
 ]
 
 describe('AppsAdmin — reorder', () => {
-  it('swaps sort_order with the neighbor and PATCHes both apps', async () => {
+  it('posts the full new order to /api/apps/reorder', async () => {
     render(<AppsAdmin initialApps={APPS} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Move Beta up' }))
 
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
-    const calls = (
-      fetchMock.mock.calls as unknown as [string, RequestInit][]
-    ).map(([url, init]) => [url, JSON.parse(String(init.body))] as const)
-    expect(calls).toEqual(
-      expect.arrayContaining([
-        ['/api/apps/2', { sortOrder: 0 }],
-        ['/api/apps/1', { sortOrder: 1 }],
-      ]),
+    // Optimistic: Beta renders first immediately, before the request settles.
+    expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual(
+      ['Beta', 'Alpha'],
     )
 
-    // Beta now renders first.
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ]
+    expect(url).toBe('/api/apps/reorder')
+    expect(JSON.parse(String(init.body))).toEqual({ orderedIds: [2, 1] })
+  })
+
+  it('rolls back to the previous order when the reorder request fails', async () => {
+    fetchMock.mockImplementation(async () => new Response('', { status: 500 }))
+    render(<AppsAdmin initialApps={APPS} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Beta up' }))
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
     await vi.waitFor(() => {
       const names = screen.getAllByRole('link').map((link) => link.textContent)
-      expect(names).toEqual(['Beta', 'Alpha'])
+      expect(names).toEqual(['Alpha', 'Beta'])
     })
+    expect(screen.getByText('Save failed')).toBeTruthy()
+  })
+
+  it('the shared busy guard serializes moves — a second click while one is in flight is a no-op', async () => {
+    const request = deferred<Response>()
+    fetchMock.mockImplementationOnce(() => request.promise)
+    render(<AppsAdmin initialApps={APPS} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Beta up' }))
+    expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual(
+      ['Beta', 'Alpha'],
+    )
+
+    // A second, still-enabled move button ("Move Beta down") must still
+    // no-op while the first request is in flight — every mutation
+    // (move/add/delete) shares one busy guard.
+    fireEvent.click(screen.getByRole('button', { name: 'Move Beta down' }))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    request.resolve(new Response('', { status: 200 }))
+    await vi.waitFor(() => expect(screen.queryByText('Save failed')).toBeNull())
   })
 
   it('disables Move up for the first row and Move down for the last', () => {
