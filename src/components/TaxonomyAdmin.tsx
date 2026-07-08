@@ -7,7 +7,8 @@ import { useState } from 'react'
  * add-form. Photo tags additionally carry a public/private toggle; flipping
  * a PUBLIC tag private, or deleting one, warns that its `/t/:publicId` share
  * link stops working (the API allows it regardless — this is a UI-only
- * guard rail). One shared busy flag per section blocks double-submits.
+ * guard rail). `useTaxonomyCrud` holds the rename/delete/add plumbing (incl.
+ * the busy guard against double-submits) shared by both section kinds.
  */
 
 export interface TaxonomyItem {
@@ -44,7 +45,157 @@ async function jsonFetch(
   }
 }
 
-/** Generic list + rename + delete + add for a `{id, name}` taxonomy. */
+/**
+ * Rename/delete/add plumbing shared by every taxonomy section, including
+ * photo tags (which layer a visibility toggle on top via their own
+ * `jsonFetch` call, reusing this hook's `busy`/`status`).
+ */
+function useTaxonomyCrud<T extends TaxonomyItem>(
+  apiBase: string,
+  items: T[],
+  onChange: (next: T[]) => void,
+) {
+  const [status, setStatus] = useState<Status>('')
+  const busy = status === 'Saving…' || status === 'Deleting…'
+
+  async function rename(id: number, name: string): Promise<void> {
+    if (busy || name.length === 0) return
+    setStatus('Saving…')
+    const ok = await jsonFetch(`${apiBase}/${id}`, 'PATCH', { name })
+    if (ok) {
+      onChange(items.map((item) => (item.id === id ? { ...item, name } : item)))
+      setStatus('')
+    } else {
+      setStatus('Save failed')
+    }
+  }
+
+  async function remove(item: T, confirmMessage: string): Promise<void> {
+    if (busy) return
+    if (!window.confirm(confirmMessage)) return
+    setStatus('Deleting…')
+    const ok = await jsonFetch(`${apiBase}/${item.id}`, 'DELETE', undefined)
+    if (ok) {
+      onChange(items.filter((entry) => entry.id !== item.id))
+      setStatus('')
+    } else {
+      setStatus('Delete failed')
+    }
+  }
+
+  async function add(name: string): Promise<void> {
+    if (busy || name.length === 0) return
+    setStatus('Saving…')
+    try {
+      const response = await fetch(apiBase, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      })
+      if (response.ok) {
+        const created = (await response.json()) as T
+        onChange([...items, created])
+        setStatus('')
+        return
+      }
+      setStatus('Save failed')
+    } catch {
+      setStatus('Save failed')
+    }
+  }
+
+  return { status, busy, setStatus, rename, remove, add }
+}
+
+/** Click-to-edit name: a plain button, swapped for an input + Save/Cancel. */
+function EditableName({
+  name,
+  busy,
+  onRename,
+}: {
+  name: string
+  busy: boolean
+  onRename: (name: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(name)
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        className="taxonomy-name"
+        onClick={() => {
+          setDraft(name)
+          setEditing(true)
+        }}
+      >
+        {name}
+      </button>
+    )
+  }
+
+  return (
+    <>
+      <input
+        type="text"
+        aria-label={`Rename ${name}`}
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+      />
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => {
+          onRename(draft.trim())
+          setEditing(false)
+        }}
+      >
+        Save
+      </button>
+      <button type="button" disabled={busy} onClick={() => setEditing(false)}>
+        Cancel
+      </button>
+    </>
+  )
+}
+
+/** Add-form: a labeled text input plus a submit button. */
+function AddForm({
+  label,
+  busy,
+  status,
+  onAdd,
+}: {
+  label: string
+  busy: boolean
+  status: Status
+  onAdd: (name: string) => void
+}) {
+  const [name, setName] = useState('')
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+        onAdd(name.trim())
+        setName('')
+      }}
+    >
+      <input
+        type="text"
+        aria-label={label}
+        value={name}
+        onChange={(event) => setName(event.target.value)}
+      />
+      <button type="submit" disabled={busy}>
+        Add
+      </button>
+      <span aria-live="polite">{status}</span>
+    </form>
+  )
+}
+
+/** List + rename + delete + add for a plain `{id, name}` taxonomy. */
 function TaxonomySection({
   title,
   apiBase,
@@ -56,64 +207,11 @@ function TaxonomySection({
   items: TaxonomyItem[]
   onChange: (next: TaxonomyItem[]) => void
 }) {
-  const [status, setStatus] = useState<Status>('')
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [editingName, setEditingName] = useState('')
-  const [newName, setNewName] = useState('')
-
-  const busy = status === 'Saving…' || status === 'Deleting…'
-
-  async function rename(id: number): Promise<void> {
-    if (busy) return
-    const name = editingName.trim()
-    if (name.length === 0) return
-    setStatus('Saving…')
-    const ok = await jsonFetch(`${apiBase}/${id}`, 'PATCH', { name })
-    if (ok) {
-      onChange(items.map((item) => (item.id === id ? { ...item, name } : item)))
-      setEditingId(null)
-      setStatus('')
-    } else {
-      setStatus('Save failed')
-    }
-  }
-
-  async function remove(item: TaxonomyItem): Promise<void> {
-    if (busy) return
-    if (!window.confirm(`Delete "${item.name}"? This cannot be undone.`)) return
-    setStatus('Deleting…')
-    const ok = await jsonFetch(`${apiBase}/${item.id}`, 'DELETE', undefined)
-    if (ok) {
-      onChange(items.filter((entry) => entry.id !== item.id))
-      setStatus('')
-    } else {
-      setStatus('Delete failed')
-    }
-  }
-
-  async function add(): Promise<void> {
-    if (busy) return
-    const name = newName.trim()
-    if (name.length === 0) return
-    setStatus('Saving…')
-    try {
-      const response = await fetch(apiBase, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
-      })
-      if (response.ok) {
-        const created = (await response.json()) as { id: number; name: string }
-        onChange([...items, created])
-        setNewName('')
-        setStatus('')
-      } else {
-        setStatus('Save failed')
-      }
-    } catch {
-      setStatus('Save failed')
-    }
-  }
+  const { status, busy, rename, remove, add } = useTaxonomyCrud(
+    apiBase,
+    items,
+    onChange,
+  )
 
   return (
     <section className="taxonomy-section">
@@ -122,70 +220,32 @@ function TaxonomySection({
       <ul>
         {items.map((item) => (
           <li key={item.id}>
-            {editingId === item.id ? (
-              <>
-                <input
-                  type="text"
-                  aria-label={`Rename ${item.name}`}
-                  value={editingName}
-                  onChange={(event) => setEditingName(event.target.value)}
-                />
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void rename(item.id)}
-                >
-                  Save
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => setEditingId(null)}
-                >
-                  Cancel
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className="taxonomy-name"
-                  onClick={() => {
-                    setEditingId(item.id)
-                    setEditingName(item.name)
-                  }}
-                >
-                  {item.name}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void remove(item)}
-                >
-                  Delete
-                </button>
-              </>
-            )}
+            <EditableName
+              name={item.name}
+              busy={busy}
+              onRename={(name) => void rename(item.id, name)}
+            />
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                void remove(
+                  item,
+                  `Delete "${item.name}"? This cannot be undone.`,
+                )
+              }
+            >
+              Delete
+            </button>
           </li>
         ))}
       </ul>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault()
-          void add()
-        }}
-      >
-        <input
-          type="text"
-          aria-label={`New ${title.toLowerCase()} name`}
-          value={newName}
-          onChange={(event) => setNewName(event.target.value)}
-        />
-        <button type="submit" disabled={busy}>
-          Add
-        </button>
-        <span aria-live="polite">{status}</span>
-      </form>
+      <AddForm
+        label={`New ${title.toLowerCase()} name`}
+        busy={busy}
+        status={status}
+        onAdd={(name) => void add(name)}
+      />
     </section>
   )
 }
@@ -199,27 +259,11 @@ function PhotoTagsSection({
   items: PhotoTagItem[]
   onChange: (next: PhotoTagItem[]) => void
 }) {
-  const [status, setStatus] = useState<Status>('')
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [editingName, setEditingName] = useState('')
-  const [newName, setNewName] = useState('')
-
-  const busy = status === 'Saving…' || status === 'Deleting…'
-
-  async function rename(id: number): Promise<void> {
-    if (busy) return
-    const name = editingName.trim()
-    if (name.length === 0) return
-    setStatus('Saving…')
-    const ok = await jsonFetch(`${PHOTO_TAGS_API}/${id}`, 'PATCH', { name })
-    if (ok) {
-      onChange(items.map((item) => (item.id === id ? { ...item, name } : item)))
-      setEditingId(null)
-      setStatus('')
-    } else {
-      setStatus('Save failed')
-    }
-  }
+  const { status, busy, setStatus, rename, remove, add } = useTaxonomyCrud(
+    PHOTO_TAGS_API,
+    items,
+    onChange,
+  )
 
   async function toggleVisibility(item: PhotoTagItem): Promise<void> {
     if (busy) return
@@ -251,49 +295,10 @@ function PhotoTagsSection({
     }
   }
 
-  async function remove(item: PhotoTagItem): Promise<void> {
-    if (busy) return
-    const message =
-      item.visibility === 'public'
-        ? `Delete "${item.name}"? Its public share link (/t/…) will stop working. This cannot be undone.`
-        : `Delete "${item.name}"? This cannot be undone.`
-    if (!window.confirm(message)) return
-    setStatus('Deleting…')
-    const ok = await jsonFetch(
-      `${PHOTO_TAGS_API}/${item.id}`,
-      'DELETE',
-      undefined,
-    )
-    if (ok) {
-      onChange(items.filter((entry) => entry.id !== item.id))
-      setStatus('')
-    } else {
-      setStatus('Delete failed')
-    }
-  }
-
-  async function add(): Promise<void> {
-    if (busy) return
-    const name = newName.trim()
-    if (name.length === 0) return
-    setStatus('Saving…')
-    try {
-      const response = await fetch(PHOTO_TAGS_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
-      })
-      if (response.ok) {
-        const created = (await response.json()) as PhotoTagItem
-        onChange([...items, created])
-        setNewName('')
-        setStatus('')
-      } else {
-        setStatus('Save failed')
-      }
-    } catch {
-      setStatus('Save failed')
-    }
+  function deleteMessage(item: PhotoTagItem): string {
+    return item.visibility === 'public'
+      ? `Delete "${item.name}"? Its public share link (/t/…) will stop working. This cannot be undone.`
+      : `Delete "${item.name}"? This cannot be undone.`
   }
 
   return (
@@ -303,82 +308,37 @@ function PhotoTagsSection({
       <ul>
         {items.map((item) => (
           <li key={item.id}>
-            {editingId === item.id ? (
-              <>
-                <input
-                  type="text"
-                  aria-label={`Rename ${item.name}`}
-                  value={editingName}
-                  onChange={(event) => setEditingName(event.target.value)}
-                />
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void rename(item.id)}
-                >
-                  Save
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => setEditingId(null)}
-                >
-                  Cancel
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className="taxonomy-name"
-                  onClick={() => {
-                    setEditingId(item.id)
-                    setEditingName(item.name)
-                  }}
-                >
-                  {item.name}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void toggleVisibility(item)}
-                >
-                  {item.visibility === 'public'
-                    ? 'Make private'
-                    : 'Make public'}
-                </button>
-                <span className={`badge badge-${item.visibility}`}>
-                  {item.visibility}
-                </span>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void remove(item)}
-                >
-                  Delete
-                </button>
-              </>
-            )}
+            <EditableName
+              name={item.name}
+              busy={busy}
+              onRename={(name) => void rename(item.id, name)}
+            />
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void toggleVisibility(item)}
+            >
+              {item.visibility === 'public' ? 'Make private' : 'Make public'}
+            </button>
+            <span className={`badge badge-${item.visibility}`}>
+              {item.visibility}
+            </span>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void remove(item, deleteMessage(item))}
+            >
+              Delete
+            </button>
           </li>
         ))}
       </ul>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault()
-          void add()
-        }}
-      >
-        <input
-          type="text"
-          aria-label="New photo tag name"
-          value={newName}
-          onChange={(event) => setNewName(event.target.value)}
-        />
-        <button type="submit" disabled={busy}>
-          Add
-        </button>
-        <span aria-live="polite">{status}</span>
-      </form>
+      <AddForm
+        label="New photo tag name"
+        busy={busy}
+        status={status}
+        onAdd={(name) => void add(name)}
+      />
     </section>
   )
 }
