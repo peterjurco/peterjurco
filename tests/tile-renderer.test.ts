@@ -101,7 +101,7 @@ describe('tileImageSrc', () => {
   })
 
   it('throws on a photo tile without an image key (data invariant)', () => {
-    expect(() => tileImageSrc({ ...PHOTO, imageKey: null })).toThrowError(
+    expect(() => tileImageSrc({ ...PHOTO, imageKey: null })).toThrow(
       /image key/i,
     )
   })

@@ -1,7 +1,122 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro'
+import '@fontsource-variable/unbounded/index.css'
+import '@fontsource-variable/big-shoulders-display/index.css'
+import '../styles/public-home.css'
+import { CycleGroup } from '../components/public/CycleGroup'
+import TileRenderer from '../components/public/TileRenderer.astro'
+import {
+  tileClasses,
+  tileImageSrc,
+  tileStyle,
+} from '../components/public/tile-render'
+import { getAppDb } from '../db'
+import { absoluteUrl } from '../lib/absolute-url'
+import { type HomeTile, listOrdered } from '../lib/home/repo'
+import { imageUrl } from '../lib/media/image-url'
+
+/**
+ * The public homepage (REQUIREMENTS "Public section", DESIGN.md): a quiet,
+ * warm poster wall — tiles absolutely positioned from `home_tiles` on the
+ * faded-ochre canvas. No menu, no subpages. Pure SSR except the CycleGroup
+ * island, mounted only when a cycle_group exists; no editor JS ships here.
+ *
+ * This page owns its whole document (instead of BaseLayout) because the
+ * design needs the `.public-home` ground on <body> and a margin reset.
+ */
+
+const db = getAppDb()
+const tiles = await listOrdered(db)
+
+// Photo tiles sharing a cycle_group render as ONE positioned container that
+// crossfades through their images; the group's first tile in z-order (the
+// anchor) provides the layout. Quote tiles never cycle.
+const cycleGroups = new Map<string, HomeTile[]>()
+for (const tile of tiles) {
+  if (tile.kind === 'photo' && tile.cycleGroup) {
+    const group = cycleGroups.get(tile.cycleGroup) ?? []
+    group.push(tile)
+    cycleGroups.set(tile.cycleGroup, group)
+  }
+}
+const isCycleAnchor = (tile: HomeTile) =>
+  tile.kind === 'photo' &&
+  tile.cycleGroup !== null &&
+  cycleGroups.get(tile.cycleGroup)?.[0]?.id === tile.id
+const isCycleFollower = (tile: HomeTile) =>
+  tile.kind === 'photo' && tile.cycleGroup !== null && !isCycleAnchor(tile)
+
+const title = 'Peter Jurčo'
+const description = 'Photography — selected frames.'
+const canonicalUrl = new URL('/', Astro.url)
+const firstPhoto = tiles.find((tile) => tile.kind === 'photo' && tile.imageKey)
+// og:image must be absolute — imageUrl is zone-relative when transforms are
+// on (see its docblock), so absolutize against the request URL.
+const ogImage = firstPhoto?.imageKey
+  ? absoluteUrl(imageUrl(firstPhoto.imageKey, { width: 1200 }), Astro.url)
+  : null
+
+// Footer socials per DESIGN; hrefs stay the mock's placeholders until the
+// owner supplies real profile URLs.
+const socials = [
+  ['Instagram', '#'],
+  ['LinkedIn', '#'],
+  ['Goodreads', '#'],
+  ['Last.fm', '#'],
+  ['Strava', '#'],
+  ['GitHub', '#'],
+  ['Email', '#'],
+] as const
 ---
 
-<BaseLayout>
-  <h1>peterjur.co</h1>
-</BaseLayout>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta
+      name="twitter:card"
+      content={ogImage ? 'summary_large_image' : 'summary'}
+    />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
+  </head>
+  <body class="public-home">
+    <div class="wrap">
+      <header class="masthead">
+        <div class="logo">Peter Jurčo</div>
+        <div class="masthead__meta">Photography<br />Selected frames</div>
+      </header>
+
+      <main class="canvas">
+        {
+          tiles.map((tile) =>
+            isCycleAnchor(tile) && tile.cycleGroup ? (
+              <div class={tileClasses(tile)} style={tileStyle(tile)}>
+                <CycleGroup
+                  client:idle
+                  images={(cycleGroups.get(tile.cycleGroup) ?? []).map(
+                    (member) => tileImageSrc(member),
+                  )}
+                />
+              </div>
+            ) : isCycleFollower(tile) ? null : (
+              <TileRenderer tile={tile} />
+            ),
+          )
+        }
+      </main>
+    </div>
+
+    <footer class="foot">
+      {socials.map(([label, href]) => <a href={href}>{label}</a>)}
+    </footer>
+  </body>
+</html>
