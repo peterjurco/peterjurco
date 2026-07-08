@@ -2,6 +2,7 @@
 import '@fontsource-variable/unbounded/index.css'
 import '@fontsource-variable/big-shoulders-display/index.css'
 import '../styles/public-home.css'
+import Analytics from '../components/Analytics.astro'
 import { CycleGroup } from '../components/public/CycleGroup'
 import TileRenderer from '../components/public/TileRenderer.astro'
 import {
@@ -104,6 +105,7 @@ const socials = [
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     {ogImage && <meta name="twitter:image" content={ogImage} />}
+    <Analytics />
   </head>
   <body class="public-home">
     <div class="wrap">

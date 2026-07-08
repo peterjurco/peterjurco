@@ -1,4 +1,6 @@
 ---
+import Analytics from '../components/Analytics.astro'
+
 interface Props {
   title?: string
 }
@@ -12,6 +14,7 @@ const { title = 'peterjur.co' } = Astro.props
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
+    <Analytics />
     <slot name="head" />
   </head>
   <body>

@@ -1,0 +1,26 @@
+---
+import { beaconAttrs } from '../lib/analytics'
+
+/**
+ * Cloudflare Web Analytics beacon (TECH_DECISIONS §7). Rendered in the <head>
+ * of BOTH document owners — BaseLayout and the public homepage (which builds
+ * its own document for the `.public-home` ground). Renders nothing unless
+ * this is a production build with `PUBLIC_CF_ANALYTICS_TOKEN` set, so dev
+ * servers and tests stay beacon-free.
+ */
+const attrs = beaconAttrs(
+  import.meta.env.PUBLIC_CF_ANALYTICS_TOKEN,
+  import.meta.env.PROD,
+)
+---
+
+{
+  attrs && (
+    <script
+      defer
+      is:inline
+      src={attrs.src}
+      data-cf-beacon={attrs.dataCfBeacon}
+    />
+  )
+}

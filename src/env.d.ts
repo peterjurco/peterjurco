@@ -23,6 +23,8 @@ interface ImportMetaEnv {
   readonly PUBLIC_R2_PUBLIC_BASE_URL?: string
   /** Set to `off` where no Cloudflare zone serves /cdn-cgi/image (dev/tests). */
   readonly PUBLIC_IMAGE_TRANSFORMS?: string
+  /** Cloudflare Web Analytics site token (TECH_DECISIONS §7); unset = no beacon. */
+  readonly PUBLIC_CF_ANALYTICS_TOKEN?: string
 }
 
 declare module 'cloudflare:workers' {
