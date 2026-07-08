@@ -192,11 +192,6 @@
   letter-spacing: 0.02em;
 }
 
-.public-home .quote-ink em {
-  color: var(--ground);
-  font-style: normal;
-}
-
 .public-home .quote-ink:hover,
 .public-home .quote-ink:focus-visible {
   transform: rotate(calc(var(--tilt, 1.3deg) * 0.375));
@@ -256,7 +251,9 @@
   .public-home *,
   .public-home *::before,
   .public-home *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: accessibility kill-switch — must out-rank every transition rule above, including inline-style-adjacent ones. */
     transition-duration: 0.001ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: same reduced-motion kill-switch for animations. */
     animation: none !important;
   }
 }

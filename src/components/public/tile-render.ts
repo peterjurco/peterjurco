@@ -35,6 +35,18 @@ export interface RenderTile {
 /** Display width requested from the image edge — tiles top out well below it. */
 export const TILE_IMAGE_WIDTH = 1200
 
+/**
+ * Guards SSR against malformed rows (the API enforces completeness, but the
+ * DB schema cannot): a photo without an imageKey would make tileImageSrc
+ * throw and 500 the whole homepage; a quote without text renders an empty
+ * box. The page skips (and logs) such rows instead of failing the render.
+ */
+export function isRenderable(tile: RenderTile): boolean {
+  // Falsy check mirrors requireCompleteTile ('' is as unrenderable as null).
+  if (tile.kind === 'photo') return Boolean(tile.imageKey)
+  return Boolean(tile.textContent)
+}
+
 export function tileClasses(tile: RenderTile): string {
   if (tile.kind === 'photo') {
     // `develop` is the DESIGN default; only an explicit 'none' opts out.

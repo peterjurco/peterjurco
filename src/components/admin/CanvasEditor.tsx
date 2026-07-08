@@ -105,19 +105,17 @@ export function CanvasEditor({ initialTiles }: CanvasEditorProps) {
   }
 
   function addTile(tile: Omit<EditorTile, 'zIndex'>): void {
-    setTiles((current) => {
-      const topZ = current.reduce(
-        (top, entry) => Math.max(top, entry.zIndex),
-        0,
-      )
-      const keyed: Keyed = {
-        ...tile,
-        zIndex: topZ + 1,
-        clientKey: nextKey.current++,
-      }
-      setSelectedKey(keyed.clientKey)
-      return [...current, keyed]
-    })
+    // Computed OUTSIDE the setTiles updater — updaters must stay pure (React
+    // may invoke them twice in StrictMode), and this one used to mutate the
+    // key ref and set sibling state inside.
+    const topZ = tiles.reduce((top, entry) => Math.max(top, entry.zIndex), 0)
+    const keyed: Keyed = {
+      ...tile,
+      zIndex: topZ + 1,
+      clientKey: nextKey.current++,
+    }
+    setTiles((current) => [...current, keyed])
+    setSelectedKey(keyed.clientKey)
     setDirty(true)
     setStatus('')
   }
@@ -246,11 +244,32 @@ export function CanvasEditor({ initialTiles }: CanvasEditorProps) {
     updateTile(key, patch)
   }
 
+  /** Only the keys the layout API accepts — a whitelist, so stray row fields
+   *  (createdAt/updatedAt on server-seeded tiles) never reach the wire. */
+  function layoutPayload(tile: Keyed): EditorTile {
+    return {
+      ...(tile.id !== undefined ? { id: tile.id } : {}),
+      kind: tile.kind,
+      imageKey: tile.imageKey,
+      textContent: tile.textContent,
+      cite: tile.cite,
+      x: tile.x,
+      y: tile.y,
+      width: tile.width,
+      height: tile.height,
+      rotation: tile.rotation,
+      border: tile.border,
+      hoverEffect: tile.hoverEffect,
+      zIndex: tile.zIndex,
+      cycleGroup: tile.cycleGroup,
+    }
+  }
+
   async function save(): Promise<void> {
     if (busy) return
     setStatus('Saving…')
     try {
-      const payload = tiles.map(({ clientKey, ...tile }) => tile)
+      const payload = tiles.map(layoutPayload)
       const response = await fetch('/api/home/tiles', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

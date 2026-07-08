@@ -153,3 +153,26 @@ describe('parseLayoutPayload — the PUT bulk body', () => {
     expect(result).toContain('tiles[1]')
   })
 })
+
+describe('border.color — inline-style injection is rejected', () => {
+  it('accepts hex colors only', () => {
+    for (const color of ['#f0e7d3', '#17140F', '#abc', '#aabbccdd']) {
+      const result = parseTileFields({ border: { width: 2, color } })
+      expect(result, color).not.toBeTypeOf('string')
+    }
+  })
+
+  it('rejects CSS-declaration smuggling and non-hex colors', () => {
+    for (const color of [
+      'red;background:url(https://evil.example/ping)',
+      'url(https://evil.example)',
+      'red',
+      'rgb(1,2,3)',
+      'var(--accent)',
+      '',
+    ]) {
+      const result = parseTileFields({ border: { width: 2, color } })
+      expect(result, color).toBeTypeOf('string')
+    }
+  })
+})

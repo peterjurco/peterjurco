@@ -23,7 +23,10 @@ export const CANVAS_ASPECT_CSS = `${CANVAS_ASPECT.width} / ${CANVAS_ASPECT.heigh
 export interface TileBorder {
   /** CSS pixels at the reference canvas size. */
   width: number
-  /** Any CSS color, e.g. `#f0e7d3`. */
+  /**
+   * Hex color only, e.g. `#f0e7d3` — validated (tile-fields.ts) because it
+   * is interpolated into an inline `style` attribute.
+   */
   color: string
 }
 

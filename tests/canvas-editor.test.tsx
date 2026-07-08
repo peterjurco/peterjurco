@@ -365,3 +365,32 @@ describe('CanvasEditor — add and save', () => {
     expect(dirty.defaultPrevented).toBe(true)
   })
 })
+
+describe('TileInspector — numeric input edge cases', () => {
+  it('clearing a field commits nothing (no collapse to 0)', () => {
+    renderEditor()
+    selectTile(photoTile())
+    const width = inspectorInput('Width (%)')
+    fireEvent.change(width, { target: { value: '' } })
+    // Model untouched: the tile keeps its 30% width.
+    expect(photoTile().style.width).toBe('30%')
+  })
+
+  it('typing a negative value works for X (leading "-" is not swallowed)', () => {
+    renderEditor()
+    selectTile(photoTile())
+    const x = inspectorInput('X (%)')
+    // The intermediate lone "-" parses to NaN → ignored, input keeps focus…
+    fireEvent.change(x, { target: { value: '-' } })
+    expect(photoTile().style.left).toBe('10%')
+    // …and the completed negative number commits.
+    fireEvent.change(x, { target: { value: '-5' } })
+    expect(photoTile().style.left).toBe('-5%')
+  })
+
+  it('hides the hover-effect control for quote tiles (renderer ignores it)', () => {
+    renderEditor()
+    selectTile(quoteTile())
+    expect(screen.queryByLabelText('Hover effect')).toBeNull()
+  })
+})

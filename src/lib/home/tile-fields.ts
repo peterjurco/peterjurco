@@ -14,6 +14,14 @@ const CITE_MAX = 500
 const CYCLE_GROUP_MAX = 100
 const BORDER_WIDTH_MAX = 100
 
+/**
+ * border.color is interpolated into an inline `style` attribute, so it must
+ * never carry arbitrary CSS (`;`, `url(...)`, extra declarations). Hex only —
+ * the design's cream/ink tokens are hex, and the editor's color input emits
+ * `#rrggbb`.
+ */
+const BORDER_COLOR_PATTERN = /^#[0-9a-fA-F]{3,8}$/
+
 export type TileFields = Partial<TileValues>
 
 function isFiniteNumber(value: unknown): value is number {
@@ -100,10 +108,12 @@ export function parseTileFields(
       if (
         typeof body.border !== 'object' ||
         !inRange(border?.width, { min: 0, max: BORDER_WIDTH_MAX }) ||
-        typeof border?.color !== 'string' ||
-        border.color.length === 0
+        typeof border?.color !== 'string'
       ) {
         return 'border must be { width: number, color: string } or null'
+      }
+      if (!BORDER_COLOR_PATTERN.test(border.color)) {
+        return 'border.color must be a hex color like #f0e7d3'
       }
     }
     fields.border = body.border as TileBorder | null

@@ -33,7 +33,11 @@ export function CycleGroup({ images, intervalMs = 5000 }: CycleGroupProps) {
     <>
       {images.map((src, index) => (
         <img
-          key={src}
+          // The layer's identity is its slot, not its picture: the list is
+          // static for the island's lifetime, and two members of a group may
+          // share the same image src (so src alone would collide).
+          // biome-ignore lint/suspicious/noArrayIndexKey: static list; slot IS the identity
+          key={`${index}-${src}`}
           className={
             index === active ? 'cycle-layer is-visible' : 'cycle-layer'
           }

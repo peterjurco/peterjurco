@@ -17,7 +17,13 @@ interface TileInspectorProps {
 
 const DEFAULT_BORDER_COLOR = '#f0e7d3'
 
+/**
+ * null = "no committable value yet", so the model is left untouched: a
+ * cleared field must not collapse to 0 (`Number('') === 0`), and a partial
+ * `-` while typing a negative number must not commit anything.
+ */
 function parseNumber(raw: string): number | null {
+  if (raw.trim() === '') return null
   const value = Number(raw)
   return Number.isFinite(value) ? value : null
 }
@@ -120,8 +126,10 @@ export function TileInspector({
         )}
         <label>
           Border color
+          {/* type="color" emits #rrggbb — exactly what the API's hex-only
+              border.color validation (tile-fields.ts) accepts. */}
           <input
-            type="text"
+            type="color"
             aria-label="Border color"
             value={tile.border?.color ?? DEFAULT_BORDER_COLOR}
             onChange={(event) => {
@@ -137,20 +145,26 @@ export function TileInspector({
 
       <fieldset>
         <legend>Behavior</legend>
-        <label>
-          Hover effect
-          <select
-            aria-label="Hover effect"
-            value={tile.hoverEffect ?? 'develop'}
-            onChange={(event) => onChange({ hoverEffect: event.target.value })}
-          >
-            {HOVER_EFFECTS.map((effect) => (
-              <option key={effect} value={effect}>
-                {effect}
-              </option>
-            ))}
-          </select>
-        </label>
+        {/* The renderer only honors hover effects on photo tiles (quote
+            hover is fixed by DESIGN) — don't offer a dead control. */}
+        {tile.kind === 'photo' && (
+          <label>
+            Hover effect
+            <select
+              aria-label="Hover effect"
+              value={tile.hoverEffect ?? 'develop'}
+              onChange={(event) =>
+                onChange({ hoverEffect: event.target.value })
+              }
+            >
+              {HOVER_EFFECTS.map((effect) => (
+                <option key={effect} value={effect}>
+                  {effect}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         {numberField('Z-index', tile.zIndex, (zIndex) => ({
           zIndex: Math.round(zIndex),
         }))}

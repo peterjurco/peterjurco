@@ -57,6 +57,15 @@ export async function createTile(
   return tile as HomeTile
 }
 
+/** One tile by id, or null — lets PATCH validate the merged row pre-write. */
+export async function getTile(
+  db: HomeDb,
+  id: number,
+): Promise<HomeTile | null> {
+  const [tile] = await db.select().from(homeTiles).where(eq(homeTiles.id, id))
+  return (tile as HomeTile | undefined) ?? null
+}
+
 /** Partial update; `border: null` / `cycleGroup: null` clear. Null = missing. */
 export async function updateTile(
   db: HomeDb,
@@ -91,10 +100,12 @@ export async function listOrdered(db: HomeDb): Promise<HomeTile[]> {
 
 /**
  * Persists a full editor save: the passed array IS the complete canvas.
- * Tiles with an id are updated, tiles without one are inserted, and rows
- * whose ids are absent from the array are deleted. Stale ids (deleted in
- * another tab) are skipped, never re-created. Returns the saved canvas in
- * stacking order.
+ * Tiles with an id are updated (one statement each — every row gets its own
+ * values), tiles without one are inserted in a single batched insert in
+ * array order (identity ids stay ascending, preserving the z-tie ordering),
+ * and rows whose ids are absent from the array are deleted. Stale ids
+ * (deleted in another tab) are skipped, never re-created. Returns the saved
+ * canvas in stacking order.
  */
 export async function bulkUpsertLayout(
   db: HomeDb,
@@ -110,13 +121,17 @@ export async function bulkUpsertLayout(
     await db.delete(homeTiles)
   }
 
+  const inserts: TileValues[] = []
   for (const tile of tiles) {
     const { id, ...values } = tile
     if (id === undefined) {
-      await db.insert(homeTiles).values(values)
+      inserts.push(values)
     } else {
       await db.update(homeTiles).set(values).where(eq(homeTiles.id, id))
     }
+  }
+  if (inserts.length > 0) {
+    await db.insert(homeTiles).values(inserts)
   }
 
   return listOrdered(db)

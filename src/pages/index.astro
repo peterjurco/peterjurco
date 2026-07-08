@@ -5,6 +5,7 @@ import '../styles/public-home.css'
 import { CycleGroup } from '../components/public/CycleGroup'
 import TileRenderer from '../components/public/TileRenderer.astro'
 import {
+  isRenderable,
   tileClasses,
   tileImageSrc,
   tileStyle,
@@ -25,11 +26,21 @@ import { imageUrl } from '../lib/media/image-url'
  */
 
 const db = getAppDb()
-const tiles = await listOrdered(db)
+// Malformed rows (photo without an image, quote without text) must not 500
+// the public page — skip them loudly and render the rest of the wall.
+const tiles = (await listOrdered(db)).filter((tile) => {
+  if (isRenderable(tile)) return true
+  console.error(
+    `Skipping unrenderable home tile id=${tile.id} (kind=${tile.kind})`,
+  )
+  return false
+})
 
 // Photo tiles sharing a cycle_group render as ONE positioned container that
 // crossfades through their images; the group's first tile in z-order (the
-// anchor) provides the layout. Quote tiles never cycle.
+// anchor) provides the layout. Quote tiles never cycle, and a group with a
+// single member has nothing to cycle — it renders as a plain SSR tile so no
+// island ships for it.
 const cycleGroups = new Map<string, HomeTile[]>()
 for (const tile of tiles) {
   if (tile.kind === 'photo' && tile.cycleGroup) {
@@ -38,12 +49,18 @@ for (const tile of tiles) {
     cycleGroups.set(tile.cycleGroup, group)
   }
 }
+for (const [name, group] of cycleGroups) {
+  if (group.length < 2) cycleGroups.delete(name)
+}
 const isCycleAnchor = (tile: HomeTile) =>
   tile.kind === 'photo' &&
   tile.cycleGroup !== null &&
   cycleGroups.get(tile.cycleGroup)?.[0]?.id === tile.id
 const isCycleFollower = (tile: HomeTile) =>
-  tile.kind === 'photo' && tile.cycleGroup !== null && !isCycleAnchor(tile)
+  tile.kind === 'photo' &&
+  tile.cycleGroup !== null &&
+  cycleGroups.has(tile.cycleGroup) &&
+  !isCycleAnchor(tile)
 
 const title = 'Peter Jurčo'
 const description = 'Photography — selected frames.'

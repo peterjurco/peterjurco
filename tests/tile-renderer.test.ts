@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { RenderTile } from '../src/components/public/tile-render'
 import {
+  isRenderable,
   tileClasses,
   tileImageSrc,
   tileStyle,
@@ -104,5 +105,22 @@ describe('tileImageSrc', () => {
     expect(() => tileImageSrc({ ...PHOTO, imageKey: null })).toThrow(
       /image key/i,
     )
+  })
+})
+
+describe('isRenderable — SSR guard against malformed rows', () => {
+  it('accepts complete photo and quote tiles', () => {
+    expect(isRenderable(PHOTO)).toBe(true)
+    expect(isRenderable(MARQUEE_QUOTE)).toBe(true)
+  })
+
+  it('rejects a photo tile without an image key', () => {
+    expect(isRenderable({ ...PHOTO, imageKey: null })).toBe(false)
+    expect(isRenderable({ ...PHOTO, imageKey: '' })).toBe(false)
+  })
+
+  it('rejects a quote tile without text', () => {
+    expect(isRenderable({ ...MARQUEE_QUOTE, textContent: null })).toBe(false)
+    expect(isRenderable({ ...MARQUEE_QUOTE, textContent: '' })).toBe(false)
   })
 })

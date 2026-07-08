@@ -414,3 +414,58 @@ describe('bulk save — editor round-trip', () => {
     expect(html).not.toContain('home/redhouse.webp')
   })
 })
+
+describe('tile invariants — PATCH validates the merged row, render tolerates bad rows', () => {
+  it('rejects a patch that would leave a photo tile without an image', async () => {
+    const id = await createTileViaApi(photoBody())
+
+    const response = await request(`/api/home/tiles/${id}`, {
+      method: 'PATCH',
+      authed: true,
+      body: { imageKey: null },
+    })
+    expect(response.status).toBe(400)
+
+    // The row is unchanged and the homepage still renders it.
+    const [row] = await listOrdered(db)
+    expect(row?.imageKey).toBe('home/redhouse.webp')
+    const html = await (await request('/')).text()
+    expect(html).toContain('home/redhouse.webp')
+  })
+
+  it('rejects flipping kind when the merged row would be incomplete', async () => {
+    const id = await createTileViaApi(photoBody())
+    const response = await request(`/api/home/tiles/${id}`, {
+      method: 'PATCH',
+      authed: true,
+      body: { kind: 'quote' }, // no textContent on the row → unrenderable
+    })
+    expect(response.status).toBe(400)
+  })
+
+  it('skips a malformed DB row instead of failing the whole homepage', async () => {
+    await createTileViaApi(photoBody())
+    // Bypass the API on purpose: production data can outlive validation.
+    await db.insert(homeTiles).values({
+      kind: 'photo',
+      imageKey: null, // unrenderable
+      textContent: null,
+      cite: null,
+      x: 10,
+      y: 10,
+      width: 20,
+      height: 20,
+      rotation: 0,
+      border: null,
+      hoverEffect: null,
+      zIndex: 7,
+      cycleGroup: null,
+    })
+
+    const response = await request('/')
+    expect(response.status).toBe(200)
+    const html = await response.text()
+    expect(html).toContain('home/redhouse.webp') // the good tile renders
+    expect(html).not.toContain('z-index:7') // the broken one is skipped
+  })
+})
