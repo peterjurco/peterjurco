@@ -1,0 +1,44 @@
+---
+import AppNav from '../../components/AppNav.astro'
+import type { EditorTile } from '../../components/admin/CanvasEditor'
+import { CanvasEditor } from '../../components/admin/CanvasEditor'
+import { getAppDb } from '../../db'
+import BaseLayout from '../../layouts/BaseLayout.astro'
+import { listOrdered } from '../../lib/home/repo'
+
+// Defense in depth: the middleware already gates /app/*.
+if (!Astro.locals.user) {
+  return Astro.redirect('/api/auth/login', 302)
+}
+
+// Seed the island with the persisted canvas (timestamps stay server-side).
+const tiles: EditorTile[] = (await listOrdered(getAppDb())).map(
+  ({ createdAt, updatedAt, ...tile }) => tile,
+)
+---
+
+<BaseLayout title="Home editor — peterjur.co">
+  <AppNav />
+  <main class="home-editor-page">
+    <h1>Home canvas</h1>
+    <p class="home-editor-note">
+      Drag to move, corner handle to resize, top handle to rotate. Changes go
+      live on <a href="/" target="_blank" rel="noopener">the public page</a>
+      when you save.
+    </p>
+    <CanvasEditor client:load initialTiles={tiles} />
+  </main>
+</BaseLayout>
+
+<style>
+  .home-editor-page {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 1rem;
+    font-family: system-ui, sans-serif;
+  }
+  .home-editor-note {
+    color: #555;
+    font-size: 0.9rem;
+  }
+</style>
