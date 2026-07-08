@@ -1,0 +1,37 @@
+---
+import type { HomeTile } from '../../lib/home/repo'
+import { tileClasses, tileImageSrc, tileStyle } from './tile-render'
+
+/**
+ * Renders ONE home tile from its stored layout (DATA_MODEL §5) — pure SSR,
+ * no client JS. Photo tiles are muted `<img>` prints with the Develop hover;
+ * quote tiles render the marquee (cited) or ink (uncited) treatment — the
+ * convention is documented in ./tile-render.ts. Tiles that belong to a
+ * cycle_group are rendered by CycleGroup instead (see pages/index.astro).
+ */
+
+interface Props {
+  tile: HomeTile
+}
+
+const { tile } = Astro.props
+---
+
+{
+  tile.kind === 'photo' ? (
+    <div class={tileClasses(tile)} style={tileStyle(tile)}>
+      <img src={tileImageSrc(tile)} alt="" loading="lazy" decoding="async" />
+    </div>
+  ) : tile.cite ? (
+    <div class={tileClasses(tile)} style={tileStyle(tile)}>
+      <div>
+        <blockquote>{tile.textContent}</blockquote>
+        <cite>{tile.cite}</cite>
+      </div>
+    </div>
+  ) : (
+    <div class={tileClasses(tile)} style={tileStyle(tile)}>
+      <blockquote>{tile.textContent}</blockquote>
+    </div>
+  )
+}

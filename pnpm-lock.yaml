@@ -14,6 +14,12 @@ importers:
       '@astrojs/react':
         specifier: ^6.0.1
         version: 6.0.1(@types/node@26.1.0)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(esbuild@0.28.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(tsx@4.23.0)(yaml@2.9.0)
+      '@fontsource-variable/big-shoulders-display':
+        specifier: ^5.2.5
+        version: 5.2.5
+      '@fontsource-variable/unbounded':
+        specifier: ^5.2.8
+        version: 5.2.8
       '@neondatabase/serverless':
         specifier: ^1.1.0
         version: 1.1.0
@@ -1042,6 +1048,12 @@ packages:
 
   '@floating-ui/utils@0.2.11':
     resolution: {integrity: sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg==}
+
+  '@fontsource-variable/big-shoulders-display@5.2.5':
+    resolution: {integrity: sha512-ZH2w9u6018xbSf8vPZ42P/KxpQHfIsKnxSnMtLFgwui1zIS05vzlijAWRcaRQoY2pXu4Z3SVa88OANsmq6mkvA==}
+
+  '@fontsource-variable/unbounded@5.2.8':
+    resolution: {integrity: sha512-DWC/HEdNNbjMH6ngeeCAPExKMsedoY+pV3ZnRXzFcAzXuGHB6dEwsXNVQ4fiuuYMGguq9TSAEUat4Oy5prdwWQ==}
 
   '@img/colour@1.1.0':
     resolution: {integrity: sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==}
@@ -4210,6 +4222,10 @@ snapshots:
 
   '@floating-ui/utils@0.2.11':
     optional: true
+
+  '@fontsource-variable/big-shoulders-display@5.2.5': {}
+
+  '@fontsource-variable/unbounded@5.2.8': {}
 
   '@img/colour@1.1.0': {}
 

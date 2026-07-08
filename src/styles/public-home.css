@@ -1,0 +1,262 @@
+/*
+ * Public homepage — the LOCKED visual language from DESIGN.md, ported from
+ * design/public-homepage-directions.html (review-only hover-switcher chrome
+ * dropped; "Develop" is the chosen hover). Everything is scoped under the
+ * `.public-home` root class so nothing bleeds into /app pages.
+ *
+ * Fonts are self-hosted via @fontsource-variable imports in the page
+ * (the mock's data-URI @font-face was an Artifact-CSP workaround).
+ */
+
+.public-home {
+  /* faded ochre ground — the poster wall */
+  --ground: #c9a23c;
+  --ink: #17140f;
+  --accent: #b23a26; /* oxblood/marquee red, used sparingly */
+  --cream: #f0e7d3; /* lightbox cream */
+  margin: 0;
+  padding: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.public-home *,
+.public-home *::before,
+.public-home *::after {
+  box-sizing: border-box;
+}
+
+.public-home blockquote,
+.public-home p {
+  margin: 0;
+}
+
+/* ---------- layout ---------- */
+
+.public-home .wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 26px 52px;
+}
+
+.public-home .masthead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+
+.public-home .logo {
+  font-family: "Unbounded Variable", "Unbounded", sans-serif;
+  font-weight: 800;
+  font-size: clamp(22px, 3vw, 34px);
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.public-home .masthead__meta {
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #5f4f22;
+  text-align: right;
+}
+
+/* ---------- the freeform canvas ---------- */
+
+/*
+ * Tiles are absolutely positioned from home_tiles rows in canvas
+ * percentages — coordinate contract in src/lib/home/canvas.ts. The
+ * aspect-ratio here MUST match CANVAS_ASPECT there.
+ */
+.public-home .canvas {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 5 / 7;
+}
+
+.public-home .tile {
+  position: absolute;
+  transform: rotate(var(--tilt, 0deg));
+}
+
+/* ---------- photo tiles ---------- */
+
+.public-home .photo {
+  overflow: hidden;
+  /* resting grade: quietly muted so the ochre ground dominates */
+  filter: saturate(0.74) contrast(0.94) brightness(0.98);
+  transition: filter 1s ease;
+}
+
+.public-home .photo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Hover — "Develop": the single photo slowly comes to full life.
+   Filter only — no transform, no shapes, no click-cue (DESIGN). */
+.public-home .photo.develop:hover,
+.public-home .photo.develop:focus-visible {
+  filter: saturate(1.08) contrast(1.04) brightness(1.03);
+}
+
+.public-home .photo:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+/* ---------- quote tile as a tilted cinema marquee ---------- */
+
+.public-home .marquee {
+  background: var(--cream);
+  color: var(--accent);
+  border: 1px solid #d8ccae;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 16px;
+  box-shadow: 0 10px 30px rgba(23, 20, 15, 0.18);
+  /* faint lightbox slat lines */
+  background-image: repeating-linear-gradient(
+    180deg,
+    rgba(23, 20, 15, 0.06) 0 1px,
+    transparent 1px 15px
+  );
+  background-blend-mode: multiply;
+  transition:
+    transform 0.6s ease,
+    filter 0.6s ease;
+}
+
+.public-home .marquee blockquote {
+  font-family:
+    "Big Shoulders Display Variable", "Big Shoulders Display", sans-serif;
+  font-weight: 800;
+  font-size: clamp(19px, 2.4vw, 30px);
+  line-height: 1.02;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+.public-home .marquee cite {
+  display: block;
+  margin-top: 10px;
+  font-family: ui-sans-serif, sans-serif;
+  font-style: normal;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: #8a5a1f;
+}
+
+/* the tilt is the character; hover just steadies & warms it a hair —
+   no click cue. ~2/3 steadying: -1.6° eases toward -0.6°. */
+.public-home .marquee:hover,
+.public-home .marquee:focus-visible {
+  transform: rotate(calc(var(--tilt, -1.6deg) * 0.375));
+  filter: brightness(1.02);
+}
+
+.public-home .marquee:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* ---------- second, smaller ink quote — alternate voice ---------- */
+
+.public-home .quote-ink {
+  background: var(--ink);
+  color: var(--cream);
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  transition: transform 0.6s ease;
+}
+
+.public-home .quote-ink blockquote {
+  font-family:
+    "Big Shoulders Display Variable", "Big Shoulders Display", sans-serif;
+  font-weight: 600;
+  font-size: clamp(15px, 1.7vw, 20px);
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+}
+
+.public-home .quote-ink em {
+  color: var(--ground);
+  font-style: normal;
+}
+
+.public-home .quote-ink:hover,
+.public-home .quote-ink:focus-visible {
+  transform: rotate(calc(var(--tilt, 1.3deg) * 0.375));
+}
+
+.public-home .quote-ink:focus-visible {
+  outline: 2px solid var(--ground);
+  outline-offset: 3px;
+}
+
+/* ---------- cycling tiles: very slow crossfade ---------- */
+
+.public-home .cycle-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0;
+  transition: opacity 1.6s ease;
+}
+
+.public-home .cycle-layer.is-visible {
+  opacity: 1;
+}
+
+/* ---------- footer ---------- */
+
+.public-home .foot {
+  max-width: 1200px;
+  margin: 22px auto 0;
+  padding: 0 26px;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #5f4f22;
+}
+
+.public-home .foot a {
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.3s ease;
+}
+
+.public-home .foot a:hover {
+  border-color: var(--ink);
+}
+
+/* ---------- reduced motion (DESIGN: honored, cycling also stops in JS) ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .public-home *,
+  .public-home *::before,
+  .public-home *::after {
+    transition-duration: 0.001ms !important;
+    animation: none !important;
+  }
+}
