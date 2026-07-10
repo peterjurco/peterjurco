@@ -11,6 +11,12 @@ compatibility_date = "2026-06-01"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "./dist"
 
+# "ASSETS" (the astro adapter's default binding name) is reserved on Pages
+# projects — deploying via `wrangler deploy` against a Pages-type project
+# redirects through this Pages-compat path, so the binding must be renamed.
+[assets]
+binding = "STATIC_ASSETS"
+
 # Placeholder documentation of runtime secrets (see .env.example):
 #   DATABASE_URL           (secret) — Neon pooled connection string
 #   R2_ACCOUNT_ID          (secret) — R2 S3-API endpoint account
