@@ -79,7 +79,14 @@ GitHub Action but running on Cloudflare's infra instead).
    source of "works locally, 500s in prod" bugs:**
 
    **Settings → Variables and Secrets** (runtime — read via the Workers
-   `env` object on every request; anything the server touches):
+   `env` object on every request; anything the server touches). **Add every
+   one of these as type "Secret", not plain "Variable"** — a plain
+   dashboard Variable gets silently wiped on the next `wrangler deploy`
+   (which runs on every push), since deploy treats `wrangler.toml` as the
+   authoritative config and has no idea a dashboard-only var existed.
+   Secrets are managed separately and survive deploys. This isn't about
+   sensitivity — even non-secret-feeling values like `GOOGLE_CLIENT_ID` or
+   `R2_BUCKET` must be "Secret" type purely to persist:
    - `DATABASE_URL`
    - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`
      (`https://peterjur.co/api/auth/callback` — or the `*.workers.dev` URL's
@@ -89,6 +96,9 @@ GitHub Action but running on Cloudflare's infra instead).
    - `AUTH_ALLOWED_EMAILS`
    - `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`
      (leave `R2_ENDPOINT` unset — that's the local-MinIO-only override)
+
+   If a var vanishes from this list after a deploy, that's this exact
+   issue — it was added as a plain Variable; re-add it as a Secret.
 
    **Settings → Build → Variables and Secrets** (build-time only — baked
    into the bundle via Vite's `import.meta.env`, never read at runtime;
