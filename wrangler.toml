@@ -17,6 +17,13 @@ pages_build_output_dir = "./dist"
 [assets]
 binding = "STATIC_ASSETS"
 
+# Workers Logs — enabled via the dashboard while debugging the first
+# deploy; committed here so it survives the next `wrangler deploy` (which
+# treats this file as the source of truth and would otherwise reset it).
+[observability.logs]
+enabled = true
+invocation_logs = true
+
 # Placeholder documentation of runtime secrets (see .env.example):
 #   DATABASE_URL           (secret) — Neon pooled connection string
 #   R2_ACCOUNT_ID          (secret) — R2 S3-API endpoint account
