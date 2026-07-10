@@ -189,3 +189,26 @@ describe('ArticleMetaPanel — delete', () => {
     expect(navigate).not.toHaveBeenCalled()
   })
 })
+
+describe('ArticleMetaPanel — tab title sync', () => {
+  it('sets document.title to the initial title on mount', () => {
+    renderPanel()
+    expect(document.title).toBe('Hello — peterjur.co')
+  })
+
+  it('updates document.title live as the title is typed, no page reload', () => {
+    renderPanel()
+    fireEvent.change(screen.getByLabelText('Title'), {
+      target: { value: 'New title' },
+    })
+    expect(document.title).toBe('New title — peterjur.co')
+  })
+
+  it('falls back to "Untitled" when the title is cleared', () => {
+    renderPanel()
+    fireEvent.change(screen.getByLabelText('Title'), {
+      target: { value: '' },
+    })
+    expect(document.title).toBe('Untitled — peterjur.co')
+  })
+})
