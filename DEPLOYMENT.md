@@ -39,35 +39,81 @@ a dashboard you own.
    turned on (free tier: 5,000 unique transforms/month per
    TECH_DECISIONS §5). This requires the domain to already be on Cloudflare
    — do this after step 4 (DNS) if using the custom-subdomain option.
+5. **CORS policy** — cover uploads (`/app/photos`, `/app/home-editor`) PUT
+   directly from the browser to a presigned R2 URL, so R2 itself must allow
+   the cross-origin request (it doesn't go through the Worker). Bucket →
+   **Settings → CORS Policy** → add:
+   ```json
+   [
+     {
+       "AllowedOrigins": [
+         "https://peterjurco.<your-workers-subdomain>.workers.dev",
+         "https://peterjur.co"
+       ],
+       "AllowedMethods": ["PUT"],
+       "AllowedHeaders": ["Content-Type"],
+       "MaxAgeSeconds": 3600
+     }
+   ]
+   ```
+   Without this, uploads fail in the browser console with a CORS error on
+   the presigned PUT (the presign call itself still succeeds — it's the
+   follow-up PUT to R2 that's blocked).
 
-## 3. Cloudflare Pages (the app itself)
+## 3. Cloudflare Workers (the app itself)
 
-1. Cloudflare dashboard → Workers & Pages → **Create → Pages → Connect to
-   Git** → select `peterjurco/peterjurco`, branch `master`.
-2. Build settings:
+This deploys via `wrangler deploy`, driven by Cloudflare's own Git-connected
+build system (its "Workers Builds" — no GitHub Actions workflow needed; it
+rebuilds and redeploys on every push automatically, same idea as a
+GitHub Action but running on Cloudflare's infra instead).
+
+1. Cloudflare dashboard → Workers & Pages → **Create application → Connect
+   to Git** → select `peterjurco/peterjurco`, branch `master`.
+2. Build settings (Cloudflare usually auto-detects these correctly from
+   `wrangler.toml` — verify, don't blindly trust):
    - Build command: `pnpm build`
-   - Build output directory: `dist`
-   - Node version: 24 (matches CI)
-3. **Settings → Environment variables** — add every var below as a
-   **Secret** (not plaintext) for the Production environment, values from
-   steps 1–2 above and the Google/analytics steps below:
+   - Deploy command: `pnpm exec wrangler deploy` (or the pre-filled
+     `npx wrangler deploy` — works too since `wrangler` is a direct
+     devDependency, see below)
+3. **Two separate places for env vars — read carefully, this is the #1
+   source of "works locally, 500s in prod" bugs:**
+
+   **Settings → Variables and Secrets** (runtime — read via the Workers
+   `env` object on every request; anything the server touches):
    - `DATABASE_URL`
    - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`
-     (`https://peterjur.co/api/auth/callback`)
+     (`https://peterjur.co/api/auth/callback` — or the `*.workers.dev` URL's
+     callback if testing before the domain cutover)
    - `SESSION_SECRET` — generate a **fresh** one for prod
      (`openssl rand -base64 32`), don't reuse your local dev value
    - `AUTH_ALLOWED_EMAILS`
    - `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`
      (leave `R2_ENDPOINT` unset — that's the local-MinIO-only override)
-   - `PUBLIC_R2_PUBLIC_BASE_URL` (from step 2.3) — this one is read at
-     **build** time, so it must also be set as a **build-time variable**,
-     not just a runtime secret (Cloudflare Pages has separate fields for
-     this; check both)
+
+   **Settings → Build → Variables and Secrets** (build-time only — baked
+   into the bundle via Vite's `import.meta.env`, never read at runtime;
+   anything prefixed `PUBLIC_`):
+   - `PUBLIC_R2_PUBLIC_BASE_URL` (from step 2.3)
    - `PUBLIC_IMAGE_TRANSFORMS` — leave unset in production (transforms on
      by default; only set to `off` in dev/CI)
-   - `PUBLIC_CF_ANALYTICS_TOKEN` (step 6) — also build-time
-4. Trigger the first deploy (push to `master`, or "Retry deployment" in the
-   dashboard once the vars are saved).
+   - `PUBLIC_CF_ANALYTICS_TOKEN` (step 6)
+
+4. Trigger the first deploy (push to `master`). **"Retry deployment" reruns
+   the same commit/branch it originally cloned** — if you change the
+   production branch or an env var after a failed deploy, you need a *new*
+   deployment (push a commit, or look for "Create deployment"), not Retry.
+5. If the deploy step fails with `wrangler: not found`: the deploy
+   environment doesn't fetch `wrangler` fresh via `npx`, it must already be
+   in `node_modules` — this repo already has it as a direct devDependency
+   for exactly this reason. If you're setting this up on a fresh fork/repo
+   without that, add it: `pnpm add -D wrangler`.
+6. If the deploy step fails with `The name 'ASSETS' is reserved in Pages
+   projects`: `wrangler.toml` already renames the assets binding to
+   `STATIC_ASSETS` for this reason (the astro adapter's default `ASSETS`
+   name collides with a Pages-reserved name once `wrangler deploy` runs
+   through the Pages-compat path that `pages_build_output_dir` triggers).
+   Nothing to do — just noting why that config looks unusual if you're
+   reading it fresh.
 
 ## 4. Point the domain at Cloudflare
 
@@ -76,9 +122,9 @@ a dashboard you own.
    registrar (Websupport) to Cloudflare's. This is the one step with real
    downtime risk if done carelessly — DNS propagation can take a few hours;
    do this when you can tolerate a brief gap, not mid-task.
-2. Pages project → **Custom domains** → add `peterjur.co` (and `www.` if
-   you want it). Cloudflare wires the DNS record automatically once the
-   zone is active on Cloudflare.
+2. Workers project → **Settings → Domains & Routes** → add `peterjur.co`
+   (and `www.` if you want it). Cloudflare wires the DNS record
+   automatically once the zone is active on Cloudflare.
 3. Old Websupport WP hosting can be cancelled once the new site is
    confirmed working on the domain (TECH_DECISIONS: drops ~€73/yr).
 
