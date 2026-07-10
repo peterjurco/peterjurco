@@ -104,8 +104,14 @@ GitHub Action but running on Cloudflare's infra instead).
    into the bundle via Vite's `import.meta.env`, never read at runtime;
    anything prefixed `PUBLIC_`):
    - `PUBLIC_R2_PUBLIC_BASE_URL` (from step 2.3)
-   - `PUBLIC_IMAGE_TRANSFORMS` — leave unset in production (transforms on
-     by default; only set to `off` in dev/CI)
+   - `PUBLIC_IMAGE_TRANSFORMS` — leave unset once the domain is live
+     (transforms on by default). **Set to `off` temporarily if testing on
+     the `*.workers.dev` URL before the domain cutover (step 4)** —
+     `/cdn-cgi/image/*` is a zone-level feature and 404s on `workers.dev`
+     since there's no zone to enable it on yet. The raw object itself is
+     fine; only the transform layer is unavailable pre-cutover. Remove this
+     var again once `peterjur.co` is live and Image Resizing is enabled on
+     that zone.
    - `PUBLIC_CF_ANALYTICS_TOKEN` (step 6)
 
 4. Trigger the first deploy (push to `master`). **"Retry deployment" reruns
