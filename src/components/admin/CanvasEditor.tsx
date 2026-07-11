@@ -480,7 +480,12 @@ export function CanvasEditor({ initialTiles }: CanvasEditorProps) {
           <button type="button" onClick={() => void save()} disabled={busy}>
             Save layout
           </button>
-          <span aria-live="polite">{status}</span>
+          <span
+            className={`${status === 'Saved' ? 'is-success' : ''}${status === 'Save failed' ? ' is-error' : ''}`}
+            aria-live="polite"
+          >
+            {status}
+          </span>
         </div>
 
         {selected ? (

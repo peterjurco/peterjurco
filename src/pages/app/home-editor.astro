@@ -19,7 +19,7 @@ const tiles: EditorTile[] = (await listOrdered(getAppDb())).map(
 
 <BaseLayout title="Home editor — peterjur.co">
   <AppNav />
-  <main class="home-editor-page">
+  <main class="admin-shell admin-shell--wide home-editor-page">
     <h1>Home canvas</h1>
     <p class="home-editor-note">
       Drag to move, corner handle to resize, top handle to rotate. Changes go
@@ -31,14 +31,9 @@ const tiles: EditorTile[] = (await listOrdered(getAppDb())).map(
 </BaseLayout>
 
 <style>
-  .home-editor-page {
-    max-width: 72rem;
-    margin: 0 auto;
-    padding: 1rem;
-    font-family: system-ui, sans-serif;
-  }
   .home-editor-note {
-    color: #555;
+    color: var(--admin-muted, #555);
     font-size: 0.9rem;
+    margin: -0.5rem 0 1rem;
   }
 </style>
