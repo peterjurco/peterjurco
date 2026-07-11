@@ -181,13 +181,36 @@ export function CanvasEditor({ initialTiles }: CanvasEditorProps) {
 
   function removeTile(key: number): void {
     setTiles((current) => current.filter((tile) => tile.clientKey !== key))
+    // Drop the viewing-cursor entry too — nothing else clears it, and it
+    // would otherwise linger forever in this map (clientKeys are monotonic
+    // and never reused, so it can never collide with a later tile, but
+    // there's no reason to keep growing the map on every delete).
+    setActiveImageIndexState((current) => {
+      if (!(key in current)) return current
+      const { [key]: _removed, ...rest } = current
+      return rest
+    })
     setSelectedKey(null)
     setDirty(true)
     setStatus('')
   }
 
-  /** Swaps the active image with its ‹/› neighbor; the active index follows
-   *  the moved image, so repeatedly moving one direction walks it to an end. */
+  /** Moves the viewing cursor to the previous/next image — pure navigation,
+   *  never touches imageKeys order. This is what lets the owner actually
+   *  look at every image in a tile (see TileInspector's View prev/next). */
+  function viewImage(key: number, direction: -1 | 1): void {
+    const tile = tiles.find((entry) => entry.clientKey === key)
+    if (!tile) return
+    const index = activeIndexFor(tile)
+    const target = index + direction
+    if (target < 0 || target >= tile.imageKeys.length) return
+    setActiveIndex(key, target)
+  }
+
+  /** Swaps the currently-viewed image with its previous/next neighbor in
+   *  imageKeys (see TileInspector's Move left/right); the viewing cursor
+   *  follows the moved image, so repeatedly moving one direction walks it
+   *  to an end. */
   function moveActiveImage(key: number, direction: -1 | 1): void {
     const tile = tiles.find((entry) => entry.clientKey === key)
     if (!tile) return
@@ -466,7 +489,10 @@ export function CanvasEditor({ initialTiles }: CanvasEditorProps) {
             activeImageIndex={activeIndexFor(selected)}
             onChange={(patch) => updateTile(selected.clientKey, patch)}
             onDelete={() => removeTile(selected.clientKey)}
-            onImageReorder={(direction) =>
+            onImageView={(direction) =>
+              viewImage(selected.clientKey, direction === 'prev' ? -1 : 1)
+            }
+            onImageMove={(direction) =>
               moveActiveImage(selected.clientKey, direction === 'prev' ? -1 : 1)
             }
             onImageAdd={(imageKey) => addImage(selected.clientKey, imageKey)}

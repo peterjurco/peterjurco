@@ -1,4 +1,8 @@
-import { HOVER_EFFECTS, TILE_RANGES } from '../../lib/home/canvas'
+import {
+  DEFAULT_CYCLE_INTERVAL_MS,
+  HOVER_EFFECTS,
+  TILE_RANGES,
+} from '../../lib/home/canvas'
 import { envImageUrlConfig, imageUrl } from '../../lib/media/image-url'
 import { CoverUpload } from '../CoverUpload'
 import type { EditorTile } from './CanvasEditor'
@@ -22,8 +26,12 @@ interface TileInspectorProps {
   activeImageIndex: number
   onChange: (patch: Partial<EditorTile>) => void
   onDelete: () => void
-  /** Swaps the active image with its previous/next neighbor. */
-  onImageReorder: (direction: 'prev' | 'next') => void
+  /** Moves the viewing cursor to the previous/next image — pure navigation,
+   *  never reorders imageKeys. Lets the owner look at every image in turn. */
+  onImageView: (direction: 'prev' | 'next') => void
+  /** Swaps the currently-viewed image with its previous/next neighbor in
+   *  imageKeys; the viewing cursor follows the moved image. */
+  onImageMove: (direction: 'prev' | 'next') => void
   /** Appends a freshly uploaded image and makes it active. */
   onImageAdd: (imageKey: string) => void
   /** Removes the active image (a tile must keep at least one — see the
@@ -57,7 +65,8 @@ export function TileInspector({
   activeImageIndex,
   onChange,
   onDelete,
-  onImageReorder,
+  onImageView,
+  onImageMove,
   onImageAdd,
   onImageDelete,
   onUploadingChange,
@@ -221,16 +230,16 @@ export function TileInspector({
           <div className="ed-image-actions">
             <button
               type="button"
-              aria-label="Previous image"
-              onClick={() => onImageReorder('prev')}
+              aria-label="View previous image"
+              onClick={() => onImageView('prev')}
               disabled={activeImageIndex <= 0}
             >
               ‹
             </button>
             <button
               type="button"
-              aria-label="Next image"
-              onClick={() => onImageReorder('next')}
+              aria-label="View next image"
+              onClick={() => onImageView('next')}
               disabled={activeImageIndex >= tile.imageKeys.length - 1}
             >
               ›
@@ -243,6 +252,27 @@ export function TileInspector({
               Delete image
             </button>
           </div>
+
+          {tile.imageKeys.length > 1 && (
+            <div className="ed-image-move">
+              <button
+                type="button"
+                aria-label="Move image left"
+                onClick={() => onImageMove('prev')}
+                disabled={activeImageIndex <= 0}
+              >
+                Move left
+              </button>
+              <button
+                type="button"
+                aria-label="Move image right"
+                onClick={() => onImageMove('next')}
+                disabled={activeImageIndex >= tile.imageKeys.length - 1}
+              >
+                Move right
+              </button>
+            </div>
+          )}
 
           <div className="ed-add-image">
             Add image
@@ -260,7 +290,7 @@ export function TileInspector({
                 type="number"
                 aria-label="Change every (seconds)"
                 step={0.5}
-                placeholder="5"
+                placeholder={String(DEFAULT_CYCLE_INTERVAL_MS / 1000)}
                 value={
                   tile.cycleIntervalMs !== null
                     ? tile.cycleIntervalMs / 1000

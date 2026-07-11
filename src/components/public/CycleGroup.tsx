@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { DEFAULT_CYCLE_INTERVAL_MS } from '../../lib/home/canvas'
 
 /**
  * Slow crossfade among a tile's own images (DESIGN "Cycling"): every
@@ -19,7 +20,10 @@ interface CycleGroupProps {
   intervalMs?: number
 }
 
-export function CycleGroup({ images, intervalMs = 5000 }: CycleGroupProps) {
+export function CycleGroup({
+  images,
+  intervalMs = DEFAULT_CYCLE_INTERVAL_MS,
+}: CycleGroupProps) {
   const [active, setActive] = useState(0)
 
   useEffect(() => {

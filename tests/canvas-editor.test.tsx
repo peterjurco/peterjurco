@@ -10,6 +10,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { EditorTile } from '../src/components/admin/CanvasEditor'
 import { CanvasEditor } from '../src/components/admin/CanvasEditor'
+import { DEFAULT_CYCLE_INTERVAL_MS } from '../src/lib/home/canvas'
 
 /**
  * Canvas-editor interactions under jsdom: pointer drags mutate the layout
@@ -349,38 +350,76 @@ describe('TileInspector — the five per-block properties', () => {
 })
 
 describe('TileInspector — photo image carousel', () => {
-  it('shows the active image and count; ‹ disabled at the first image', () => {
+  it('shows the active image and count; View previous disabled at the first image', () => {
     renderEditor([MULTI_PHOTO])
     selectTile(multiPhotoTile())
     expect(screen.getByText('Image 1 of 3')).toBeTruthy()
     expect(
       (
         screen.getByRole('button', {
-          name: 'Previous image',
+          name: 'View previous image',
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(true)
     expect(
-      (screen.getByRole('button', { name: 'Next image' }) as HTMLButtonElement)
-        .disabled,
+      (
+        screen.getByRole('button', {
+          name: 'View next image',
+        }) as HTMLButtonElement
+      ).disabled,
     ).toBe(false)
   })
 
-  it('› walks the active image to the end, reordering the array as it goes', async () => {
+  it('View next/View previous browse every image WITHOUT touching imageKeys order', async () => {
     renderEditor([MULTI_PHOTO])
     selectTile(multiPhotoTile())
-    const next = screen.getByRole('button', { name: 'Next image' })
+    const viewNext = screen.getByRole('button', { name: 'View next image' })
+    const viewPrev = screen.getByRole('button', {
+      name: 'View previous image',
+    })
+    const preview = () =>
+      document.querySelector<HTMLImageElement>('.ed-image-preview img')
 
-    // a,b,c — swap(0,1) → b,a,c, active follows to slot 1.
-    fireEvent.click(next)
+    // a,b,c — View next just moves the viewing cursor, a,b,c stays put.
+    fireEvent.click(viewNext)
     expect(screen.getByText('Image 2 of 3')).toBeTruthy()
-    // b,a,c — swap(1,2) → b,c,a, active follows to slot 2 (the last).
-    fireEvent.click(next)
+    expect(preview()?.src).toContain('home/b.webp')
+
+    fireEvent.click(viewNext)
     expect(screen.getByText('Image 3 of 3')).toBeTruthy()
-    expect(
-      (screen.getByRole('button', { name: 'Next image' }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true)
+    expect(preview()?.src).toContain('home/c.webp')
+    expect((viewNext as HTMLButtonElement).disabled).toBe(true)
+
+    fireEvent.click(viewPrev)
+    expect(screen.getByText('Image 2 of 3')).toBeTruthy()
+    expect(preview()?.src).toContain('home/b.webp')
+    expect((viewPrev as HTMLButtonElement).disabled).toBe(false)
+
+    // Pure navigation — the saved order must be exactly the seeded order
+    // (saving deselects the tile, so this must be the last step).
+    const { tiles } = await saveAndReadBody()
+    const saved = tiles.find((entry) => entry.id === MULTI_PHOTO.id)
+    expect(saved?.imageKeys).toEqual([
+      'home/a.webp',
+      'home/b.webp',
+      'home/c.webp',
+    ])
+  })
+
+  it('Move right walks the viewed image toward the end, reordering imageKeys as it goes', async () => {
+    renderEditor([MULTI_PHOTO])
+    selectTile(multiPhotoTile())
+    const moveRight = screen.getByRole('button', {
+      name: 'Move image right',
+    })
+
+    // a,b,c — viewing a (slot 0) — Move right → swap(0,1) → b,a,c, viewing a at slot 1.
+    fireEvent.click(moveRight)
+    expect(screen.getByText('Image 2 of 3')).toBeTruthy()
+    // b,a,c — Move right → swap(1,2) → b,c,a, viewing a at slot 2 (the last).
+    fireEvent.click(moveRight)
+    expect(screen.getByText('Image 3 of 3')).toBeTruthy()
+    expect((moveRight as HTMLButtonElement).disabled).toBe(true)
 
     const { tiles } = await saveAndReadBody()
     const saved = tiles.find((entry) => entry.id === MULTI_PHOTO.id)
@@ -391,26 +430,30 @@ describe('TileInspector — photo image carousel', () => {
     ])
   })
 
-  it('‹ moves the active image backward, undoing a prior › swap', async () => {
+  it('Move left walks the viewed image back, undoing prior Move right swaps', async () => {
     renderEditor([MULTI_PHOTO])
     selectTile(multiPhotoTile())
-    fireEvent.click(screen.getByRole('button', { name: 'Next image' }))
+    const moveRight = screen.getByRole('button', {
+      name: 'Move image right',
+    })
+    const moveLeft = screen.getByRole('button', { name: 'Move image left' })
+
+    // a,b,c → b,c,a (viewing a at slot 2) — two Move rights, per the hand
+    // trace above.
+    fireEvent.click(moveRight)
+    fireEvent.click(moveRight)
+    expect(screen.getByText('Image 3 of 3')).toBeTruthy()
+
+    // b,c,a — Move left → swap(2,1) → b,a,c, viewing a back at slot 1.
+    fireEvent.click(moveLeft)
     expect(screen.getByText('Image 2 of 3')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Previous image' }))
-    expect(screen.getByText('Image 1 of 3')).toBeTruthy()
-    expect(
-      (
-        screen.getByRole('button', {
-          name: 'Previous image',
-        }) as HTMLButtonElement
-      ).disabled,
-    ).toBe(true)
+    expect((moveLeft as HTMLButtonElement).disabled).toBe(false)
 
     const { tiles } = await saveAndReadBody()
     const saved = tiles.find((entry) => entry.id === MULTI_PHOTO.id)
     expect(saved?.imageKeys).toEqual([
-      'home/a.webp',
       'home/b.webp',
+      'home/a.webp',
       'home/c.webp',
     ])
   })
@@ -457,12 +500,14 @@ describe('TileInspector — cycle interval field', () => {
     expect(screen.queryByLabelText('Change every (seconds)')).toBeNull()
   })
 
-  it('shows for a multi-image tile, empty with a "5" placeholder by default', () => {
+  it('shows for a multi-image tile, empty with a placeholder derived from DEFAULT_CYCLE_INTERVAL_MS', () => {
     renderEditor([MULTI_PHOTO])
     selectTile(multiPhotoTile())
     const field = inspectorInput('Change every (seconds)')
     expect(field.value).toBe('')
-    expect(field.placeholder).toBe('5')
+    // Not a hardcoded '5' — proves TileInspector derives the placeholder
+    // from the shared constant instead of its own copy of the default.
+    expect(field.placeholder).toBe(String(DEFAULT_CYCLE_INTERVAL_MS / 1000))
   })
 
   it('maps seconds to milliseconds on save', async () => {

@@ -151,7 +151,7 @@ export function requireCompleteTile(fields: TileFields): TileValues | string {
   }
   if (zIndex === undefined) return 'zIndex is required'
   if (kind === 'photo' && (fields.imageKeys?.length ?? 0) < 1) {
-    return 'photo tiles require at least one imageKey'
+    return 'photo tiles require at least one image'
   }
   if (kind === 'quote' && !fields.textContent) {
     return 'quote tiles require textContent'

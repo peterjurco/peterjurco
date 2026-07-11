@@ -161,6 +161,7 @@
 }
 
 .ed-image-actions,
+.ed-image-move,
 .ed-add-image {
   display: flex;
   align-items: center;

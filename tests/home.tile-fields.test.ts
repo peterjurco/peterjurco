@@ -116,13 +116,13 @@ describe('requireCompleteTile — create/bulk entries', () => {
     const { imageKeys, ...rest } = PHOTO_BODY
     const parsed = parseTileFields(rest)
     if (typeof parsed === 'string') throw new Error(parsed)
-    expect(requireCompleteTile(parsed)).toContain('imageKey')
+    expect(requireCompleteTile(parsed)).toContain('image')
   })
 
   it('rejects a photo tile with an explicit empty imageKeys array', () => {
     const parsed = parseTileFields({ ...PHOTO_BODY, imageKeys: [] })
     if (typeof parsed === 'string') throw new Error(parsed)
-    expect(requireCompleteTile(parsed)).toContain('imageKey')
+    expect(requireCompleteTile(parsed)).toContain('image')
   })
 
   it('accepts a photo tile with exactly one image key', () => {
