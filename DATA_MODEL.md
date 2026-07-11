@@ -142,7 +142,7 @@ schema stores per-tile layout, not grid spans.
 | --- | --- | --- |
 | `id` | bigint PK | |
 | `kind` | enum(`photo`, `quote`) | photo tile vs text/quote tile |
-| `image_key` | text, nullable | R2 object key — for `photo` tiles |
+| `image_keys` | text[], not null, default `'{}'` | ordered R2 object keys — for `photo` tiles; a complete photo tile has >=1 (app-layer invariant, not a DB constraint) |
 | `text_content` | text, nullable | quote text — for `quote` tiles |
 | `cite` | text, nullable | attribution line — for `quote` tiles |
 | `x` | numeric | position (canvas units / %) |
@@ -153,9 +153,12 @@ schema stores per-tile layout, not grid spans.
 | `border` | jsonb, nullable | border style (width/color/none) — editable per block |
 | `hover_effect` | text, nullable | e.g. `develop` (default), or none — editable per block |
 | `z_index` | int | stacking order |
-| `cycle_group` | text, nullable | tiles sharing a group crossfade between each other |
+| `cycle_interval_ms` | int, nullable | ms per image while cycling; null = the CycleGroup default (5000ms). Only meaningful when `image_keys` has >1 entry |
 | `created_at` | timestamptz | |
 | `updated_at` | timestamptz | |
+
+A photo tile with more than one `image_keys` entry crossfades between them in
+place (one tile, its own images) — there is no cross-tile grouping.
 
 The admin edits these via a **freeform canvas editor** (move / resize / rotate /
 border / hover-effect per block — see REQUIREMENTS "Admin edit model"). The

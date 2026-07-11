@@ -57,9 +57,9 @@ brutalist steps, the "Neues Off" marquee). Real photos replace them.
   set aside; the switcher in the mock is review scaffolding, not a site feature.)
 - **Tilted quotes:** the rotation *is* the statement; hover only gently steadies
   the tilt (e.g. −1.6° → −0.6°). Marquee quote has faint lightbox slat-lines.
-- **Cycling:** some tiles slowly crossfade between photos (~1.6s), on a ~5s
-  interval. Subtle — explicitly *not* a flip/flash. Grouped via
-  `home_tiles.cycle_group`.
+- **Cycling:** a photo tile with more than one image slowly crossfades
+  between them (~1.6s), on a ~5s interval by default (`home_tiles.image_keys`
+  / `cycle_interval_ms`). Subtle — explicitly *not* a flip/flash.
 - Respect `prefers-reduced-motion` (mock disables transitions/cycling under it).
 
 ## Rejected directions (do not revisit)
