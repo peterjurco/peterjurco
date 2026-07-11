@@ -19,7 +19,7 @@ import {
 /** The slice of a home_tiles row the renderer needs. */
 export interface RenderTile {
   kind: 'photo' | 'quote'
-  imageKey: string | null
+  imageKeys: string[]
   textContent: string | null
   cite: string | null
   x: number
@@ -30,6 +30,7 @@ export interface RenderTile {
   border: TileBorder | null
   hoverEffect: string | null
   zIndex: number
+  cycleIntervalMs: number | null
 }
 
 /** Display width requested from the image edge — tiles top out well below it. */
@@ -37,13 +38,13 @@ export const TILE_IMAGE_WIDTH = 1200
 
 /**
  * Guards SSR against malformed rows (the API enforces completeness, but the
- * DB schema cannot): a photo without an imageKey would make tileImageSrc
+ * DB schema cannot): a photo without any imageKeys would make tileImageSrc(s)
  * throw and 500 the whole homepage; a quote without text renders an empty
  * box. The page skips (and logs) such rows instead of failing the render.
  */
 export function isRenderable(tile: RenderTile): boolean {
   // Falsy check mirrors requireCompleteTile ('' is as unrenderable as null).
-  if (tile.kind === 'photo') return Boolean(tile.imageKey)
+  if (tile.kind === 'photo') return tile.imageKeys.some((key) => Boolean(key))
   return Boolean(tile.textContent)
 }
 
@@ -76,13 +77,29 @@ export function tileStyle(tile: RenderTile): string {
   return parts.join(';')
 }
 
-/** Display URL for a photo tile via the media layer (imageUrl). */
+/**
+ * Display URL for a single-image photo tile (imageKeys.length === 1) via the
+ * media layer (imageUrl). For multi-image tiles use tileImageSrcs instead —
+ * this always resolves the FIRST key, so it must not be used once a tile may
+ * have more than one image.
+ */
 export function tileImageSrc(
   tile: RenderTile,
   config: ImageUrlConfig = envImageUrlConfig(),
 ): string {
-  if (!tile.imageKey) {
+  const [firstKey] = tile.imageKeys
+  if (!firstKey) {
     throw new Error(`Photo tile has no image key (kind=${tile.kind})`)
   }
-  return imageUrl(tile.imageKey, { width: TILE_IMAGE_WIDTH }, config)
+  return imageUrl(firstKey, { width: TILE_IMAGE_WIDTH }, config)
+}
+
+/** Display URLs for every image on a photo tile, in stored order. */
+export function tileImageSrcs(
+  tile: RenderTile,
+  config: ImageUrlConfig = envImageUrlConfig(),
+): string[] {
+  return tile.imageKeys.map((key) =>
+    imageUrl(key, { width: TILE_IMAGE_WIDTH }, config),
+  )
 }

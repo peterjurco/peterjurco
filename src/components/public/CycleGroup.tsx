@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
 
 /**
- * Slow crossfade among the photos of one `cycle_group` (DESIGN "Cycling"):
- * every ~5s the next image fades in over ~1.6s (the opacity transition lives
- * in public-home.css `.cycle-layer`). Subtle — explicitly not a flip/flash.
+ * Slow crossfade among a tile's own images (DESIGN "Cycling"): every
+ * ~5s (or `intervalMs`) the next image fades in over ~1.6s (the opacity
+ * transition lives in public-home.css `.cycle-layer`). Subtle — explicitly
+ * not a flip/flash.
  *
- * This is the ONLY island the public homepage ships, and only when a cycle
- * group exists. The first layer is visible in the SSR output, so the tile is
- * correct before (or without) hydration. Under `prefers-reduced-motion` the
- * timer never starts — the first photo simply stays.
+ * This is the ONLY island the public homepage ships, mounted only for a
+ * photo tile with more than one image (see TileRenderer.astro). The first
+ * layer is visible in the SSR output, so the tile is correct before (or
+ * without) hydration. Under `prefers-reduced-motion` the timer never
+ * starts — the first photo simply stays.
  */
 
 interface CycleGroupProps {

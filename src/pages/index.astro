@@ -3,24 +3,19 @@ import '@fontsource-variable/unbounded/index.css'
 import '@fontsource-variable/big-shoulders-display/index.css'
 import '../styles/public-home.css'
 import Analytics from '../components/Analytics.astro'
-import { CycleGroup } from '../components/public/CycleGroup'
 import TileRenderer from '../components/public/TileRenderer.astro'
-import {
-  isRenderable,
-  tileClasses,
-  tileImageSrc,
-  tileStyle,
-} from '../components/public/tile-render'
+import { isRenderable } from '../components/public/tile-render'
 import { getAppDb } from '../db'
 import { absoluteUrl } from '../lib/absolute-url'
-import { type HomeTile, listOrdered } from '../lib/home/repo'
+import { listOrdered } from '../lib/home/repo'
 import { imageUrl } from '../lib/media/image-url'
 
 /**
  * The public homepage (REQUIREMENTS "Public section", DESIGN.md): a quiet,
  * warm poster wall — tiles absolutely positioned from `home_tiles` on the
- * faded-ochre canvas. No menu, no subpages. Pure SSR except the CycleGroup
- * island, mounted only when a cycle_group exists; no editor JS ships here.
+ * faded-ochre canvas. No menu, no subpages. Each tile renders itself
+ * independently (TileRenderer.astro) — pure SSR, except a CycleGroup island
+ * per tile that carries more than one image; no editor JS ships here.
  *
  * This page owns its whole document (instead of BaseLayout) because the
  * design needs the `.public-home` ground on <body> and a margin reset.
@@ -37,40 +32,16 @@ const tiles = (await listOrdered(db)).filter((tile) => {
   return false
 })
 
-// Photo tiles sharing a cycle_group render as ONE positioned container that
-// crossfades through their images; the group's first tile in z-order (the
-// anchor) provides the layout. Quote tiles never cycle, and a group with a
-// single member has nothing to cycle — it renders as a plain SSR tile so no
-// island ships for it.
-const cycleGroups = new Map<string, HomeTile[]>()
-for (const tile of tiles) {
-  if (tile.kind === 'photo' && tile.cycleGroup) {
-    const group = cycleGroups.get(tile.cycleGroup) ?? []
-    group.push(tile)
-    cycleGroups.set(tile.cycleGroup, group)
-  }
-}
-for (const [name, group] of cycleGroups) {
-  if (group.length < 2) cycleGroups.delete(name)
-}
-const isCycleAnchor = (tile: HomeTile) =>
-  tile.kind === 'photo' &&
-  tile.cycleGroup !== null &&
-  cycleGroups.get(tile.cycleGroup)?.[0]?.id === tile.id
-const isCycleFollower = (tile: HomeTile) =>
-  tile.kind === 'photo' &&
-  tile.cycleGroup !== null &&
-  cycleGroups.has(tile.cycleGroup) &&
-  !isCycleAnchor(tile)
-
 const title = 'Peter Jurčo'
 const description = 'Photography — selected frames.'
 const canonicalUrl = new URL('/', Astro.url)
-const firstPhoto = tiles.find((tile) => tile.kind === 'photo' && tile.imageKey)
+const firstPhoto = tiles.find(
+  (tile) => tile.kind === 'photo' && tile.imageKeys[0],
+)
 // og:image must be absolute — imageUrl is zone-relative when transforms are
 // on (see its docblock), so absolutize against the request URL.
-const ogImage = firstPhoto?.imageKey
-  ? absoluteUrl(imageUrl(firstPhoto.imageKey, { width: 1200 }), Astro.url)
+const ogImage = firstPhoto?.imageKeys[0]
+  ? absoluteUrl(imageUrl(firstPhoto.imageKeys[0], { width: 1200 }), Astro.url)
   : null
 
 // Footer socials per DESIGN; hrefs stay the mock's placeholders until the
@@ -115,22 +86,7 @@ const socials = [
       </header>
 
       <main class="canvas">
-        {
-          tiles.map((tile) =>
-            isCycleAnchor(tile) && tile.cycleGroup ? (
-              <div class={tileClasses(tile)} style={tileStyle(tile)}>
-                <CycleGroup
-                  client:idle
-                  images={(cycleGroups.get(tile.cycleGroup) ?? []).map(
-                    (member) => tileImageSrc(member),
-                  )}
-                />
-              </div>
-            ) : isCycleFollower(tile) ? null : (
-              <TileRenderer tile={tile} />
-            ),
-          )
-        }
+        {tiles.map((tile) => <TileRenderer tile={tile} />)}
       </main>
     </div>
 

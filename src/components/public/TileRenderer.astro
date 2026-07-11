@@ -1,13 +1,19 @@
 ---
 import type { HomeTile } from '../../lib/home/repo'
-import { tileClasses, tileImageSrc, tileStyle } from './tile-render'
+import { CycleGroup } from './CycleGroup'
+import {
+  tileClasses,
+  tileImageSrc,
+  tileImageSrcs,
+  tileStyle,
+} from './tile-render'
 
 /**
- * Renders ONE home tile from its stored layout (DATA_MODEL §5) — pure SSR,
- * no client JS. Photo tiles are muted `<img>` prints with the Develop hover;
- * quote tiles render the marquee (cited) or ink (uncited) treatment — the
- * convention is documented in ./tile-render.ts. Tiles that belong to a
- * cycle_group are rendered by CycleGroup instead (see pages/index.astro).
+ * Renders ONE home tile from its stored layout (DATA_MODEL §5) — pure SSR
+ * except the CycleGroup island, mounted only when the tile itself carries
+ * more than one image. A single-image photo tile is a muted `<img>` print
+ * with the Develop hover; quote tiles render the marquee (cited) or ink
+ * (uncited) treatment — the convention is documented in ./tile-render.ts.
  */
 
 interface Props {
@@ -18,7 +24,15 @@ const { tile } = Astro.props
 ---
 
 {
-  tile.kind === 'photo' ? (
+  tile.kind === 'photo' && tile.imageKeys.length > 1 ? (
+    <div class={tileClasses(tile)} style={tileStyle(tile)}>
+      <CycleGroup
+        client:idle
+        images={tileImageSrcs(tile)}
+        intervalMs={tile.cycleIntervalMs ?? undefined}
+      />
+    </div>
+  ) : tile.kind === 'photo' ? (
     <div class={tileClasses(tile)} style={tileStyle(tile)}>
       <img src={tileImageSrc(tile)} alt="" loading="lazy" decoding="async" />
     </div>

@@ -4,18 +4,20 @@ import {
   isRenderable,
   tileClasses,
   tileImageSrc,
+  tileImageSrcs,
   tileStyle,
 } from '../src/components/public/tile-render'
 
 /**
  * The pure rendering contract behind TileRenderer.astro — classes, inline
- * style and image src derived from a home_tiles row. The .astro wrapper is
- * exercised end-to-end in tests/public-home.e2e.test.ts.
+ * style and image src(s) derived from a home_tiles row. The .astro wrapper
+ * (single image vs CycleGroup island) is exercised end-to-end in
+ * tests/public-home.e2e.test.ts.
  */
 
 const PHOTO: RenderTile = {
   kind: 'photo',
-  imageKey: 'home/redhouse.webp',
+  imageKeys: ['home/redhouse.webp'],
   textContent: null,
   cite: null,
   x: 2.5,
@@ -26,12 +28,13 @@ const PHOTO: RenderTile = {
   border: null,
   hoverEffect: null,
   zIndex: 3,
+  cycleIntervalMs: null,
 }
 
 const MARQUEE_QUOTE: RenderTile = {
   ...PHOTO,
   kind: 'quote',
-  imageKey: null,
+  imageKeys: [],
   textContent: 'Everything has led to this',
   cite: '— on the road, somewhere north',
   rotation: -1.6,
@@ -82,7 +85,7 @@ describe('tileStyle', () => {
   })
 })
 
-describe('tileImageSrc', () => {
+describe('tileImageSrc — single-image tiles', () => {
   it('derives a ~1200px edge-transformed URL from the R2 key', () => {
     const src = tileImageSrc(PHOTO, {
       baseUrl: 'https://img.example.com',
@@ -101,10 +104,36 @@ describe('tileImageSrc', () => {
     expect(src).toBe('http://localhost:9000/bucket/home/redhouse.webp')
   })
 
-  it('throws on a photo tile without an image key (data invariant)', () => {
-    expect(() => tileImageSrc({ ...PHOTO, imageKey: null })).toThrow(
+  it('resolves the FIRST key when a tile has several', () => {
+    const src = tileImageSrc(
+      { ...PHOTO, imageKeys: ['home/first.webp', 'home/second.webp'] },
+      { baseUrl: 'http://localhost:9000/bucket', transforms: false },
+    )
+    expect(src).toBe('http://localhost:9000/bucket/home/first.webp')
+  })
+
+  it('throws on a photo tile without any image keys (data invariant)', () => {
+    expect(() => tileImageSrc({ ...PHOTO, imageKeys: [] })).toThrow(
       /image key/i,
     )
+  })
+})
+
+describe('tileImageSrcs — every image on a photo tile', () => {
+  it('derives one URL per key, in stored order', () => {
+    const srcs = tileImageSrcs(
+      { ...PHOTO, imageKeys: ['home/a.webp', 'home/b.webp', 'home/c.webp'] },
+      { baseUrl: 'http://localhost:9000/bucket', transforms: false },
+    )
+    expect(srcs).toEqual([
+      'http://localhost:9000/bucket/home/a.webp',
+      'http://localhost:9000/bucket/home/b.webp',
+      'http://localhost:9000/bucket/home/c.webp',
+    ])
+  })
+
+  it('returns an empty array for a tile with no images', () => {
+    expect(tileImageSrcs({ ...PHOTO, imageKeys: [] })).toEqual([])
   })
 })
 
@@ -114,9 +143,15 @@ describe('isRenderable — SSR guard against malformed rows', () => {
     expect(isRenderable(MARQUEE_QUOTE)).toBe(true)
   })
 
-  it('rejects a photo tile without an image key', () => {
-    expect(isRenderable({ ...PHOTO, imageKey: null })).toBe(false)
-    expect(isRenderable({ ...PHOTO, imageKey: '' })).toBe(false)
+  it('accepts a multi-image photo tile', () => {
+    expect(isRenderable({ ...PHOTO, imageKeys: ['a.webp', 'b.webp'] })).toBe(
+      true,
+    )
+  })
+
+  it('rejects a photo tile without any image keys', () => {
+    expect(isRenderable({ ...PHOTO, imageKeys: [] })).toBe(false)
+    expect(isRenderable({ ...PHOTO, imageKeys: [''] })).toBe(false)
   })
 
   it('rejects a quote tile without text', () => {
