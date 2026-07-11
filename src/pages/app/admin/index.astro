@@ -32,7 +32,7 @@ const links = [
 
 <BaseLayout title="Admin — peterjur.co">
   <AppNav />
-  <main class="admin-page">
+  <main class="admin-shell admin-page">
     <h1>Admin</h1>
     <ul class="admin-links">
       {
@@ -52,32 +52,27 @@ const links = [
 </BaseLayout>
 
 <style>
-  .admin-page {
-    max-width: 46rem;
-    margin: 0 auto;
-    padding: 1rem;
-    font-family: system-ui, sans-serif;
-  }
   .admin-links {
     padding: 0;
     list-style: none;
   }
   .admin-links li {
     padding: 0.75rem 0;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--admin-border-light, #eee);
   }
   .admin-links a {
     font-weight: 600;
     font-size: 1.05rem;
+    color: var(--admin-accent, #333);
   }
   .admin-links p {
     margin: 0.25rem 0 0;
-    color: #555;
+    color: var(--admin-muted, #555);
     font-size: 0.9rem;
   }
   .admin-note {
     margin-top: 1.5rem;
-    color: #555;
+    color: var(--admin-muted, #555);
     font-size: 0.9rem;
   }
 </style>

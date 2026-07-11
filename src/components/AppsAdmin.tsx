@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { imageUrl } from '../lib/media/image-url'
+import './apps-admin.css'
 import { CoverUpload } from './CoverUpload'
 
 /**
@@ -228,7 +229,16 @@ export function AppsAdmin({ initialApps }: AppsAdminProps) {
         <button type="submit" disabled={busy}>
           Add
         </button>
-        <span aria-live="polite">{status}</span>
+        <span
+          className={
+            status === 'Save failed' || status === 'Delete failed'
+              ? 'is-error'
+              : ''
+          }
+          aria-live="polite"
+        >
+          {status}
+        </span>
       </form>
     </div>
   )

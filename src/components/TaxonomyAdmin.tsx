@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import './taxonomy-admin.css'
 
 /**
  * Admin CRUD for the three taxonomies (REQUIREMENTS "Admin" — edit
@@ -190,7 +191,12 @@ function AddForm({
       <button type="submit" disabled={busy}>
         Add
       </button>
-      <span aria-live="polite">{status}</span>
+      <span
+        className={status === 'Save failed' ? 'is-error' : ''}
+        aria-live="polite"
+      >
+        {status}
+      </span>
     </form>
   )
 }

@@ -24,7 +24,7 @@ const [categories, articleTags, photoTags] = await Promise.all([
 
 <BaseLayout title="Categories & tags — peterjur.co">
   <AppNav />
-  <main class="taxonomy-admin-page">
+  <main class="admin-shell taxonomy-admin-page">
     <h1>Categories & tags</h1>
     <TaxonomyAdmin
       client:load
@@ -35,12 +35,3 @@ const [categories, articleTags, photoTags] = await Promise.all([
     <p><a href="/app/admin">← Admin</a></p>
   </main>
 </BaseLayout>
-
-<style>
-  .taxonomy-admin-page {
-    max-width: 46rem;
-    margin: 0 auto;
-    padding: 1rem;
-    font-family: system-ui, sans-serif;
-  }
-</style>

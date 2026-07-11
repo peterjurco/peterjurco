@@ -15,18 +15,9 @@ const apps = await listOrdered(getAppDb())
 
 <BaseLayout title="My apps — peterjur.co">
   <AppNav />
-  <main class="apps-admin-page">
+  <main class="admin-shell apps-admin-page">
     <h1>My apps</h1>
     <AppsAdmin client:load initialApps={apps} />
     <p><a href="/app/admin">← Admin</a></p>
   </main>
 </BaseLayout>
-
-<style>
-  .apps-admin-page {
-    max-width: 46rem;
-    margin: 0 auto;
-    padding: 1rem;
-    font-family: system-ui, sans-serif;
-  }
-</style>

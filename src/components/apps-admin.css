@@ -1,0 +1,139 @@
+/* "My apps" admin CRUD — was entirely unstyled (bare list + form). */
+
+.apps-admin {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 40rem;
+}
+
+.apps-admin-list {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.apps-admin-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--admin-border-light, #eaeef2);
+}
+
+.apps-admin-list img {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.apps-admin-list li a {
+  font-weight: 600;
+  color: var(--admin-accent, #33528f);
+}
+
+.apps-admin-controls {
+  display: flex;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+.apps-admin-controls button {
+  min-height: 1.9rem;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.85rem;
+  color: var(--admin-text, #24292f);
+  background: var(--admin-surface, #fff);
+  border: 1px solid var(--admin-border, #d0d7de);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.apps-admin-controls button:hover:not(:disabled) {
+  background: var(--admin-bg, #f6f8fa);
+  border-color: var(--admin-faint, #8b949e);
+}
+
+.apps-admin-controls button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.apps-admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 24rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--admin-border-light, #eaeef2);
+}
+
+.apps-admin-form h2 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--admin-text, #24292f);
+}
+
+.apps-admin-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--admin-muted, #57606a);
+}
+
+.apps-admin-form input[type="text"],
+.apps-admin-form input[type="url"] {
+  min-height: 2rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.9rem;
+  color: var(--admin-text, #24292f);
+  background: var(--admin-surface, #fff);
+  border: 1px solid var(--admin-border, #d0d7de);
+  border-radius: 6px;
+}
+
+.apps-admin-form input[type="text"]:focus,
+.apps-admin-form input[type="url"]:focus {
+  outline: 2px solid var(--admin-accent, #33528f);
+  outline-offset: 1px;
+}
+
+.apps-admin-form [role="alert"] {
+  margin: 0;
+  color: var(--admin-danger, #b3261e);
+  font-size: 0.85rem;
+}
+
+.apps-admin-form button[type="submit"] {
+  align-self: flex-start;
+  min-height: 2rem;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.85rem;
+  color: #fff;
+  background: var(--admin-accent, #33528f);
+  border: 1px solid var(--admin-accent, #33528f);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.apps-admin-form button[type="submit"]:hover:not(:disabled) {
+  background: var(--admin-accent-hover, #24406f);
+  border-color: var(--admin-accent-hover, #24406f);
+}
+
+.apps-admin-form button[type="submit"]:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.apps-admin-form span {
+  font-size: 0.8rem;
+  color: var(--admin-muted, #57606a);
+}
+
+.apps-admin-form span.is-error {
+  color: var(--admin-danger, #b3261e);
+  font-weight: 600;
+}
