@@ -177,7 +177,10 @@ export function EditorToolbar({ editor, saveLabel }: EditorToolbarProps) {
         onClick={setLink}
       />
       <ToolbarButton title="Image" label="🖼" onClick={insertImage} />
-      <span className="editor-save-state" aria-live="polite">
+      <span
+        className={`editor-save-state${saveLabel === 'Saved' ? ' is-success' : ''}${saveLabel === 'Save failed' ? ' is-error' : ''}`}
+        aria-live="polite"
+      >
         {saveLabel}
       </span>
     </div>

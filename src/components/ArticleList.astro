@@ -47,25 +47,15 @@ const { articles, emptyState } = Astro.props
     align-items: baseline;
     gap: 0.5rem;
     padding: 0.5rem 0;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--admin-border-light, #eee);
   }
   li a {
     font-weight: 600;
-  }
-  .badge {
-    padding: 0.05rem 0.4rem;
-    font-size: 0.75rem;
-    border: 1px solid #ccc;
-    border-radius: 999px;
-    color: #555;
-  }
-  .badge-public {
-    border-color: #2e7d32;
-    color: #2e7d32;
+    color: var(--admin-accent, #333);
   }
   time {
     margin-left: auto;
-    color: #999;
+    color: var(--admin-faint, #999);
     font-size: 0.8rem;
   }
 </style>

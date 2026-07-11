@@ -28,7 +28,7 @@ const articles = await listByCategory(db, id)
 
 <BaseLayout title={`${category.name} — peterjur.co`}>
   <AppNav />
-  <main class="taxonomy-list">
+  <main class="admin-shell taxonomy-list">
     <header>
       <h1>Category: {category.name}</h1>
     </header>
@@ -36,12 +36,3 @@ const articles = await listByCategory(db, id)
     <p><a href="/app/articles">← Articles</a></p>
   </main>
 </BaseLayout>
-
-<style>
-  .taxonomy-list {
-    max-width: 46rem;
-    margin: 0 auto;
-    padding: 1rem;
-    font-family: system-ui, sans-serif;
-  }
-</style>

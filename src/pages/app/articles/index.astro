@@ -16,11 +16,13 @@ const articles = await listForOwner(db)
 
 <BaseLayout title="Articles — peterjur.co">
   <AppNav />
-  <main class="articles-list">
+  <main class="admin-shell articles-list">
     <header>
       <h1>Articles</h1>
       <form method="post" action="/app/articles/new">
-        <button type="submit">New article</button>
+        <button type="submit" class="admin-btn admin-btn--primary">
+          New article
+        </button>
       </form>
     </header>
     {articles.length === 0 && <p>No articles yet.</p>}
@@ -50,18 +52,6 @@ const articles = await listForOwner(db)
 </BaseLayout>
 
 <style>
-  .articles-list {
-    max-width: 46rem;
-    margin: 0 auto;
-    padding: 1rem;
-    font-family: system-ui, sans-serif;
-  }
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-  }
   ul {
     padding: 0;
     list-style: none;
@@ -72,29 +62,19 @@ const articles = await listForOwner(db)
     align-items: baseline;
     gap: 0.5rem;
     padding: 0.5rem 0;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--admin-border-light, #eee);
   }
   li a {
     font-weight: 600;
+    color: var(--admin-accent, #333);
   }
   .category {
-    color: #666;
+    color: var(--admin-muted, #666);
     font-size: 0.85rem;
-  }
-  .badge {
-    padding: 0.05rem 0.4rem;
-    font-size: 0.75rem;
-    border: 1px solid #ccc;
-    border-radius: 999px;
-    color: #555;
-  }
-  .badge-public {
-    border-color: #2e7d32;
-    color: #2e7d32;
   }
   time {
     margin-left: auto;
-    color: #999;
+    color: var(--admin-faint, #999);
     font-size: 0.8rem;
   }
 </style>

@@ -114,3 +114,91 @@
 .cover-upload span {
   font-size: 0.8rem;
 }
+
+.cover-upload span.is-success {
+  color: var(--admin-success);
+}
+
+.cover-upload span.is-error {
+  color: var(--admin-danger);
+  font-weight: 600;
+}
+
+/*
+ * Opt-in primitives for plain HTML buttons/inputs that today render with
+ * zero styling (AlbumForm, AppsAdmin, TaxonomyAdmin, plain form buttons on
+ * list pages). Deliberately NOT bare `button`/`input` element selectors —
+ * the home canvas editor's own WYSIWYG surface (.ed-canvas/.ed-tile/
+ * .ed-handle in canvas-editor.css) lives inside the same .admin-shell
+ * container, and a generic descendant selector would out-specificity its
+ * carefully-scoped rules. Applying `.admin-btn`/`.admin-input` explicitly,
+ * only where needed, avoids that entirely.
+ */
+.admin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0.4rem 0.85rem;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--admin-text);
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.admin-btn:hover:not(:disabled) {
+  background: var(--admin-bg);
+  border-color: var(--admin-faint);
+}
+
+.admin-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.admin-btn--primary {
+  color: #fff;
+  background: var(--admin-accent);
+  border-color: var(--admin-accent);
+}
+
+.admin-btn--primary:hover:not(:disabled) {
+  background: var(--admin-accent-hover);
+  border-color: var(--admin-accent-hover);
+}
+
+.admin-btn--danger {
+  color: var(--admin-danger);
+  border-color: var(--admin-danger);
+}
+
+.admin-btn--danger:hover:not(:disabled) {
+  background: #fdecea;
+}
+
+.admin-input {
+  min-height: 2rem;
+  padding: 0.35rem 0.5rem;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--admin-text);
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 6px;
+}
+
+.admin-input:focus {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 1px;
+}
+
+.admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--admin-muted);
+}
