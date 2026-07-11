@@ -151,4 +151,42 @@ describe('backup-db.sh — full script against a real S3 API', () => {
       }),
     ).toThrow()
   })
+
+  it('PG_DUMP_BIN overrides whatever "pg_dump" resolves to on PATH', async () => {
+    // A failing `pg_dump` sits on PATH (mimicking the Debian/Ubuntu quirk:
+    // installing postgresql-client-18 does NOT repoint the plain `pg_dump`
+    // on PATH away from the distro's pre-installed version) — the script
+    // must use PG_DUMP_BIN instead of that PATH resolution.
+    const pathBinDir = mkdtempSync(join(tmpdir(), 'backup-e2e-path-'))
+    writeFileSync(
+      join(pathBinDir, 'pg_dump'),
+      '#!/usr/bin/env bash\necho "wrong pg_dump ran" >&2\nexit 1\n',
+    )
+    chmodSync(join(pathBinDir, 'pg_dump'), 0o755)
+
+    const versionedDir = mkdtempSync(join(tmpdir(), 'backup-e2e-versioned-'))
+    const versionedBin = join(versionedDir, 'pg_dump_18')
+    writeFileSync(
+      versionedBin,
+      '#!/usr/bin/env bash\necho "-- versioned dump for $1"\necho "SELECT 1;"\n',
+    )
+    chmodSync(versionedBin, 0o755)
+
+    runBackup({
+      DATABASE_URL: 'postgres://unused/unused',
+      R2_BACKUP_ENDPOINT_URL: MINIO_ENDPOINT,
+      R2_BACKUP_BUCKET: BUCKET,
+      R2_BACKUP_ACCESS_KEY_ID: 'minioadmin',
+      R2_BACKUP_SECRET_ACCESS_KEY: 'minioadmin',
+      STUB_BIN: pathBinDir,
+      PG_DUMP_BIN: versionedBin,
+    })
+
+    const keys = await listKeys()
+    expect(
+      keys.some((key) =>
+        /^backups\/db\/\d{4}\/peterjurco-\d{8}T\d{6}Z\.sql\.gz$/.test(key),
+      ),
+    ).toBe(true)
+  })
 })

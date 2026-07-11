@@ -15,6 +15,15 @@
 #   R2_BACKUP_SECRET_ACCESS_KEY
 # Optional:
 #   RETENTION_DAYS                prune horizon (default 30)
+#   PG_DUMP_BIN                   exact pg_dump binary to invoke (default:
+#                                 whatever `pg_dump` resolves to on PATH).
+#                                 On Debian/Ubuntu, installing a PGDG version
+#                                 (postgresql-client-18) does NOT repoint the
+#                                 plain `pg_dump` on PATH — it stays whatever
+#                                 the distro's own package provided. Set this
+#                                 to the versioned binary
+#                                 (/usr/lib/postgresql/<N>/bin/pg_dump) to
+#                                 guarantee the right one runs.
 #
 # Every step fails loudly (set -euo pipefail) so a broken backup turns the
 # workflow run red instead of silently uploading nothing.
@@ -94,7 +103,7 @@ main() {
   trap "rm -f '$dump'" EXIT
 
   echo "==> pg_dump | gzip"
-  pg_dump "$DATABASE_URL" | gzip >"$dump"
+  "${PG_DUMP_BIN:-pg_dump}" "$DATABASE_URL" | gzip >"$dump"
   # pipefail already catches pg_dump failures; this catches a "successful"
   # but empty dump, which would silently overwrite nothing useful into R2.
   [[ -s "$dump" ]] || {

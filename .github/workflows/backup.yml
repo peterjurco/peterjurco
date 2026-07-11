@@ -39,6 +39,13 @@ jobs:
             | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends postgresql-client-18
+          # The PGDG package does NOT repoint the plain `pg_dump` on PATH —
+          # that stays the runner's pre-installed distro version (confirmed:
+          # a prior run picked up 16.14 despite this install succeeding).
+          # Point PG_DUMP_BIN at the exact versioned binary instead of
+          # trusting PATH resolution.
+          test -x /usr/lib/postgresql/18/bin/pg_dump
+          echo "PG_DUMP_BIN=/usr/lib/postgresql/18/bin/pg_dump" >> "$GITHUB_ENV"
 
       - name: Dump, upload, prune
         env:
