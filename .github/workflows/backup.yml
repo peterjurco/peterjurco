@@ -23,10 +23,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # pg_dump's major version must match the Neon server (Postgres 17 —
-      # see docker-compose.test.yml mirroring it); the runner's default
-      # client can lag behind, so install from PGDG.
-      - name: Install postgresql-client-17
+      # pg_dump can't dump from a server NEWER than itself, so the client
+      # major version must be >= the actual Neon server's (confirmed 18.4
+      # in production as of 2026-07 — Neon defaults new projects ahead of
+      # docker-compose.test.yml's local Postgres 17, which is fine: pg_dump
+      # 18 dumps older servers fine, and the local stack only ever exercises
+      # a STUBBED pg_dump in tests, never the real binary). Install from
+      # PGDG since the runner's default client lags behind.
+      - name: Install postgresql-client-18
         run: |
           sudo install -d /usr/share/postgresql-common/pgdg
           sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
@@ -34,7 +38,7 @@ jobs:
           echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
             | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends postgresql-client-17
+          sudo apt-get install -y --no-install-recommends postgresql-client-18
 
       - name: Dump, upload, prune
         env:
