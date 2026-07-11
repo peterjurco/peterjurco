@@ -217,8 +217,10 @@ export const apps = pgTable('apps', {
 export const homeTiles = pgTable('home_tiles', {
   id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
   kind: homeTileKind('kind').notNull(),
-  // R2 object key — for `photo` tiles.
-  imageKey: text('image_key'),
+  // Ordered R2 object keys — for `photo` tiles. A "complete" photo tile has
+  // >=1 entry (enforced at the app layer, see requireCompleteTile); >1 entry
+  // crossfades in place via CycleGroup, per cycleIntervalMs below.
+  imageKeys: text('image_keys').array().notNull().default([]),
   // Quote text — for `quote` tiles.
   textContent: text('text_content'),
   // Attribution line — for `quote` tiles.
@@ -235,8 +237,9 @@ export const homeTiles = pgTable('home_tiles', {
   // E.g. `develop` (default), or none — editable per block.
   hoverEffect: text('hover_effect'),
   zIndex: integer('z_index').notNull(),
-  // Tiles sharing a group crossfade between each other.
-  cycleGroup: text('cycle_group'),
+  // Milliseconds per image while cycling; null = use the CycleGroup default
+  // (5000ms). Only meaningful when imageKeys.length > 1.
+  cycleIntervalMs: integer('cycle_interval_ms'),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
     .defaultNow(),
