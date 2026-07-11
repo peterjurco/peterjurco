@@ -2,7 +2,8 @@ import { and, desc, eq, inArray, notInArray } from 'drizzle-orm'
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import type * as schema from '../../db/schema'
 import { photoAlbums, photoAlbumsTagsMap, photoTags } from '../../db/schema'
-import { deleteObject, type R2Env } from '../media/r2'
+import { deleteOrphanedImages } from '../media/cleanup'
+import type { R2Env } from '../media/r2'
 import { newPublicId } from '../public-id'
 
 /**
@@ -28,23 +29,16 @@ export type AlbumWithTags = PhotoAlbum & { tags: PhotoTag[] }
 const newestFirst = [desc(photoAlbums.updatedAt), desc(photoAlbums.id)] as const
 
 /**
- * Best-effort R2 cleanup for a cover key a DB write above already dropped.
- * Only ever called AFTER that write has succeeded (see repo-wide INVARIANT
- * docblock) — so `key`, if given, is never at risk of still being
- * referenced. Never throws: a failed delete is logged and swallowed, since
- * the row is already correct — a lingering cover in the bucket is a space
- * optimization, not a correctness guarantee (TODO.md).
+ * Best-effort R2 cleanup for a cover key a DB write above already dropped —
+ * see src/lib/media/cleanup.ts. Only ever called AFTER that write has
+ * succeeded (repo-wide INVARIANT docblock above), so `key`, if given, is
+ * never at risk of still being referenced.
  */
-async function deleteOldCover(
+function deleteOldCover(
   env: R2Env,
   key: string | null | undefined,
 ): Promise<void> {
-  if (!key) return
-  try {
-    await deleteObject(env, key)
-  } catch (error) {
-    console.error(`Failed to delete orphaned R2 object ${key}:`, error)
-  }
+  return deleteOrphanedImages(env, key ? [key] : [])
 }
 
 export async function createAlbum(

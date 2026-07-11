@@ -2,7 +2,8 @@ import { asc, eq } from 'drizzle-orm'
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import type * as schema from '../../db/schema'
 import { apps } from '../../db/schema'
-import { deleteObject, type R2Env } from '../media/r2'
+import { deleteOrphanedImages } from '../media/cleanup'
+import type { R2Env } from '../media/r2'
 
 /**
  * "My apps" list repository (DATA_MODEL §4, REQUIREMENTS "My apps"): a small
@@ -20,23 +21,16 @@ export type AppsDb = PgDatabase<PgQueryResultHKT, typeof schema>
 export type App = typeof apps.$inferSelect
 
 /**
- * Best-effort R2 cleanup for an icon key a DB write above already dropped.
- * Only ever called AFTER that write has succeeded (see repo-wide INVARIANT
- * docblock) — so `key`, if given, is never at risk of still being
- * referenced. Never throws: a failed delete is logged and swallowed, since
- * the row is already correct — a lingering icon in the bucket is a space
- * optimization, not a correctness guarantee (TODO.md).
+ * Best-effort R2 cleanup for an icon key a DB write above already dropped —
+ * see src/lib/media/cleanup.ts. Only ever called AFTER that write has
+ * succeeded (repo-wide INVARIANT docblock above), so `key`, if given, is
+ * never at risk of still being referenced.
  */
-async function deleteOldIcon(
+function deleteOldIcon(
   env: R2Env,
   key: string | null | undefined,
 ): Promise<void> {
-  if (!key) return
-  try {
-    await deleteObject(env, key)
-  } catch (error) {
-    console.error(`Failed to delete orphaned R2 object ${key}:`, error)
-  }
+  return deleteOrphanedImages(env, key ? [key] : [])
 }
 
 export async function createApp(

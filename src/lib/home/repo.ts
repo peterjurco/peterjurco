@@ -2,7 +2,8 @@ import { asc, eq, notInArray } from 'drizzle-orm'
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import type * as schema from '../../db/schema'
 import { homeTiles } from '../../db/schema'
-import { deleteObject, type R2Env } from '../media/r2'
+import { deleteOrphanedImages } from '../media/cleanup'
+import type { R2Env } from '../media/r2'
 import type { TileBorder } from './canvas'
 
 /**
@@ -52,24 +53,10 @@ export type LayoutTile = TileValues & { id?: number }
 /** Bottom-of-stack first; `id ASC` breaks z ties by insertion order. */
 const stackingOrder = [asc(homeTiles.zIndex), asc(homeTiles.id)] as const
 
-/**
- * Best-effort R2 cleanup for image keys a DB write above already dropped.
- * Callers only ever invoke this AFTER the write that dropped the keys has
- * already succeeded (see the INVARIANT docblock above) — so a key passed
- * here is never at risk of still being referenced. Never throws: a failed
- * delete is logged and swallowed, because the row is already correct (the
- * source of truth) — a lingering image in the bucket is a space
- * optimization, not a correctness guarantee (TODO.md).
- */
-async function deleteOrphanedImages(env: R2Env, keys: string[]): Promise<void> {
-  await Promise.all(
-    keys.map((key) =>
-      deleteObject(env, key).catch((error) => {
-        console.error(`Failed to delete orphaned R2 object ${key}:`, error)
-      }),
-    ),
-  )
-}
+// Callers below only ever invoke deleteOrphanedImages (src/lib/media/cleanup.ts)
+// AFTER the write that dropped the keys has already succeeded (see the
+// INVARIANT docblock above) — so a key passed there is never at risk of
+// still being referenced.
 
 export async function createTile(
   db: HomeDb,

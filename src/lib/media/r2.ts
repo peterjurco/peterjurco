@@ -50,6 +50,21 @@ function endpointFor(env: R2Env): string {
   return endpoint.replace(/\/+$/, '')
 }
 
+/** Shared SigV4 client + bucket URL prefix for the two request-signing functions below. */
+function r2Client(env: R2Env): { client: AwsClient; bucketUrl: string } {
+  const client = new AwsClient({
+    accessKeyId: requireEnv(env.R2_ACCESS_KEY_ID, 'R2_ACCESS_KEY_ID'),
+    secretAccessKey: requireEnv(
+      env.R2_SECRET_ACCESS_KEY,
+      'R2_SECRET_ACCESS_KEY',
+    ),
+    service: 's3',
+    region: 'auto',
+  })
+  const bucket = requireEnv(env.R2_BUCKET, 'R2_BUCKET')
+  return { client, bucketUrl: `${endpointFor(env)}/${bucket}` }
+}
+
 /**
  * Short-lived presigned PUT URL for `key`, with `contentType` bound into the
  * signature (X-Amz-SignedHeaders) — the holder can only PUT that exact
@@ -63,17 +78,8 @@ export async function presignPut(
   key: string,
   contentType: string,
 ): Promise<string> {
-  const client = new AwsClient({
-    accessKeyId: requireEnv(env.R2_ACCESS_KEY_ID, 'R2_ACCESS_KEY_ID'),
-    secretAccessKey: requireEnv(
-      env.R2_SECRET_ACCESS_KEY,
-      'R2_SECRET_ACCESS_KEY',
-    ),
-    service: 's3',
-    region: 'auto',
-  })
-  const bucket = requireEnv(env.R2_BUCKET, 'R2_BUCKET')
-  const url = new URL(`${endpointFor(env)}/${bucket}/${key}`)
+  const { client, bucketUrl } = r2Client(env)
+  const url = new URL(`${bucketUrl}/${key}`)
   url.searchParams.set('X-Amz-Expires', String(PRESIGN_EXPIRES_SECONDS))
   // allHeaders: aws4fetch skips content-type by default (UNSIGNABLE_HEADERS);
   // the only header on this request is the Content-Type we want signed.
@@ -101,18 +107,10 @@ export async function presignPut(
  * the "DB write first, then best-effort delete" reasoning.
  */
 export async function deleteObject(env: R2Env, key: string): Promise<void> {
-  const client = new AwsClient({
-    accessKeyId: requireEnv(env.R2_ACCESS_KEY_ID, 'R2_ACCESS_KEY_ID'),
-    secretAccessKey: requireEnv(
-      env.R2_SECRET_ACCESS_KEY,
-      'R2_SECRET_ACCESS_KEY',
-    ),
-    service: 's3',
-    region: 'auto',
-  })
-  const bucket = requireEnv(env.R2_BUCKET, 'R2_BUCKET')
-  const url = `${endpointFor(env)}/${bucket}/${key}`
-  const signed = await client.sign(new Request(url, { method: 'DELETE' }))
+  const { client, bucketUrl } = r2Client(env)
+  const signed = await client.sign(
+    new Request(`${bucketUrl}/${key}`, { method: 'DELETE' }),
+  )
   const response = await fetch(signed)
   if (!response.ok && response.status !== 404) {
     throw new Error(
