@@ -194,3 +194,11 @@ the daily 03:17 UTC schedule.
   you exporting the WP DB dump. The pure-conversion pieces (HTML→TipTap,
   taxonomy mapping) are already built and tested; the dump reader and
   import run are not, and shouldn't be attempted without the real dump.
+- **Pending migration**: `drizzle/0004_home_tiles_image_keys_array.sql`
+  (home_tiles: `image_key`/`cycle_group` → `image_keys` array +
+  `cycle_interval_ms`, with any existing `image_key` backfilled into a
+  1-element `image_keys` array) has only been applied to the local test
+  Postgres. Run it against production the same way as step 1's initial
+  schema apply: `DATABASE_URL="<pooled connection string>" pnpm drizzle-kit
+  migrate`. It is non-destructive, but do this before relying on the
+  editor's multi-image tiles in production.

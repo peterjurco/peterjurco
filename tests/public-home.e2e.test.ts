@@ -54,7 +54,7 @@ async function request(
 function photoBody(overrides: Record<string, unknown> = {}) {
   return {
     kind: 'photo',
-    imageKey: 'home/redhouse.webp',
+    imageKeys: ['home/redhouse.webp'],
     x: 2.5,
     y: 1,
     width: 48,
@@ -63,7 +63,7 @@ function photoBody(overrides: Record<string, unknown> = {}) {
     border: null,
     hoverEffect: 'develop',
     zIndex: 1,
-    cycleGroup: null,
+    cycleIntervalMs: null,
     ...overrides,
   }
 }
@@ -180,13 +180,14 @@ describe('home tiles API — validation', () => {
   it('rejects invalid tiles with 400', async () => {
     for (const body of [
       photoBody({ kind: 'headline' }),
-      photoBody({ imageKey: null }), // photo without image
+      photoBody({ imageKeys: [] }), // photo without any images
       photoBody({ hoverEffect: 'warm' }), // rejected DESIGN direction
       photoBody({ rotation: 90 }),
       photoBody({ width: 0 }),
       photoBody({ x: 500 }),
       photoBody({ zIndex: 1.5 }),
       photoBody({ border: { width: 4 } }),
+      photoBody({ cycleIntervalMs: 100 }), // below the 500ms min
       { kind: 'quote', x: 0, y: 0, width: 10, height: 10, zIndex: 1 }, // no text
     ]) {
       const response = await request('/api/home/tiles', {
@@ -310,25 +311,31 @@ describe('public homepage — canvas render from stored layout', () => {
     expect(css).toContain('prefers-reduced-motion')
   })
 
-  it('mounts the CycleGroup island only when a cycle_group exists', async () => {
-    await createTileViaApi(photoBody({ cycleGroup: 'north', zIndex: 2 }))
+  it('mounts a CycleGroup island only for a tile with more than one image', async () => {
+    // Single-image tile — plain SSR, no island.
+    await createTileViaApi(photoBody({ zIndex: 1 }))
+    // Multi-image tile — ONE island carrying every one of its own images.
     await createTileViaApi(
       photoBody({
-        imageKey: 'home/earth.webp',
-        cycleGroup: 'north',
-        zIndex: 3,
+        imageKeys: ['home/earth.webp', 'home/blue.webp', 'home/green.webp'],
+        cycleIntervalMs: 3000,
+        zIndex: 2,
       }),
     )
 
     const html = await (await request('/')).text()
-    // ONE island for the group container — both layers inside it.
+    // Exactly one island — for the multi-image tile only — with one
+    // cycle-layer <img> per image (matched on the class attribute itself,
+    // not the word, since public-home.css also mentions "cycle-layer").
     expect(html.match(/<astro-island/g)).toHaveLength(1)
-    expect(html).toContain('cycle-layer')
-    expect(html).toContain(`${IMG_BASE}/home/redhouse.webp`)
+    expect(html.match(/class="cycle-layer/g)).toHaveLength(3)
     expect(html).toContain(`${IMG_BASE}/home/earth.webp`)
-    // The anchor tile (lowest z) provides the layout of the group container.
+    expect(html).toContain(`${IMG_BASE}/home/blue.webp`)
+    expect(html).toContain(`${IMG_BASE}/home/green.webp`)
+    // The single-image tile still renders as a plain <img>.
+    expect(html).toContain(`${IMG_BASE}/home/redhouse.webp`)
+    expect(html).toContain('z-index:1')
     expect(html).toContain('z-index:2')
-    expect(html).not.toContain('z-index:3')
   })
 
   it('renders an empty canvas without islands when no tiles exist', async () => {
@@ -344,7 +351,9 @@ describe('public homepage — canvas render from stored layout', () => {
 describe('bulk save — editor round-trip', () => {
   it('PUT persists the complete canvas and the public page reflects it', async () => {
     const keepId = await createTileViaApi(photoBody())
-    await createTileViaApi(photoBody({ imageKey: 'home/drop.webp', zIndex: 2 }))
+    await createTileViaApi(
+      photoBody({ imageKeys: ['home/drop.webp'], zIndex: 2 }),
+    )
 
     const put = await request('/api/home/tiles', {
       method: 'PUT',
@@ -416,19 +425,19 @@ describe('bulk save — editor round-trip', () => {
 })
 
 describe('tile invariants — PATCH validates the merged row, render tolerates bad rows', () => {
-  it('rejects a patch that would leave a photo tile without an image', async () => {
+  it('rejects a patch that would leave a photo tile without any images', async () => {
     const id = await createTileViaApi(photoBody())
 
     const response = await request(`/api/home/tiles/${id}`, {
       method: 'PATCH',
       authed: true,
-      body: { imageKey: null },
+      body: { imageKeys: [] },
     })
     expect(response.status).toBe(400)
 
     // The row is unchanged and the homepage still renders it.
     const [row] = await listOrdered(db)
-    expect(row?.imageKey).toBe('home/redhouse.webp')
+    expect(row?.imageKeys).toEqual(['home/redhouse.webp'])
     const html = await (await request('/')).text()
     expect(html).toContain('home/redhouse.webp')
   })
@@ -448,7 +457,7 @@ describe('tile invariants — PATCH validates the merged row, render tolerates b
     // Bypass the API on purpose: production data can outlive validation.
     await db.insert(homeTiles).values({
       kind: 'photo',
-      imageKey: null, // unrenderable
+      imageKeys: [], // unrenderable
       textContent: null,
       cite: null,
       x: 10,
@@ -459,7 +468,7 @@ describe('tile invariants — PATCH validates the merged row, render tolerates b
       border: null,
       hoverEffect: null,
       zIndex: 7,
-      cycleGroup: null,
+      cycleIntervalMs: null,
     })
 
     const response = await request('/')
