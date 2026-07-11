@@ -8,7 +8,7 @@ import {
 /** A valid, complete photo-tile body. */
 const PHOTO_BODY = {
   kind: 'photo',
-  imageKey: 'home/red.webp',
+  imageKeys: ['home/red.webp'],
   x: 2.5,
   y: 1,
   width: 48,
@@ -17,7 +17,7 @@ const PHOTO_BODY = {
   border: { width: 4, color: '#f0e7d3' },
   hoverEffect: 'develop',
   zIndex: 1,
-  cycleGroup: null,
+  cycleIntervalMs: null,
 }
 
 const QUOTE_BODY = {
@@ -40,8 +40,10 @@ describe('parseTileFields — per-field validation', () => {
 
   it.each([
     ['kind', 'headline'],
-    ['imageKey', 42],
-    ['imageKey', ''],
+    ['imageKeys', 'home/red.webp'], // not an array
+    ['imageKeys', [42]],
+    ['imageKeys', ['']],
+    ['imageKeys', Array.from({ length: 51 }, (_, i) => `home/${i}.webp`)],
     ['textContent', 12],
     ['textContent', 'x'.repeat(2001)],
     ['cite', 'x'.repeat(501)],
@@ -60,8 +62,9 @@ describe('parseTileFields — per-field validation', () => {
     ['border', { width: 4 }], // missing color
     ['border', { width: -1, color: '#fff' }],
     ['border', 'thick'],
-    ['cycleGroup', ''],
-    ['cycleGroup', 7],
+    ['cycleIntervalMs', 100], // below 500ms min
+    ['cycleIntervalMs', 60001], // above 60s max
+    ['cycleIntervalMs', 'fast'],
   ])('rejects bad %s = %j', (field, value) => {
     const result = parseTileFields({ ...PHOTO_BODY, [field]: value })
     expect(typeof result).toBe('string')
@@ -79,10 +82,27 @@ describe('parseTileFields — per-field validation', () => {
       ...PHOTO_BODY,
       border: null,
       hoverEffect: null,
-      cycleGroup: null,
+      cycleIntervalMs: null,
       cite: null,
     })
     expect(parsed).toMatchObject({ border: null, hoverEffect: null })
+  })
+
+  it('accepts a multi-image photo tile with a cycle interval in range', () => {
+    const parsed = parseTileFields({
+      ...PHOTO_BODY,
+      imageKeys: ['home/red.webp', 'home/earth.webp'],
+      cycleIntervalMs: 3000,
+    })
+    expect(parsed).toMatchObject({
+      imageKeys: ['home/red.webp', 'home/earth.webp'],
+      cycleIntervalMs: 3000,
+    })
+  })
+
+  it('accepts an empty imageKeys array (incomplete tile — caught by requireCompleteTile)', () => {
+    const parsed = parseTileFields({ ...PHOTO_BODY, imageKeys: [] })
+    expect(parsed).toMatchObject({ imageKeys: [] })
   })
 })
 
@@ -92,11 +112,36 @@ describe('requireCompleteTile — create/bulk entries', () => {
     expect(typeof missing).toBe('string')
   })
 
-  it('photo tiles must carry an image key', () => {
-    const { imageKey, ...rest } = PHOTO_BODY
+  it('photo tiles must carry at least one image key', () => {
+    const { imageKeys, ...rest } = PHOTO_BODY
     const parsed = parseTileFields(rest)
     if (typeof parsed === 'string') throw new Error(parsed)
     expect(requireCompleteTile(parsed)).toContain('imageKey')
+  })
+
+  it('rejects a photo tile with an explicit empty imageKeys array', () => {
+    const parsed = parseTileFields({ ...PHOTO_BODY, imageKeys: [] })
+    if (typeof parsed === 'string') throw new Error(parsed)
+    expect(requireCompleteTile(parsed)).toContain('imageKey')
+  })
+
+  it('accepts a photo tile with exactly one image key', () => {
+    const parsed = parseTileFields(PHOTO_BODY)
+    if (typeof parsed === 'string') throw new Error(parsed)
+    expect(requireCompleteTile(parsed)).toMatchObject({
+      imageKeys: ['home/red.webp'],
+    })
+  })
+
+  it('accepts a photo tile with several image keys', () => {
+    const parsed = parseTileFields({
+      ...PHOTO_BODY,
+      imageKeys: ['home/red.webp', 'home/earth.webp', 'home/blue.webp'],
+    })
+    if (typeof parsed === 'string') throw new Error(parsed)
+    expect(requireCompleteTile(parsed)).toMatchObject({
+      imageKeys: ['home/red.webp', 'home/earth.webp', 'home/blue.webp'],
+    })
   })
 
   it('quote tiles must carry text content', () => {
@@ -141,8 +186,8 @@ describe('parseLayoutPayload — the PUT bulk body', () => {
     expect(
       typeof parseLayoutPayload({ tiles: [{ ...PHOTO_BODY, id: -1 }] }),
     ).toBe('string')
-    // An incomplete entry (no image key on a photo) fails the bulk save too.
-    const { imageKey, ...incomplete } = PHOTO_BODY
+    // An incomplete entry (no image keys on a photo) fails the bulk save too.
+    const { imageKeys, ...incomplete } = PHOTO_BODY
     expect(typeof parseLayoutPayload({ tiles: [incomplete] })).toBe('string')
   })
 

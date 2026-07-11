@@ -17,7 +17,7 @@ import {
  * Single home-tile API:
  * - PATCH  /api/home/tiles/:id — partial update of any tile fields. The patch
  *   is validated AGAINST THE MERGED ROW, so a partial update can never break
- *   the completeness invariant (e.g. `{imageKey: null}` on a photo tile).
+ *   the completeness invariant (e.g. `{imageKeys: []}` on a photo tile).
  * - DELETE /api/home/tiles/:id — removes the tile.
  *
  * Owner-only (defense in depth beyond the middleware).
@@ -53,7 +53,8 @@ export const PATCH: APIRoute = async ({ locals, params, request }) => {
   try {
     const db = getAppDb()
     // Invariant check on the MERGED row: the patch alone can be valid while
-    // the result is unrenderable (photo without imageKey, quote without text).
+    // the result is unrenderable (photo without any imageKeys, quote without
+    // text).
     const existing = await getTile(db, id)
     if (existing === null) return jsonError(404, 'Tile not found')
     const merged = requireCompleteTile({ ...tileFieldsOf(existing), ...fields })

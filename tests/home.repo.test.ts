@@ -22,7 +22,7 @@ afterAll(async () => {
 /** A complete photo-tile record — every layout field exercised. */
 const PHOTO_TILE = {
   kind: 'photo' as const,
-  imageKey: 'home/redhouse.webp',
+  imageKeys: ['home/redhouse.webp'],
   x: 2.5,
   y: 1,
   width: 48,
@@ -31,7 +31,7 @@ const PHOTO_TILE = {
   border: { width: 4, color: '#f0e7d3' },
   hoverEffect: 'develop',
   zIndex: 1,
-  cycleGroup: null,
+  cycleIntervalMs: null,
 }
 
 const QUOTE_TILE = {
@@ -51,7 +51,7 @@ describe('createTile / updateTile / deleteTile', () => {
     const tile = await createTile(db, PHOTO_TILE)
     expect(tile.id).toBeGreaterThan(0)
     expect(tile.kind).toBe('photo')
-    expect(tile.imageKey).toBe('home/redhouse.webp')
+    expect(tile.imageKeys).toEqual(['home/redhouse.webp'])
     expect(tile.textContent).toBeNull()
     expect(tile.x).toBe(2.5)
     expect(tile.y).toBe(1)
@@ -61,7 +61,17 @@ describe('createTile / updateTile / deleteTile', () => {
     expect(tile.border).toEqual({ width: 4, color: '#f0e7d3' })
     expect(tile.hoverEffect).toBe('develop')
     expect(tile.zIndex).toBe(1)
-    expect(tile.cycleGroup).toBeNull()
+    expect(tile.cycleIntervalMs).toBeNull()
+  })
+
+  it('creates a photo tile with multiple images and a cycle interval', async () => {
+    const tile = await createTile(db, {
+      ...PHOTO_TILE,
+      imageKeys: ['home/redhouse.webp', 'home/earth.webp'],
+      cycleIntervalMs: 3000,
+    })
+    expect(tile.imageKeys).toEqual(['home/redhouse.webp', 'home/earth.webp'])
+    expect(tile.cycleIntervalMs).toBe(3000)
   })
 
   it('creates a quote tile with text and cite', async () => {
@@ -70,12 +80,12 @@ describe('createTile / updateTile / deleteTile', () => {
     expect(tile.textContent).toBe('Everything has led to this')
     expect(tile.cite).toBe('— on the road, somewhere north')
     expect(tile.rotation).toBe(-1.6)
-    expect(tile.imageKey).toBeNull()
+    expect(tile.imageKeys).toEqual([])
     expect(tile.border).toBeNull()
     expect(tile.hoverEffect).toBeNull()
   })
 
-  it('patches fields independently; border and cycleGroup are clearable', async () => {
+  it('patches fields independently; border and cycleIntervalMs are clearable', async () => {
     const tile = await createTile(db, PHOTO_TILE)
 
     const moved = await updateTile(db, tile.id, { x: 10, y: 20, rotation: 3 })
@@ -87,11 +97,21 @@ describe('createTile / updateTile / deleteTile', () => {
     const cleared = await updateTile(db, tile.id, {
       border: null,
       hoverEffect: 'none',
-      cycleGroup: 'north',
+      imageKeys: ['home/redhouse.webp', 'home/earth.webp'],
+      cycleIntervalMs: 2000,
     })
     expect(cleared?.border).toBeNull()
     expect(cleared?.hoverEffect).toBe('none')
-    expect(cleared?.cycleGroup).toBe('north')
+    expect(cleared?.imageKeys).toEqual([
+      'home/redhouse.webp',
+      'home/earth.webp',
+    ])
+    expect(cleared?.cycleIntervalMs).toBe(2000)
+
+    const clearedInterval = await updateTile(db, tile.id, {
+      cycleIntervalMs: null,
+    })
+    expect(clearedInterval?.cycleIntervalMs).toBeNull()
   })
 
   it('bumps updated_at on update', async () => {

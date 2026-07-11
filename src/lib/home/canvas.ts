@@ -47,4 +47,8 @@ export const TILE_RANGES = {
   width: { min: 1, max: 100 },
   height: { min: 0.5, max: 150 },
   rotation: { min: -45, max: 45 },
+  cycleIntervalMs: { min: 500, max: 60000 },
 } as const
+
+/** `cycleIntervalMs: null` means "use this default" (CycleGroup.tsx). */
+export const DEFAULT_CYCLE_INTERVAL_MS = 5000

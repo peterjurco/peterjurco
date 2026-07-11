@@ -28,7 +28,8 @@ export type HomeTile = Omit<typeof homeTiles.$inferSelect, 'border'> & {
 /** Everything the editor sets on a tile — id-less; layout plus content. */
 export interface TileValues {
   kind: 'photo' | 'quote'
-  imageKey?: string | null
+  /** Ordered R2 object keys — for `photo` tiles. */
+  imageKeys?: string[]
   textContent?: string | null
   cite?: string | null
   x: number
@@ -39,7 +40,9 @@ export interface TileValues {
   border?: TileBorder | null
   hoverEffect?: string | null
   zIndex: number
-  cycleGroup?: string | null
+  /** ms per image while cycling; null = CycleGroup's default. Meaningful
+   *  only when imageKeys.length > 1. */
+  cycleIntervalMs?: number | null
 }
 
 /** A full-canvas save entry: existing tiles carry their id, new ones don't. */
@@ -66,7 +69,7 @@ export async function getTile(
   return (tile as HomeTile | undefined) ?? null
 }
 
-/** Partial update; `border: null` / `cycleGroup: null` clear. Null = missing. */
+/** Partial update; `border: null` / `cycleIntervalMs: null` clear. Null = missing. */
 export async function updateTile(
   db: HomeDb,
   id: number,

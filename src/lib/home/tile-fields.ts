@@ -11,8 +11,8 @@ import type { LayoutTile, TileValues } from './repo'
 
 const TEXT_MAX = 2000
 const CITE_MAX = 500
-const CYCLE_GROUP_MAX = 100
 const BORDER_WIDTH_MAX = 100
+const IMAGE_KEYS_MAX = 50
 
 /**
  * border.color is interpolated into an inline `style` attribute, so it must
@@ -47,14 +47,15 @@ export function parseTileFields(
     }
     fields.kind = body.kind
   }
-  if ('imageKey' in body) {
+  if ('imageKeys' in body) {
     if (
-      body.imageKey !== null &&
-      (typeof body.imageKey !== 'string' || body.imageKey.length === 0)
+      !Array.isArray(body.imageKeys) ||
+      body.imageKeys.length > IMAGE_KEYS_MAX ||
+      !body.imageKeys.every((key) => typeof key === 'string' && key.length > 0)
     ) {
-      return 'imageKey must be a non-empty string or null'
+      return `imageKeys must be an array of at most ${IMAGE_KEYS_MAX} non-empty strings`
     }
-    fields.imageKey = body.imageKey as string | null
+    fields.imageKeys = body.imageKeys as string[]
   }
   if ('textContent' in body) {
     if (
@@ -118,16 +119,14 @@ export function parseTileFields(
     }
     fields.border = body.border as TileBorder | null
   }
-  if ('cycleGroup' in body) {
+  if ('cycleIntervalMs' in body) {
     if (
-      body.cycleGroup !== null &&
-      (typeof body.cycleGroup !== 'string' ||
-        body.cycleGroup.length === 0 ||
-        body.cycleGroup.length > CYCLE_GROUP_MAX)
+      body.cycleIntervalMs !== null &&
+      !inRange(body.cycleIntervalMs, TILE_RANGES.cycleIntervalMs)
     ) {
-      return `cycleGroup must be a non-empty string of at most ${CYCLE_GROUP_MAX} characters, or null`
+      return `cycleIntervalMs must be a number between ${TILE_RANGES.cycleIntervalMs.min} and ${TILE_RANGES.cycleIntervalMs.max}, or null`
     }
-    fields.cycleGroup = body.cycleGroup as string | null
+    fields.cycleIntervalMs = body.cycleIntervalMs as number | null
   }
 
   return fields
@@ -136,7 +135,7 @@ export function parseTileFields(
 /**
  * Promotes parsed fields to a complete tile (create/bulk entries): the kind,
  * the full layout box and stacking order are required, and the kind's content
- * field must be present — a photo without an imageKey (or a quote without
+ * field must be present — a photo without any imageKeys (or a quote without
  * textContent) can never render.
  */
 export function requireCompleteTile(fields: TileFields): TileValues | string {
@@ -151,8 +150,8 @@ export function requireCompleteTile(fields: TileFields): TileValues | string {
     return 'x, y, width and height are required'
   }
   if (zIndex === undefined) return 'zIndex is required'
-  if (kind === 'photo' && !fields.imageKey) {
-    return 'photo tiles require an imageKey'
+  if (kind === 'photo' && (fields.imageKeys?.length ?? 0) < 1) {
+    return 'photo tiles require at least one imageKey'
   }
   if (kind === 'quote' && !fields.textContent) {
     return 'quote tiles require textContent'
