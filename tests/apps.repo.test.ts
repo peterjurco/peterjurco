@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apps } from '../src/db/schema'
 import {
   appExists,
@@ -9,12 +9,22 @@ import {
   reorderApps,
   updateApp,
 } from '../src/lib/apps/repo'
+import { deleteObject } from '../src/lib/media/r2'
 import { createTestDb } from './helpers/test-db'
+
+vi.mock('../src/lib/media/r2', () => ({
+  deleteObject: vi.fn().mockResolvedValue(undefined),
+}))
 
 const { db, close } = createTestDb()
 
+// R2 credentials are irrelevant — deleteObject is mocked above, so no real
+// network call is ever made.
+const R2_ENV = {}
+
 beforeEach(async () => {
   await db.delete(apps)
+  vi.mocked(deleteObject).mockReset().mockResolvedValue(undefined)
 })
 
 afterAll(async () => {
@@ -53,19 +63,20 @@ describe('createApp / updateApp', () => {
       sortOrder: 0,
     })
 
-    const renamed = await updateApp(db, app.id, { name: 'Renamed' })
+    const renamed = await updateApp(db, app.id, { name: 'Renamed' }, R2_ENV)
     expect(renamed?.name).toBe('Renamed')
     expect(renamed?.url).toBe('https://example.com')
 
-    const reordered = await updateApp(db, app.id, { sortOrder: 5 })
+    const reordered = await updateApp(db, app.id, { sortOrder: 5 }, R2_ENV)
     expect(reordered?.sortOrder).toBe(5)
 
-    const cleared = await updateApp(db, app.id, { iconKey: null })
+    const cleared = await updateApp(db, app.id, { iconKey: null }, R2_ENV)
     expect(cleared?.iconKey).toBeNull()
   })
 
   it('returns null when the app does not exist', async () => {
-    expect(await updateApp(db, 999999, { name: 'ghost' })).toBeNull()
+    expect(await updateApp(db, 999999, { name: 'ghost' }, R2_ENV)).toBeNull()
+    expect(deleteObject).not.toHaveBeenCalled()
   })
 })
 
@@ -77,12 +88,116 @@ describe('deleteApp / appExists', () => {
       sortOrder: 0,
     })
     expect(await appExists(db, app.id)).toBe(true)
-    await deleteApp(db, app.id)
+    await deleteApp(db, app.id, R2_ENV)
     expect(await appExists(db, app.id)).toBe(false)
   })
 
   it('appExists is false for unknown ids', async () => {
     expect(await appExists(db, 999999)).toBe(false)
+  })
+})
+
+describe('R2 cleanup on icon removal/replacement', () => {
+  it('deletes the icon when the app is deleted', async () => {
+    const app = await createApp(db, {
+      name: 'Doomed',
+      url: 'https://example.com',
+      iconKey: 'covers/icon.png',
+      sortOrder: 0,
+    })
+    await deleteApp(db, app.id, R2_ENV)
+    expect(deleteObject).toHaveBeenCalledExactlyOnceWith(
+      R2_ENV,
+      'covers/icon.png',
+    )
+  })
+
+  it('does not call R2 when the deleted app had no icon', async () => {
+    const app = await createApp(db, {
+      name: 'No icon',
+      url: 'https://example.com',
+      sortOrder: 0,
+    })
+    await deleteApp(db, app.id, R2_ENV)
+    expect(deleteObject).not.toHaveBeenCalled()
+  })
+
+  it('deletes the OLD icon when it is replaced', async () => {
+    const app = await createApp(db, {
+      name: 'Icon app',
+      url: 'https://example.com',
+      iconKey: 'covers/old.png',
+      sortOrder: 0,
+    })
+    await updateApp(db, app.id, { iconKey: 'covers/new.png' }, R2_ENV)
+    expect(deleteObject).toHaveBeenCalledExactlyOnceWith(
+      R2_ENV,
+      'covers/old.png',
+    )
+  })
+
+  it('deletes the OLD icon when it is explicitly cleared to null', async () => {
+    const app = await createApp(db, {
+      name: 'Icon app',
+      url: 'https://example.com',
+      iconKey: 'covers/old.png',
+      sortOrder: 0,
+    })
+    await updateApp(db, app.id, { iconKey: null }, R2_ENV)
+    expect(deleteObject).toHaveBeenCalledExactlyOnceWith(
+      R2_ENV,
+      'covers/old.png',
+    )
+  })
+
+  it('does not call R2 when the patch never touches iconKey', async () => {
+    const app = await createApp(db, {
+      name: 'Icon app',
+      url: 'https://example.com',
+      iconKey: 'covers/old.png',
+      sortOrder: 0,
+    })
+    await updateApp(db, app.id, { name: 'Renamed' }, R2_ENV)
+    expect(deleteObject).not.toHaveBeenCalled()
+  })
+
+  it('deletes the app even when R2 cleanup fails — best-effort, not a hard requirement', async () => {
+    vi.mocked(deleteObject).mockRejectedValue(new Error('R2 unreachable'))
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const app = await createApp(db, {
+      name: 'Doomed',
+      url: 'https://example.com',
+      iconKey: 'covers/icon.png',
+      sortOrder: 0,
+    })
+    await expect(deleteApp(db, app.id, R2_ENV)).resolves.toBeUndefined()
+    expect(await appExists(db, app.id)).toBe(false)
+    expect(consoleError).toHaveBeenCalled()
+
+    consoleError.mockRestore()
+  })
+
+  it('updates the app even when R2 cleanup fails — best-effort, not a hard requirement', async () => {
+    vi.mocked(deleteObject).mockRejectedValue(new Error('R2 unreachable'))
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const app = await createApp(db, {
+      name: 'Icon app',
+      url: 'https://example.com',
+      iconKey: 'covers/old.png',
+      sortOrder: 0,
+    })
+    const updated = await updateApp(
+      db,
+      app.id,
+      { iconKey: 'covers/new.png' },
+      R2_ENV,
+    )
+    expect(updated?.iconKey).toBe('covers/new.png')
+    expect(consoleError).toHaveBeenCalled()
+
+    consoleError.mockRestore()
   })
 })
 
@@ -129,8 +244,8 @@ describe('listOrdered', () => {
       sortOrder: 1,
     })
 
-    await updateApp(db, first.id, { sortOrder: 1 })
-    await updateApp(db, second.id, { sortOrder: 0 })
+    await updateApp(db, first.id, { sortOrder: 1 }, R2_ENV)
+    await updateApp(db, second.id, { sortOrder: 0 }, R2_ENV)
 
     const ordered = await listOrdered(db)
     expect(ordered.map((app) => app.id)).toEqual([second.id, first.id])

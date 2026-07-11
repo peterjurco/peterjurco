@@ -86,3 +86,37 @@ export async function presignPut(
   )
   return signed.url
 }
+
+/**
+ * Deletes the R2 object at `key` — a real, immediately-executed DELETE
+ * (unlike `presignPut`, which only mints a URL for someone else to use
+ * later; there's no untrusted client in this path, so the Worker signs and
+ * sends the request itself). S3-compatible DELETE is idempotent — a key
+ * that's already gone still counts as success (404 is not an error here) —
+ * so callers never need to check existence first.
+ *
+ * Used for best-effort cleanup of orphaned objects when a tile/album/app row
+ * that referenced a key is deleted or updated; see the call sites in
+ * src/lib/home/repo.ts, src/lib/photos/repo.ts and src/lib/apps/repo.ts for
+ * the "DB write first, then best-effort delete" reasoning.
+ */
+export async function deleteObject(env: R2Env, key: string): Promise<void> {
+  const client = new AwsClient({
+    accessKeyId: requireEnv(env.R2_ACCESS_KEY_ID, 'R2_ACCESS_KEY_ID'),
+    secretAccessKey: requireEnv(
+      env.R2_SECRET_ACCESS_KEY,
+      'R2_SECRET_ACCESS_KEY',
+    ),
+    service: 's3',
+    region: 'auto',
+  })
+  const bucket = requireEnv(env.R2_BUCKET, 'R2_BUCKET')
+  const url = `${endpointFor(env)}/${bucket}/${key}`
+  const signed = await client.sign(new Request(url, { method: 'DELETE' }))
+  const response = await fetch(signed)
+  if (!response.ok && response.status !== 404) {
+    throw new Error(
+      `R2 delete failed (${response.status} ${response.statusText}) for key: ${key}`,
+    )
+  }
+}

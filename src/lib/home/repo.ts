@@ -2,6 +2,7 @@ import { asc, eq, notInArray } from 'drizzle-orm'
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import type * as schema from '../../db/schema'
 import { homeTiles } from '../../db/schema'
+import { deleteObject, type R2Env } from '../media/r2'
 import type { TileBorder } from './canvas'
 
 /**
@@ -51,6 +52,25 @@ export type LayoutTile = TileValues & { id?: number }
 /** Bottom-of-stack first; `id ASC` breaks z ties by insertion order. */
 const stackingOrder = [asc(homeTiles.zIndex), asc(homeTiles.id)] as const
 
+/**
+ * Best-effort R2 cleanup for image keys a DB write above already dropped.
+ * Callers only ever invoke this AFTER the write that dropped the keys has
+ * already succeeded (see the INVARIANT docblock above) — so a key passed
+ * here is never at risk of still being referenced. Never throws: a failed
+ * delete is logged and swallowed, because the row is already correct (the
+ * source of truth) — a lingering image in the bucket is a space
+ * optimization, not a correctness guarantee (TODO.md).
+ */
+async function deleteOrphanedImages(env: R2Env, keys: string[]): Promise<void> {
+  await Promise.all(
+    keys.map((key) =>
+      deleteObject(env, key).catch((error) => {
+        console.error(`Failed to delete orphaned R2 object ${key}:`, error)
+      }),
+    ),
+  )
+}
+
 export async function createTile(
   db: HomeDb,
   values: TileValues,
@@ -74,22 +94,50 @@ export async function updateTile(
   db: HomeDb,
   id: number,
   patch: Partial<TileValues>,
+  env: R2Env,
 ): Promise<HomeTile | null> {
+  // Read BEFORE the write — the only way to know which images the patch is
+  // about to drop (UPDATE ... RETURNING only ever gives the NEW row).
+  const previousImageKeys =
+    'imageKeys' in patch ? (await getTile(db, id))?.imageKeys : undefined
+
   const [tile] = await db
     .update(homeTiles)
     .set(patch)
     .where(eq(homeTiles.id, id))
     .returning()
-  return (tile as HomeTile | undefined) ?? null
+  if (!tile) return null
+
+  // R2 cleanup runs only now that the update above has actually succeeded
+  // (see INVARIANT docblock). Only images DROPPED from the array are
+  // deleted (set difference) — reordering the same keys must never delete
+  // anything.
+  if (previousImageKeys !== undefined) {
+    const kept = new Set(patch.imageKeys)
+    const dropped = previousImageKeys.filter((key) => !kept.has(key))
+    await deleteOrphanedImages(env, dropped)
+  }
+
+  return tile as HomeTile
 }
 
 /** True when a row was deleted — doubles as the handler's existence check. */
-export async function deleteTile(db: HomeDb, id: number): Promise<boolean> {
+export async function deleteTile(
+  db: HomeDb,
+  id: number,
+  env: R2Env,
+): Promise<boolean> {
   const deleted = await db
     .delete(homeTiles)
     .where(eq(homeTiles.id, id))
-    .returning({ id: homeTiles.id })
-  return deleted.length > 0
+    .returning({ id: homeTiles.id, imageKeys: homeTiles.imageKeys })
+  if (deleted.length === 0) return false
+
+  // Best-effort R2 cleanup, run only after the delete above already
+  // succeeded — see deleteOrphanedImages docblock.
+  const row = deleted[0]
+  if (row) await deleteOrphanedImages(env, row.imageKeys)
+  return true
 }
 
 /** The whole canvas, bottom of the stack first — for renderer and editor. */
@@ -113,10 +161,21 @@ export async function listOrdered(db: HomeDb): Promise<HomeTile[]> {
 export async function bulkUpsertLayout(
   db: HomeDb,
   tiles: LayoutTile[],
+  env: R2Env,
 ): Promise<HomeTile[]> {
   const keptIds = tiles
     .map((tile) => tile.id)
     .filter((id): id is number => id !== undefined)
+
+  // Snapshot of every existing tile's imageKeys, read BEFORE any write below —
+  // it's how we later know (a) which fully-removed tiles' images to delete
+  // and (b) each kept tile's OLD imageKeys, to diff against its new array.
+  const before = await db
+    .select({ id: homeTiles.id, imageKeys: homeTiles.imageKeys })
+    .from(homeTiles)
+  const previousImageKeysById = new Map(
+    before.map((row) => [row.id, row.imageKeys]),
+  )
 
   if (keptIds.length > 0) {
     await db.delete(homeTiles).where(notInArray(homeTiles.id, keptIds))
@@ -136,6 +195,27 @@ export async function bulkUpsertLayout(
   if (inserts.length > 0) {
     await db.insert(homeTiles).values(inserts)
   }
+
+  // R2 cleanup, run only now that every write above has succeeded (see
+  // INVARIANT docblock): fully-removed tiles (id was in the old set but not
+  // in `tiles`) lose every image they had; kept/updated tiles lose only the
+  // images that DROPPED from their array (set difference) — a reorder-only
+  // save keeps the same keys and deletes nothing.
+  const keptIdSet = new Set(keptIds)
+  const orphanedKeys: string[] = []
+  for (const [id, imageKeys] of previousImageKeysById) {
+    if (!keptIdSet.has(id)) orphanedKeys.push(...imageKeys)
+  }
+  for (const tile of tiles) {
+    if (tile.id === undefined) continue
+    const previousImageKeys = previousImageKeysById.get(tile.id)
+    if (previousImageKeys === undefined) continue // stale id — already skipped
+    const kept = new Set(tile.imageKeys ?? [])
+    for (const key of previousImageKeys) {
+      if (!kept.has(key)) orphanedKeys.push(key)
+    }
+  }
+  await deleteOrphanedImages(env, orphanedKeys)
 
   return listOrdered(db)
 }

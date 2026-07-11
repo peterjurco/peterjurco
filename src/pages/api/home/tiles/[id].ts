@@ -1,3 +1,4 @@
+import { env } from 'cloudflare:workers'
 import type { APIRoute } from 'astro'
 import { getAppDb } from '../../../../db'
 import { jsonError, parseId, unauthorized } from '../../../../lib/api'
@@ -61,7 +62,7 @@ export const PATCH: APIRoute = async ({ locals, params, request }) => {
     if (typeof merged === 'string') return jsonError(400, merged)
 
     // updateTile's returning() re-checks existence (row deleted since read).
-    const tile = await updateTile(db, id, fields)
+    const tile = await updateTile(db, id, fields, env)
     if (tile === null) return jsonError(404, 'Tile not found')
     return Response.json({ tile })
   } catch (error) {
@@ -77,7 +78,7 @@ export const DELETE: APIRoute = async ({ locals, params }) => {
   if (id === null) return jsonError(400, 'Invalid tile id')
 
   try {
-    if (!(await deleteTile(getAppDb(), id))) {
+    if (!(await deleteTile(getAppDb(), id, env))) {
       return jsonError(404, 'Tile not found')
     }
     return Response.json({ ok: true })

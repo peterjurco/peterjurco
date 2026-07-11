@@ -1,3 +1,4 @@
+import { env } from 'cloudflare:workers'
 import type { APIRoute } from 'astro'
 import { getAppDb } from '../../../../db'
 import { jsonError, parseId, unauthorized } from '../../../../lib/api'
@@ -43,7 +44,7 @@ export const PATCH: APIRoute = async ({ locals, params, request }) => {
     const db = getAppDb()
     if (Object.keys(patch).length > 0) {
       // updateAlbum's returning() doubles as the existence check.
-      if ((await updateAlbum(db, id, patch)) === null) {
+      if ((await updateAlbum(db, id, patch, env)) === null) {
         return jsonError(404, 'Album not found')
       }
     } else if (!(await albumExists(db, id))) {
@@ -70,7 +71,7 @@ export const DELETE: APIRoute = async ({ locals, params }) => {
     }
     // Tag GC parity with articles: deleting an album keeps its tags around —
     // setAlbumTags is the only GC point.
-    await deleteAlbum(db, id)
+    await deleteAlbum(db, id, env)
     return Response.json({ ok: true })
   } catch (error) {
     console.error('Album delete failed:', error)

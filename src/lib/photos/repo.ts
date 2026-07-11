@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, notInArray } from 'drizzle-orm'
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import type * as schema from '../../db/schema'
 import { photoAlbums, photoAlbumsTagsMap, photoTags } from '../../db/schema'
+import { deleteObject, type R2Env } from '../media/r2'
 import { newPublicId } from '../public-id'
 
 /**
@@ -26,6 +27,26 @@ export type AlbumWithTags = PhotoAlbum & { tags: PhotoTag[] }
 /** Shared listing order — recently touched first, `id DESC` breaks ties. */
 const newestFirst = [desc(photoAlbums.updatedAt), desc(photoAlbums.id)] as const
 
+/**
+ * Best-effort R2 cleanup for a cover key a DB write above already dropped.
+ * Only ever called AFTER that write has succeeded (see repo-wide INVARIANT
+ * docblock) — so `key`, if given, is never at risk of still being
+ * referenced. Never throws: a failed delete is logged and swallowed, since
+ * the row is already correct — a lingering cover in the bucket is a space
+ * optimization, not a correctness guarantee (TODO.md).
+ */
+async function deleteOldCover(
+  env: R2Env,
+  key: string | null | undefined,
+): Promise<void> {
+  if (!key) return
+  try {
+    await deleteObject(env, key)
+  } catch (error) {
+    console.error(`Failed to delete orphaned R2 object ${key}:`, error)
+  }
+}
+
 export async function createAlbum(
   db: PhotosDb,
   values: { name: string; googlePhotosUrl: string; coverImageKey?: string },
@@ -44,18 +65,52 @@ export async function updateAlbum(
     googlePhotosUrl?: string
     coverImageKey?: string | null
   },
+  env: R2Env,
 ): Promise<PhotoAlbum | null> {
+  // Read BEFORE the write — the only way to know the OLD cover the patch is
+  // about to replace or clear (UPDATE ... RETURNING only gives the NEW row).
+  const previousCoverImageKey =
+    'coverImageKey' in patch
+      ? (
+          await db
+            .select({ coverImageKey: photoAlbums.coverImageKey })
+            .from(photoAlbums)
+            .where(eq(photoAlbums.id, id))
+        )[0]?.coverImageKey
+      : undefined
+
   const [album] = await db
     .update(photoAlbums)
     .set(patch)
     .where(eq(photoAlbums.id, id))
     .returning()
-  return album ?? null
+  if (!album) return null
+
+  // R2 cleanup runs only now that the update above has actually succeeded
+  // (see repo-wide INVARIANT docblock). Only delete the OLD cover, and only
+  // when it was actually replaced/cleared — a no-op re-send of the same key
+  // must not delete anything still in use.
+  if (previousCoverImageKey && previousCoverImageKey !== patch.coverImageKey) {
+    await deleteOldCover(env, previousCoverImageKey)
+  }
+
+  return album
 }
 
-export async function deleteAlbum(db: PhotosDb, id: number): Promise<void> {
+export async function deleteAlbum(
+  db: PhotosDb,
+  id: number,
+  env: R2Env,
+): Promise<void> {
   await db.delete(photoAlbumsTagsMap).where(eq(photoAlbumsTagsMap.albumId, id))
-  await db.delete(photoAlbums).where(eq(photoAlbums.id, id))
+  const [deleted] = await db
+    .delete(photoAlbums)
+    .where(eq(photoAlbums.id, id))
+    .returning({ coverImageKey: photoAlbums.coverImageKey })
+
+  // Best-effort R2 cleanup, run only after the delete above already
+  // succeeded — see deleteOldCover docblock.
+  if (deleted) await deleteOldCover(env, deleted.coverImageKey)
 }
 
 /** Cheap existence probe for handlers that must 404. */

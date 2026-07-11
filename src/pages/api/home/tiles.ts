@@ -1,3 +1,4 @@
+import { env } from 'cloudflare:workers'
 import type { APIRoute } from 'astro'
 import { getAppDb } from '../../../db'
 import { jsonError, unauthorized } from '../../../lib/api'
@@ -72,7 +73,7 @@ export const PUT: APIRoute = async ({ locals, request }) => {
   if (typeof layout === 'string') return jsonError(400, layout)
 
   try {
-    const tiles = await bulkUpsertLayout(getAppDb(), layout)
+    const tiles = await bulkUpsertLayout(getAppDb(), layout, env)
     return Response.json({ tiles })
   } catch (error) {
     console.error('Tiles bulk save failed:', error)

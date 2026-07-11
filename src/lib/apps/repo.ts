@@ -2,6 +2,7 @@ import { asc, eq } from 'drizzle-orm'
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import type * as schema from '../../db/schema'
 import { apps } from '../../db/schema'
+import { deleteObject, type R2Env } from '../media/r2'
 
 /**
  * "My apps" list repository (DATA_MODEL §4, REQUIREMENTS "My apps"): a small
@@ -17,6 +18,26 @@ import { apps } from '../../db/schema'
 export type AppsDb = PgDatabase<PgQueryResultHKT, typeof schema>
 
 export type App = typeof apps.$inferSelect
+
+/**
+ * Best-effort R2 cleanup for an icon key a DB write above already dropped.
+ * Only ever called AFTER that write has succeeded (see repo-wide INVARIANT
+ * docblock) — so `key`, if given, is never at risk of still being
+ * referenced. Never throws: a failed delete is logged and swallowed, since
+ * the row is already correct — a lingering icon in the bucket is a space
+ * optimization, not a correctness guarantee (TODO.md).
+ */
+async function deleteOldIcon(
+  env: R2Env,
+  key: string | null | undefined,
+): Promise<void> {
+  if (!key) return
+  try {
+    await deleteObject(env, key)
+  } catch (error) {
+    console.error(`Failed to delete orphaned R2 object ${key}:`, error)
+  }
+}
 
 export async function createApp(
   db: AppsDb,
@@ -42,17 +63,51 @@ export async function updateApp(
     iconKey?: string | null
     sortOrder?: number
   },
+  env: R2Env,
 ): Promise<App | null> {
+  // Read BEFORE the write — the only way to know the OLD icon the patch is
+  // about to replace or clear (UPDATE ... RETURNING only gives the NEW row).
+  const previousIconKey =
+    'iconKey' in patch
+      ? (
+          await db
+            .select({ iconKey: apps.iconKey })
+            .from(apps)
+            .where(eq(apps.id, id))
+        )[0]?.iconKey
+      : undefined
+
   const [app] = await db
     .update(apps)
     .set(patch)
     .where(eq(apps.id, id))
     .returning()
-  return app ?? null
+  if (!app) return null
+
+  // R2 cleanup runs only now that the update above has actually succeeded
+  // (see repo-wide INVARIANT docblock). Only delete the OLD icon, and only
+  // when it was actually replaced/cleared — a no-op re-send of the same key
+  // must not delete anything still in use.
+  if (previousIconKey && previousIconKey !== patch.iconKey) {
+    await deleteOldIcon(env, previousIconKey)
+  }
+
+  return app
 }
 
-export async function deleteApp(db: AppsDb, id: number): Promise<void> {
-  await db.delete(apps).where(eq(apps.id, id))
+export async function deleteApp(
+  db: AppsDb,
+  id: number,
+  env: R2Env,
+): Promise<void> {
+  const [deleted] = await db
+    .delete(apps)
+    .where(eq(apps.id, id))
+    .returning({ iconKey: apps.iconKey })
+
+  // Best-effort R2 cleanup, run only after the delete above already
+  // succeeded — see deleteOldIcon docblock.
+  if (deleted) await deleteOldIcon(env, deleted.iconKey)
 }
 
 /** Cheap existence probe for handlers that must 404. */

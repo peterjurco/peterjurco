@@ -1,3 +1,4 @@
+import { env } from 'cloudflare:workers'
 import type { APIRoute } from 'astro'
 import { getAppDb } from '../../../db'
 import { jsonError, parseId, unauthorized } from '../../../lib/api'
@@ -36,7 +37,7 @@ export const PATCH: APIRoute = async ({ locals, params, request }) => {
   try {
     const db = getAppDb()
     // updateApp's returning() doubles as the existence check.
-    if ((await updateApp(db, id, fields)) === null) {
+    if ((await updateApp(db, id, fields, env)) === null) {
       return jsonError(404, 'App not found')
     }
     return Response.json({ ok: true })
@@ -57,7 +58,7 @@ export const DELETE: APIRoute = async ({ locals, params }) => {
     if (!(await appExists(db, id))) {
       return jsonError(404, 'App not found')
     }
-    await deleteApp(db, id)
+    await deleteApp(db, id, env)
     return Response.json({ ok: true })
   } catch (error) {
     console.error('App delete failed:', error)
