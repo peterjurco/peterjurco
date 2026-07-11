@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { isGooglePhotosUrl } from '../lib/photos/album-url'
+import './album-form.css'
 import { CoverUpload } from './CoverUpload'
 
 /**
@@ -152,7 +153,7 @@ export function AlbumForm({
           onChange={(event) => setTagsText(event.target.value)}
         />
       </label>
-      <div>
+      <div className="album-form-field">
         Cover {coverImageKey ? '(uploaded)' : '(none)'}
         <CoverUpload
           onUploaded={(key) => setCoverImageKey(key)}
@@ -170,7 +171,16 @@ export function AlbumForm({
             Delete
           </button>
         )}
-        <span aria-live="polite">{status}</span>
+        <span
+          className={
+            status === 'Save failed' || status === 'Delete failed'
+              ? 'is-error'
+              : ''
+          }
+          aria-live="polite"
+        >
+          {status}
+        </span>
       </div>
     </form>
   )

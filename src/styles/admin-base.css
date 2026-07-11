@@ -50,14 +50,21 @@
   color: var(--admin-text);
 }
 
-/* Common "title + one action" header row used across list pages. */
+/* Common page-title header row. Plain flex-wrap by default; pages with a
+   single title-left/action-right pair opt into the split layout with
+   .header-split rather than the base rule assuming everyone has exactly two
+   children (some header rows carry a badge + button + link alongside the
+   title). */
 .admin-shell > header {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: 0.75rem;
   margin-bottom: 1rem;
+}
+
+.admin-shell > header.header-split {
+  justify-content: space-between;
 }
 
 .admin-shell > header h1 {

@@ -11,18 +11,9 @@ if (!Astro.locals.user) {
 
 <BaseLayout title="Add album — peterjur.co">
   <AppNav />
-  <main class="album-page">
+  <main class="admin-shell album-page">
     <h1>Add album</h1>
     <AlbumForm client:load />
     <p><a href="/app/photos">← Photo hub</a></p>
   </main>
 </BaseLayout>
-
-<style>
-  .album-page {
-    max-width: 46rem;
-    margin: 0 auto;
-    padding: 1rem;
-    font-family: system-ui, sans-serif;
-  }
-</style>

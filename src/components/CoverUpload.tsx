@@ -160,7 +160,16 @@ export function CoverUpload({
           if (file) void handleFile(file)
         }}
       />
-      <span aria-live="polite">
+      <span
+        className={
+          status === 'Uploaded'
+            ? 'is-success'
+            : status === 'Upload failed' || status === 'Not an image'
+              ? 'is-error'
+              : ''
+        }
+        aria-live="polite"
+      >
         {status === 'Not an image'
           ? 'That file is not a supported image (JPEG, PNG, WebP, AVIF, GIF).'
           : status}

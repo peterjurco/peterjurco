@@ -16,10 +16,12 @@ const albums = await listAlbums(db)
 
 <BaseLayout title="Photo hub — peterjur.co">
   <AppNav />
-  <main class="photos-list">
-    <header>
+  <main class="admin-shell photos-list">
+    <header class="header-split">
       <h1>Photo hub</h1>
-      <a class="add-album" href="/app/photos/new">Add album</a>
+      <a class="admin-btn admin-btn--primary" href="/app/photos/new">
+        Add album
+      </a>
     </header>
     {albums.length === 0 && <p>No albums yet.</p>}
     <ul>
@@ -61,18 +63,6 @@ const albums = await listAlbums(db)
 </BaseLayout>
 
 <style>
-  .photos-list {
-    max-width: 46rem;
-    margin: 0 auto;
-    padding: 1rem;
-    font-family: system-ui, sans-serif;
-  }
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-  }
   ul {
     padding: 0;
     list-style: none;
@@ -82,7 +72,7 @@ const albums = await listAlbums(db)
     align-items: center;
     gap: 0.75rem;
     padding: 0.5rem 0;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--admin-border-light, #eee);
   }
   img {
     width: 7rem;
@@ -98,9 +88,10 @@ const albums = await listAlbums(db)
   }
   .album-meta > a {
     font-weight: 600;
+    color: var(--admin-accent, #333);
   }
   .tag {
-    color: #666;
+    color: var(--admin-muted, #666);
     font-size: 0.85rem;
   }
   .edit {

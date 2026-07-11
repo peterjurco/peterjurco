@@ -29,11 +29,17 @@ const nextVisibility = tag.visibility === 'private' ? 'public' : 'private'
 
 <BaseLayout title={`#${tag.name} — peterjur.co`}>
   <AppNav />
-  <main class="tag-page">
+  <main class="admin-shell tag-page">
     <header>
       <h1>Tag: {tag.name}</h1>
       <span class={`badge badge-${tag.visibility}`}>{tag.visibility}</span>
-      <button type="button" id="toggle-visibility" data-tag-id={tag.id} data-next={nextVisibility}>
+      <button
+        type="button"
+        class="admin-btn"
+        id="toggle-visibility"
+        data-tag-id={tag.id}
+        data-next={nextVisibility}
+      >
         Make {nextVisibility}
       </button>
       {
@@ -93,18 +99,6 @@ const nextVisibility = tag.visibility === 'private' ? 'public' : 'private'
 </script>
 
 <style>
-  .tag-page {
-    max-width: 46rem;
-    margin: 0 auto;
-    padding: 1rem;
-    font-family: system-ui, sans-serif;
-  }
-  header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.75rem;
-  }
   ul {
     padding: 0;
     list-style: none;
@@ -114,26 +108,16 @@ const nextVisibility = tag.visibility === 'private' ? 'public' : 'private'
     align-items: center;
     gap: 0.75rem;
     padding: 0.5rem 0;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--admin-border-light, #eee);
   }
   li a {
     font-weight: 600;
+    color: var(--admin-accent, #333);
   }
   img {
     width: 7rem;
     max-width: 30%;
     height: auto;
     border-radius: 4px;
-  }
-  .badge {
-    padding: 0.05rem 0.4rem;
-    font-size: 0.75rem;
-    border: 1px solid #ccc;
-    border-radius: 999px;
-    color: #555;
-  }
-  .badge-public {
-    border-color: #2e7d32;
-    color: #2e7d32;
   }
 </style>

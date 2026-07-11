@@ -1,0 +1,101 @@
+/* Album add/edit form — was entirely unstyled (bare browser-default form). */
+
+.album-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  max-width: 32rem;
+}
+
+.album-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--admin-muted, #57606a);
+}
+
+.album-form input[type="text"],
+.album-form input[type="url"] {
+  min-height: 2rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.9rem;
+  color: var(--admin-text, #24292f);
+  background: var(--admin-surface, #fff);
+  border: 1px solid var(--admin-border, #d0d7de);
+  border-radius: 6px;
+}
+
+.album-form input[type="text"]:focus,
+.album-form input[type="url"]:focus {
+  outline: 2px solid var(--admin-accent, #33528f);
+  outline-offset: 1px;
+}
+
+.album-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--admin-muted, #57606a);
+}
+
+.album-form [role="alert"] {
+  margin: 0;
+  color: var(--admin-danger, #b3261e);
+  font-size: 0.85rem;
+}
+
+.album-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.album-form-actions button {
+  min-height: 2rem;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.85rem;
+  color: var(--admin-text, #24292f);
+  background: var(--admin-surface, #fff);
+  border: 1px solid var(--admin-border, #d0d7de);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.album-form-actions button:hover:not(:disabled) {
+  background: var(--admin-bg, #f6f8fa);
+  border-color: var(--admin-faint, #8b949e);
+}
+
+.album-form-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.album-form-actions button[type="submit"] {
+  color: #fff;
+  background: var(--admin-accent, #33528f);
+  border-color: var(--admin-accent, #33528f);
+}
+
+.album-form-actions button[type="submit"]:hover:not(:disabled) {
+  background: var(--admin-accent-hover, #24406f);
+  border-color: var(--admin-accent-hover, #24406f);
+}
+
+.album-form-actions span {
+  font-size: 0.8rem;
+  color: var(--admin-muted, #57606a);
+}
+
+.album-form-actions span.is-success {
+  color: var(--admin-success, #1a7f37);
+}
+
+.album-form-actions span.is-error {
+  color: var(--admin-danger, #b3261e);
+  font-weight: 600;
+}
