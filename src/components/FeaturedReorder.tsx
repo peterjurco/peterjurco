@@ -123,7 +123,10 @@ export function FeaturedReorder({ items: initialItems }: FeaturedReorderProps) {
           </li>
         ))}
       </ol>
-      <span className="featured-status" aria-live="polite">
+      <span
+        className={`featured-status${status === 'Saved' ? ' is-success' : ''}${status === 'Save failed' ? ' is-error' : ''}`}
+        aria-live="polite"
+      >
         {status}
       </span>
     </div>

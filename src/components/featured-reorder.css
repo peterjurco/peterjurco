@@ -47,6 +47,16 @@
   font-size: 0.8rem;
 }
 
+.featured-status.is-success {
+  color: var(--admin-success, #1a7f37);
+  font-weight: 600;
+}
+
+.featured-status.is-error {
+  color: var(--admin-danger, #b3261e);
+  font-weight: 600;
+}
+
 .featured-empty {
   color: #666;
 }

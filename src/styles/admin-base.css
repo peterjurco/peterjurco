@@ -1,0 +1,116 @@
+/*
+ * Shared primitives for the authenticated /app admin area (REQUIREMENTS
+ * "Admin" — no visual customization through the admin, more functional than
+ * pretty; DESIGN.md's locked public palette/type is a completely separate
+ * concern and must never be imported here). Loaded exactly once, via
+ * AppNav.astro — since AppNav renders on every /app page and nowhere else,
+ * this file's rules never reach the public homepage or the public article/
+ * tag read views (a/[publicId], t/[publicId]) even though those also use
+ * BaseLayout.
+ *
+ * Plain, neutral, utilitarian palette — deliberately distinct from the
+ * public page's ochre/oxblood/cream tokens in DESIGN.md.
+ */
+
+:root {
+  --admin-text: #24292f;
+  --admin-muted: #57606a;
+  --admin-faint: #8b949e;
+  --admin-border: #d0d7de;
+  --admin-border-light: #eaeef2;
+  --admin-surface: #ffffff;
+  --admin-bg: #f6f8fa;
+  --admin-accent: #33528f;
+  --admin-accent-hover: #24406f;
+  --admin-accent-bg: #eef1f8;
+  --admin-danger: #b3261e;
+  --admin-success: #1a7f37;
+}
+
+/* Page container — replaces the ~46rem/72rem "max-width/margin/padding/
+   font-family" block that used to be repeated verbatim in every admin page's
+   scoped <style>. Apply alongside a page-specific class where one is still
+   needed (e.g. `class="admin-shell articles-list"`). */
+.admin-shell {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--admin-text);
+}
+
+.admin-shell--wide {
+  max-width: 72rem;
+}
+
+.admin-shell h1 {
+  margin: 0 0 1.25rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--admin-text);
+}
+
+/* Common "title + one action" header row used across list pages. */
+.admin-shell > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.admin-shell > header h1 {
+  margin: 0;
+}
+
+/* Visibility badge (public/private) — identical block used to be copy-pasted
+   across the articles list, the dashboard's photo-hub widget, the photo tag
+   page and the taxonomy admin's photo tags section. */
+.badge {
+  padding: 0.05rem 0.4rem;
+  font-size: 0.75rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  color: var(--admin-muted);
+}
+
+.badge-public {
+  border-color: var(--admin-success);
+  color: var(--admin-success);
+}
+
+/* Shared status-text pattern (the "Saving…" / "Saved" / "Save failed"
+   indicators next to autosaving forms). Each component keeps its own
+   className for layout (margin, position) but composes it with these
+   color modifiers so failures/success are noticeable without being loud. */
+.is-saving {
+  color: var(--admin-muted);
+}
+
+.is-success {
+  color: var(--admin-success);
+}
+
+.is-error {
+  color: var(--admin-danger);
+  font-weight: 600;
+}
+
+/* CoverUpload island — shared by AlbumForm, AppsAdmin (icon) and
+   TileInspector (tile images), so it lives here once rather than being
+   copy-pasted into three component stylesheets. */
+.cover-upload {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cover-upload input[type="file"] {
+  font-size: 0.85rem;
+}
+
+.cover-upload span {
+  font-size: 0.8rem;
+}

@@ -1,8 +1,14 @@
 ---
+import '../styles/admin-base.css'
+
 /**
  * Shared menu for the authenticated section (REQUIREMENTS: "Has a menu").
  * Photo hub / Apps / Admin targets ship in Plans 5 and 7 — the hrefs are
  * fixed now so they light up when those pages land.
+ *
+ * Imports admin-base.css (the shared admin palette/primitives) — this is the
+ * one component present on every /app page and nowhere else, so it's the
+ * natural single place to pull that stylesheet in for the whole admin area.
  */
 const links = [
   { href: '/app', label: 'Home' },
@@ -38,7 +44,7 @@ const active = links
     ))
   }
   <form method="post" action="/api/auth/logout">
-    <button type="submit">Log out</button>
+    <button type="submit" class="app-nav-logout">Log out</button>
   </form>
 </nav>
 
@@ -47,25 +53,44 @@ const active = links
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 1rem;
+    gap: 0.25rem;
     max-width: 46rem;
     margin: 0 auto;
     padding: 0.75rem 1rem;
-    border-bottom: 1px solid #eee;
-    font-family: system-ui, sans-serif;
+    background: var(--admin-surface, #fff);
+    border-bottom: 1px solid var(--admin-border, #eee);
+    font-family: system-ui, -apple-system, sans-serif;
     font-size: 0.9rem;
   }
   a {
-    color: #333;
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+    color: var(--admin-muted, #333);
     text-decoration: none;
   }
   a:hover {
-    text-decoration: underline;
+    background: var(--admin-bg, #f6f8fa);
+    color: var(--admin-text, #111);
   }
   a[aria-current='page'] {
-    font-weight: 700;
+    background: var(--admin-accent-bg, #eef1f8);
+    color: var(--admin-accent, #333);
+    font-weight: 600;
   }
   form {
     margin-left: auto;
+  }
+  .app-nav-logout {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    color: var(--admin-muted, #555);
+    background: var(--admin-surface, #fff);
+    border: 1px solid var(--admin-border, #ccc);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .app-nav-logout:hover {
+    background: var(--admin-bg, #f6f8fa);
+    border-color: var(--admin-faint, #999);
   }
 </style>

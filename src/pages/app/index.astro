@@ -30,7 +30,7 @@ const [featured, recent, photoHubs, apps] = await Promise.all([
 
 <BaseLayout title="peterjur.co — app">
   <AppNav />
-  <main class="app-home">
+  <main class="admin-shell app-home">
     <h1>Hello, {user.email}</h1>
 
     <section aria-labelledby="featured-heading">
@@ -92,51 +92,35 @@ const [featured, recent, photoHubs, apps] = await Promise.all([
 </BaseLayout>
 
 <style>
-  .app-home {
-    max-width: 46rem;
-    margin: 0 auto;
-    padding: 1rem;
-    font-family: system-ui, sans-serif;
-  }
-  section {
+  .app-home section {
     margin-bottom: 2rem;
   }
-  h2 {
+  .app-home h2 {
     font-size: 1.1rem;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--admin-border-light, #eee);
     padding-bottom: 0.25rem;
   }
   /* Widget-slot lists (Photo hubs, My apps) — article lists render via the
      shared ArticleList component. */
-  ul {
+  .app-home ul {
     padding: 0;
     list-style: none;
   }
-  li {
+  .app-home li {
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
     gap: 0.5rem;
     padding: 0.35rem 0;
   }
-  li a {
+  .app-home li a {
     font-weight: 600;
+    color: var(--admin-accent, #333);
   }
   .app-icon {
     width: 1.5rem;
     height: 1.5rem;
     border-radius: 4px;
     object-fit: cover;
-  }
-  .badge {
-    padding: 0.05rem 0.4rem;
-    font-size: 0.75rem;
-    border: 1px solid #ccc;
-    border-radius: 999px;
-    color: #555;
-  }
-  .badge-public {
-    border-color: #2e7d32;
-    color: #2e7d32;
   }
 </style>
