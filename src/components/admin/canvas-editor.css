@@ -146,3 +146,24 @@
   color: #666;
   font-size: 0.9rem;
 }
+
+.ed-image-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+}
+
+.ed-image-preview img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid #ddd;
+}
+
+.ed-image-actions,
+.ed-add-image {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}

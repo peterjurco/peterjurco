@@ -1,21 +1,42 @@
 import { HOVER_EFFECTS, TILE_RANGES } from '../../lib/home/canvas'
+import { envImageUrlConfig, imageUrl } from '../../lib/media/image-url'
+import { CoverUpload } from '../CoverUpload'
 import type { EditorTile } from './CanvasEditor'
 
 /**
  * Per-tile property panel — the five REQUIREMENTS "Admin edit model"
  * controls (size, position, rotation, border, hover effect) plus stacking,
- * cycling and, for quotes, the text/cite. Numeric fields mirror the pointer
- * gestures for precise input; all edits go through onChange into the
- * CanvasEditor model and persist on Save.
+ * a photo tile's image carousel (browse/reorder/add/delete + cycle interval)
+ * and, for quotes, the text/cite. Numeric fields mirror the pointer gestures
+ * for precise input; all edits go through onChange into the CanvasEditor
+ * model and persist on Save.
+ *
+ * IMAGE BROWSING: `activeImageIndex` is owned by CanvasEditor (not this
+ * component) so it survives reselecting a different tile and back — see
+ * CanvasEditor's `activeImageIndex` state.
  */
 
 interface TileInspectorProps {
   tile: EditorTile
+  /** Which of tile.imageKeys is currently shown/acted on — clamped upstream. */
+  activeImageIndex: number
   onChange: (patch: Partial<EditorTile>) => void
   onDelete: () => void
+  /** Swaps the active image with its previous/next neighbor. */
+  onImageReorder: (direction: 'prev' | 'next') => void
+  /** Appends a freshly uploaded image and makes it active. */
+  onImageAdd: (imageKey: string) => void
+  /** Removes the active image (a tile must keep at least one — see the
+   *  disabled ‹Delete image› below). */
+  onImageDelete: () => void
+  onUploadingChange: (uploading: boolean) => void
+  /** Blocks starting a new image upload while a save (or another upload) is
+   *  in flight. */
+  busy: boolean
 }
 
 const DEFAULT_BORDER_COLOR = '#f0e7d3'
+const IMAGE_PREVIEW_WIDTH = 240
 
 /**
  * null = "no committable value yet", so the model is left untouched: a
@@ -33,8 +54,14 @@ const clamp = (value: number, { min, max }: { min: number; max: number }) =>
 
 export function TileInspector({
   tile,
+  activeImageIndex,
   onChange,
   onDelete,
+  onImageReorder,
+  onImageAdd,
+  onImageDelete,
+  onUploadingChange,
+  busy,
 }: TileInspectorProps) {
   function numberField(
     label: string,
@@ -58,6 +85,8 @@ export function TileInspector({
       </label>
     )
   }
+
+  const activeImageKey = tile.imageKeys[activeImageIndex]
 
   return (
     <div className="tile-inspector">
@@ -168,19 +197,90 @@ export function TileInspector({
         {numberField('Z-index', tile.zIndex, (zIndex) => ({
           zIndex: Math.round(zIndex),
         }))}
-        <label>
-          Cycle group
-          <input
-            type="text"
-            aria-label="Cycle group"
-            placeholder="tiles sharing a name crossfade"
-            value={tile.cycleGroup ?? ''}
-            onChange={(event) =>
-              onChange({ cycleGroup: event.target.value || null })
-            }
-          />
-        </label>
       </fieldset>
+
+      {tile.kind === 'photo' && (
+        <fieldset>
+          <legend>Images</legend>
+          {activeImageKey ? (
+            <div className="ed-image-preview">
+              <img
+                src={imageUrl(
+                  activeImageKey,
+                  { width: IMAGE_PREVIEW_WIDTH },
+                  envImageUrlConfig(),
+                )}
+                alt=""
+              />
+              <span>{`Image ${activeImageIndex + 1} of ${tile.imageKeys.length}`}</span>
+            </div>
+          ) : (
+            <span>No image yet</span>
+          )}
+
+          <div className="ed-image-actions">
+            <button
+              type="button"
+              aria-label="Previous image"
+              onClick={() => onImageReorder('prev')}
+              disabled={activeImageIndex <= 0}
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              aria-label="Next image"
+              onClick={() => onImageReorder('next')}
+              disabled={activeImageIndex >= tile.imageKeys.length - 1}
+            >
+              ›
+            </button>
+            <button
+              type="button"
+              onClick={onImageDelete}
+              disabled={tile.imageKeys.length <= 1}
+            >
+              Delete image
+            </button>
+          </div>
+
+          <div className="ed-add-image">
+            Add image
+            <CoverUpload
+              onUploaded={onImageAdd}
+              onUploadingChange={onUploadingChange}
+              disabled={busy}
+            />
+          </div>
+
+          {tile.imageKeys.length > 1 && (
+            <label>
+              Change every (seconds)
+              <input
+                type="number"
+                aria-label="Change every (seconds)"
+                step={0.5}
+                placeholder="5"
+                value={
+                  tile.cycleIntervalMs !== null
+                    ? tile.cycleIntervalMs / 1000
+                    : ''
+                }
+                onChange={(event) => {
+                  const parsed = parseNumber(event.target.value)
+                  if (parsed === null) return
+                  onChange({
+                    cycleIntervalMs: clamp(
+                      Math.round(parsed * 1000),
+                      TILE_RANGES.cycleIntervalMs,
+                    ),
+                  })
+                }}
+              />
+            </label>
+          )}
+        </fieldset>
+      )}
 
       {tile.kind === 'quote' && (
         <fieldset>

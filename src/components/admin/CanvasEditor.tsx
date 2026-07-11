@@ -26,7 +26,8 @@ export interface EditorTile {
   /** DB id; undefined for tiles not yet persisted. */
   id?: number
   kind: 'photo' | 'quote'
-  imageKey: string | null
+  /** Ordered R2 object keys — for `photo` tiles. */
+  imageKeys: string[]
   textContent: string | null
   cite: string | null
   x: number
@@ -37,7 +38,8 @@ export interface EditorTile {
   border: TileBorder | null
   hoverEffect: string | null
   zIndex: number
-  cycleGroup: string | null
+  /** ms per image while cycling; null = CycleGroup's default. */
+  cycleIntervalMs: number | null
 }
 
 type Keyed = EditorTile & { clientKey: number }
@@ -61,6 +63,12 @@ const round1 = (value: number) => Math.round(value * 10) / 10
 const clamp = (value: number, { min, max }: { min: number; max: number }) =>
   Math.min(max, Math.max(min, value))
 
+/** Keeps an active-image index inside an array's bounds (0 for an empty one). */
+function clampImageIndex(length: number, index: number): number {
+  if (length === 0) return 0
+  return Math.min(Math.max(index, 0), length - 1)
+}
+
 interface CanvasEditorProps {
   /** The persisted canvas in stacking order (listOrdered). */
   initialTiles: EditorTile[]
@@ -76,11 +84,28 @@ export function CanvasEditor({ initialTiles }: CanvasEditorProps) {
   const [status, setStatus] = useState<Status>('')
   const [uploading, setUploading] = useState(false)
   const [dirty, setDirty] = useState(false)
+  // Which image of a photo tile's imageKeys is showing in the inspector —
+  // NOT persisted (purely a browsing cursor), keyed by clientKey so it
+  // survives reselecting a different tile and back. Absent = index 0.
+  const [activeImageIndex, setActiveImageIndexState] = useState<
+    Record<number, number>
+  >({})
   const canvasRef = useRef<HTMLDivElement>(null)
   const drag = useRef<DragState | null>(null)
 
   const busy = status === 'Saving…' || uploading
   const selected = tiles.find((tile) => tile.clientKey === selectedKey) ?? null
+
+  function activeIndexFor(tile: Keyed): number {
+    return clampImageIndex(
+      tile.imageKeys.length,
+      activeImageIndex[tile.clientKey] ?? 0,
+    )
+  }
+
+  function setActiveIndex(key: number, index: number): void {
+    setActiveImageIndexState((current) => ({ ...current, [key]: index }))
+  }
 
   // Unsaved-changes warning, active only while dirty.
   useEffect(() => {
@@ -123,7 +148,7 @@ export function CanvasEditor({ initialTiles }: CanvasEditorProps) {
   function addPhotoTile(imageKey: string): void {
     addTile({
       kind: 'photo',
-      imageKey,
+      imageKeys: [imageKey],
       textContent: null,
       cite: null,
       x: 5,
@@ -133,14 +158,14 @@ export function CanvasEditor({ initialTiles }: CanvasEditorProps) {
       rotation: 0,
       border: null,
       hoverEffect: 'develop',
-      cycleGroup: null,
+      cycleIntervalMs: null,
     })
   }
 
   function addQuoteTile(): void {
     addTile({
       kind: 'quote',
-      imageKey: null,
+      imageKeys: [],
       textContent: 'New quote',
       cite: null,
       x: 30,
@@ -150,7 +175,7 @@ export function CanvasEditor({ initialTiles }: CanvasEditorProps) {
       rotation: -1.6,
       border: null,
       hoverEffect: null,
-      cycleGroup: null,
+      cycleIntervalMs: null,
     })
   }
 
@@ -159,6 +184,40 @@ export function CanvasEditor({ initialTiles }: CanvasEditorProps) {
     setSelectedKey(null)
     setDirty(true)
     setStatus('')
+  }
+
+  /** Swaps the active image with its ‹/› neighbor; the active index follows
+   *  the moved image, so repeatedly moving one direction walks it to an end. */
+  function moveActiveImage(key: number, direction: -1 | 1): void {
+    const tile = tiles.find((entry) => entry.clientKey === key)
+    if (!tile) return
+    const index = activeIndexFor(tile)
+    const target = index + direction
+    if (target < 0 || target >= tile.imageKeys.length) return
+    const keys = [...tile.imageKeys]
+    const [moved] = keys.splice(index, 1)
+    keys.splice(target, 0, moved as string)
+    updateTile(key, { imageKeys: keys })
+    setActiveIndex(key, target)
+  }
+
+  /** Appends a freshly uploaded image and makes it the active one. */
+  function addImage(key: number, imageKey: string): void {
+    const tile = tiles.find((entry) => entry.clientKey === key)
+    if (!tile) return
+    const keys = [...tile.imageKeys, imageKey]
+    updateTile(key, { imageKeys: keys })
+    setActiveIndex(key, keys.length - 1)
+  }
+
+  /** Removes the active image — a photo tile must keep at least one. */
+  function deleteActiveImage(key: number): void {
+    const tile = tiles.find((entry) => entry.clientKey === key)
+    if (!tile || tile.imageKeys.length <= 1) return
+    const index = activeIndexFor(tile)
+    const keys = tile.imageKeys.filter((_, entryIndex) => entryIndex !== index)
+    updateTile(key, { imageKeys: keys })
+    setActiveIndex(key, clampImageIndex(keys.length, index))
   }
 
   function beginDrag(
@@ -250,7 +309,7 @@ export function CanvasEditor({ initialTiles }: CanvasEditorProps) {
     return {
       ...(tile.id !== undefined ? { id: tile.id } : {}),
       kind: tile.kind,
-      imageKey: tile.imageKey,
+      imageKeys: tile.imageKeys,
       textContent: tile.textContent,
       cite: tile.cite,
       x: tile.x,
@@ -261,7 +320,7 @@ export function CanvasEditor({ initialTiles }: CanvasEditorProps) {
       border: tile.border,
       hoverEffect: tile.hoverEffect,
       zIndex: tile.zIndex,
-      cycleGroup: tile.cycleGroup,
+      cycleIntervalMs: tile.cycleIntervalMs,
     }
   }
 
@@ -295,7 +354,7 @@ export function CanvasEditor({ initialTiles }: CanvasEditorProps) {
   function tileLabel(tile: Keyed): string {
     const what =
       tile.kind === 'photo'
-        ? (tile.imageKey ?? 'no image')
+        ? (tile.imageKeys[0] ?? 'no image')
         : (tile.textContent ?? 'empty')
     return `${tile.kind} tile — ${what}`
   }
@@ -339,10 +398,10 @@ export function CanvasEditor({ initialTiles }: CanvasEditorProps) {
             onPointerCancel={endDrag}
             onKeyDown={(event) => nudge(event, tile.clientKey)}
           >
-            {tile.kind === 'photo' && tile.imageKey ? (
+            {tile.kind === 'photo' && tile.imageKeys.length > 0 ? (
               <img
                 src={imageUrl(
-                  tile.imageKey,
+                  tile.imageKeys[activeIndexFor(tile)] ?? tile.imageKeys[0],
                   { width: 600 },
                   envImageUrlConfig(),
                 )}
@@ -404,8 +463,16 @@ export function CanvasEditor({ initialTiles }: CanvasEditorProps) {
         {selected ? (
           <TileInspector
             tile={selected}
+            activeImageIndex={activeIndexFor(selected)}
             onChange={(patch) => updateTile(selected.clientKey, patch)}
             onDelete={() => removeTile(selected.clientKey)}
+            onImageReorder={(direction) =>
+              moveActiveImage(selected.clientKey, direction === 'prev' ? -1 : 1)
+            }
+            onImageAdd={(imageKey) => addImage(selected.clientKey, imageKey)}
+            onImageDelete={() => deleteActiveImage(selected.clientKey)}
+            onUploadingChange={setUploading}
+            busy={busy}
           />
         ) : (
           <p className="ed-hint">Select a tile to edit it.</p>

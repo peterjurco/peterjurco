@@ -22,7 +22,7 @@ import { CanvasEditor } from '../src/components/admin/CanvasEditor'
 const PHOTO: EditorTile = {
   id: 1,
   kind: 'photo',
-  imageKey: 'home/red.webp',
+  imageKeys: ['home/red.webp'],
   textContent: null,
   cite: null,
   x: 10,
@@ -33,13 +33,31 @@ const PHOTO: EditorTile = {
   border: null,
   hoverEffect: 'develop',
   zIndex: 1,
-  cycleGroup: null,
+  cycleIntervalMs: null,
+}
+
+/** A photo tile that already carries three images, for carousel tests. */
+const MULTI_PHOTO: EditorTile = {
+  id: 3,
+  kind: 'photo',
+  imageKeys: ['home/a.webp', 'home/b.webp', 'home/c.webp'],
+  textContent: null,
+  cite: null,
+  x: 20,
+  y: 20,
+  width: 30,
+  height: 20,
+  rotation: 0,
+  border: null,
+  hoverEffect: 'develop',
+  zIndex: 3,
+  cycleIntervalMs: null,
 }
 
 const QUOTE: EditorTile = {
   id: 2,
   kind: 'quote',
-  imageKey: null,
+  imageKeys: [],
   textContent: 'Everything has led to this',
   cite: '— somewhere north',
   x: 50,
@@ -50,11 +68,31 @@ const QUOTE: EditorTile = {
   border: null,
   hoverEffect: null,
   zIndex: 2,
-  cycleGroup: null,
+  cycleIntervalMs: null,
 }
 
-/** PUT echo: the server returns the saved canvas, ids assigned to inserts. */
-const fetchMock = vi.fn(async (_url: unknown, init?: RequestInit) => {
+/**
+ * PUT echoes the saved canvas (ids assigned to inserts); the media presign
+ * round-trip (POST /api/media/presign → PUT the presigned URL) backs the
+ * inspector's "Add image" upload — each presign call returns a fresh key so
+ * multi-upload tests can assert on distinct images.
+ */
+let uploadCount = 0
+const fetchMock = vi.fn(async (url: unknown, init?: RequestInit) => {
+  const href = String(url)
+  if (href === '/api/media/presign') {
+    uploadCount += 1
+    return new Response(
+      JSON.stringify({
+        url: '/upload-url',
+        key: `home/uploaded-${uploadCount}.webp`,
+      }),
+      { status: 200 },
+    )
+  }
+  if (href === '/upload-url') {
+    return new Response(null, { status: 200 })
+  }
   const body = JSON.parse(String(init?.body)) as { tiles: EditorTile[] }
   return new Response(
     JSON.stringify({
@@ -69,6 +107,7 @@ const fetchMock = vi.fn(async (_url: unknown, init?: RequestInit) => {
 
 beforeEach(() => {
   fetchMock.mockClear()
+  uploadCount = 0
   vi.stubGlobal('fetch', fetchMock)
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
     width: 1000,
@@ -97,6 +136,10 @@ function photoTile(): HTMLElement {
   return screen.getByRole('button', { name: /photo tile.*home\/red\.webp/i })
 }
 
+function multiPhotoTile(): HTMLElement {
+  return screen.getByRole('button', { name: /photo tile.*home\/a\.webp/i })
+}
+
 function quoteTile(): HTMLElement {
   return screen.getByRole('button', { name: /quote tile.*Everything/i })
 }
@@ -110,17 +153,44 @@ function inspectorInput(label: string): HTMLInputElement {
   return screen.getByLabelText(label) as HTMLInputElement
 }
 
+/**
+ * Two CoverUpload instances can be on screen at once (the sidebar's "Add
+ * photo" and, once a photo tile is selected, the inspector's "Add image") —
+ * both render an input aria-labelled "Cover image", so disambiguate by
+ * scoping to the inspector's own upload control.
+ */
+function imageUploadInput(): HTMLInputElement {
+  const input = document.querySelector<HTMLInputElement>(
+    '.tile-inspector .ed-add-image input[type="file"]',
+  )
+  if (!input) throw new Error('Inspector image-upload input not found')
+  return input
+}
+
+function pngFile(name: string): File {
+  return new File(['x'], name, { type: 'image/png' })
+}
+
+/**
+ * Clicks Save and reads back the /api/home/tiles PUT body — located by URL
+ * rather than call index, since a prior image upload in the same test also
+ * goes through the shared fetch mock (presign + presigned PUT).
+ */
 async function saveAndReadBody(): Promise<{
   url: string
   method: string | undefined
   tiles: Array<Record<string, unknown>>
 }> {
+  const callsBefore = fetchMock.mock.calls.length
   fireEvent.click(screen.getByRole('button', { name: 'Save layout' }))
-  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
-  const [url, init] = fetchMock.mock.calls[0] as unknown as [
-    string,
-    RequestInit,
-  ]
+  await waitFor(() =>
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(callsBefore),
+  )
+  const call = fetchMock.mock.calls
+    .slice(callsBefore)
+    .find(([url]) => String(url) === '/api/home/tiles')
+  if (!call) throw new Error('Save PUT to /api/home/tiles not observed')
+  const [url, init] = call as unknown as [string, RequestInit]
   const body = JSON.parse(String(init.body)) as {
     tiles: Array<Record<string, unknown>>
   }
@@ -248,16 +318,13 @@ describe('TileInspector — the five per-block properties', () => {
     expect(photoTile().style.border).toBe('')
   })
 
-  it('edits the hover effect, z-index and cycle group', () => {
+  it('edits the hover effect and z-index', () => {
     renderEditor()
     selectTile(photoTile())
     fireEvent.change(screen.getByLabelText('Hover effect'), {
       target: { value: 'none' },
     })
     fireEvent.change(inspectorInput('Z-index'), { target: { value: '7' } })
-    fireEvent.change(inspectorInput('Cycle group'), {
-      target: { value: 'north' },
-    })
     expect(photoTile().style.zIndex).toBe('7')
   })
 
@@ -281,7 +348,168 @@ describe('TileInspector — the five per-block properties', () => {
   })
 })
 
+describe('TileInspector — photo image carousel', () => {
+  it('shows the active image and count; ‹ disabled at the first image', () => {
+    renderEditor([MULTI_PHOTO])
+    selectTile(multiPhotoTile())
+    expect(screen.getByText('Image 1 of 3')).toBeTruthy()
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Previous image',
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true)
+    expect(
+      (screen.getByRole('button', { name: 'Next image' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false)
+  })
+
+  it('› walks the active image to the end, reordering the array as it goes', async () => {
+    renderEditor([MULTI_PHOTO])
+    selectTile(multiPhotoTile())
+    const next = screen.getByRole('button', { name: 'Next image' })
+
+    // a,b,c — swap(0,1) → b,a,c, active follows to slot 1.
+    fireEvent.click(next)
+    expect(screen.getByText('Image 2 of 3')).toBeTruthy()
+    // b,a,c — swap(1,2) → b,c,a, active follows to slot 2 (the last).
+    fireEvent.click(next)
+    expect(screen.getByText('Image 3 of 3')).toBeTruthy()
+    expect(
+      (screen.getByRole('button', { name: 'Next image' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true)
+
+    const { tiles } = await saveAndReadBody()
+    const saved = tiles.find((entry) => entry.id === MULTI_PHOTO.id)
+    expect(saved?.imageKeys).toEqual([
+      'home/b.webp',
+      'home/c.webp',
+      'home/a.webp',
+    ])
+  })
+
+  it('‹ moves the active image backward, undoing a prior › swap', async () => {
+    renderEditor([MULTI_PHOTO])
+    selectTile(multiPhotoTile())
+    fireEvent.click(screen.getByRole('button', { name: 'Next image' }))
+    expect(screen.getByText('Image 2 of 3')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Previous image' }))
+    expect(screen.getByText('Image 1 of 3')).toBeTruthy()
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Previous image',
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true)
+
+    const { tiles } = await saveAndReadBody()
+    const saved = tiles.find((entry) => entry.id === MULTI_PHOTO.id)
+    expect(saved?.imageKeys).toEqual([
+      'home/a.webp',
+      'home/b.webp',
+      'home/c.webp',
+    ])
+  })
+
+  it('Add image appends the uploaded key and makes it active', async () => {
+    renderEditor([PHOTO])
+    selectTile(photoTile())
+    expect(screen.getByText('Image 1 of 1')).toBeTruthy()
+
+    fireEvent.change(imageUploadInput(), {
+      target: { files: [pngFile('second.png')] },
+    })
+    await waitFor(() => expect(screen.getByText('Image 2 of 2')).toBeTruthy())
+
+    const { tiles } = await saveAndReadBody()
+    const saved = tiles.find((entry) => entry.id === PHOTO.id)
+    expect(saved?.imageKeys).toEqual(['home/red.webp', 'home/uploaded-1.webp'])
+  })
+
+  it('deletes the active image; the last remaining image cannot be deleted', async () => {
+    renderEditor([MULTI_PHOTO])
+    selectTile(multiPhotoTile())
+    const del = screen.getByRole('button', {
+      name: 'Delete image',
+    }) as HTMLButtonElement
+    expect(del.disabled).toBe(false)
+
+    fireEvent.click(del) // removes 'a' (active slot 0) → b,c stay at slot 0
+    expect(screen.getByText('Image 1 of 2')).toBeTruthy()
+    fireEvent.click(del) // removes 'b' → only 'c' left
+    expect(screen.getByText('Image 1 of 1')).toBeTruthy()
+    expect(del.disabled).toBe(true)
+
+    const { tiles } = await saveAndReadBody()
+    const saved = tiles.find((entry) => entry.id === MULTI_PHOTO.id)
+    expect(saved?.imageKeys).toEqual(['home/c.webp'])
+  })
+})
+
+describe('TileInspector — cycle interval field', () => {
+  it('is hidden for a single-image tile', () => {
+    renderEditor([PHOTO])
+    selectTile(photoTile())
+    expect(screen.queryByLabelText('Change every (seconds)')).toBeNull()
+  })
+
+  it('shows for a multi-image tile, empty with a "5" placeholder by default', () => {
+    renderEditor([MULTI_PHOTO])
+    selectTile(multiPhotoTile())
+    const field = inspectorInput('Change every (seconds)')
+    expect(field.value).toBe('')
+    expect(field.placeholder).toBe('5')
+  })
+
+  it('maps seconds to milliseconds on save', async () => {
+    renderEditor([MULTI_PHOTO])
+    selectTile(multiPhotoTile())
+    fireEvent.change(inspectorInput('Change every (seconds)'), {
+      target: { value: '3' },
+    })
+    expect(inspectorInput('Change every (seconds)').value).toBe('3')
+
+    const { tiles } = await saveAndReadBody()
+    const saved = tiles.find((entry) => entry.id === MULTI_PHOTO.id)
+    expect(saved?.cycleIntervalMs).toBe(3000)
+  })
+
+  it('clamps out-of-range seconds to the 500–60000ms bounds', () => {
+    renderEditor([MULTI_PHOTO])
+    selectTile(multiPhotoTile())
+    const field = inspectorInput('Change every (seconds)')
+    fireEvent.change(field, { target: { value: '0.1' } }) // 100ms < 500ms min
+    expect(field.value).toBe('0.5')
+    fireEvent.change(field, { target: { value: '120' } }) // 120000ms > 60000ms max
+    expect(field.value).toBe('60')
+  })
+})
+
 describe('CanvasEditor — add and save', () => {
+  it('adding a photo via upload creates a tile with one imageKey and no interval', async () => {
+    renderEditor([])
+    const input = document.querySelector<HTMLInputElement>(
+      '.ed-add-photo input[type="file"]',
+    )
+    if (!input) throw new Error('Add-photo input not found')
+    fireEvent.change(input, { target: { files: [pngFile('first.png')] } })
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /photo tile/i })).toBeTruthy(),
+    )
+
+    const { tiles } = await saveAndReadBody()
+    expect(tiles).toHaveLength(1)
+    expect(tiles[0]).toMatchObject({
+      kind: 'photo',
+      imageKeys: ['home/uploaded-1.webp'],
+      cycleIntervalMs: null,
+    })
+  })
+
   it('adds a quote tile on top of the stack', () => {
     renderEditor()
     fireEvent.click(screen.getByRole('button', { name: 'Add quote' }))
