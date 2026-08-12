@@ -60,6 +60,15 @@ function parseNumber(raw: string): number | null {
 const clamp = (value: number, { min, max }: { min: number; max: number }) =>
   Math.min(max, Math.max(min, value))
 
+/** Stable id for a numeric field's label↔input pairing, derived from its
+ *  visible label text (e.g. "Border width (px)" → "ti-border-width-px"). */
+function fieldId(label: string): string {
+  return `ti-${label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')}`
+}
+
 export function TileInspector({
   tile,
   activeImageIndex,
@@ -78,11 +87,14 @@ export function TileInspector({
     apply: (value: number) => Partial<EditorTile>,
     step = 0.5,
   ) {
+    const id = fieldId(label)
     return (
-      <label>
-        {label}
+      <div className="admin-field">
+        <label htmlFor={id}>{label}</label>
         <input
+          id={id}
           type="number"
+          className="admin-input"
           aria-label={label}
           step={step}
           value={value}
@@ -91,7 +103,7 @@ export function TileInspector({
             if (parsed !== null) onChange(apply(parsed))
           }}
         />
-      </label>
+      </div>
     )
   }
 
@@ -100,12 +112,14 @@ export function TileInspector({
   return (
     <div className="tile-inspector">
       <h2>
-        {tile.kind === 'photo' ? 'Photo tile' : 'Quote tile'}
-        {tile.id !== undefined ? ` #${tile.id}` : ' (new)'}
+        {tile.kind === 'photo' ? 'Photo tile' : 'Quote tile'}{' '}
+        <span className="admin-mono">
+          {tile.id !== undefined ? `#${tile.id}` : '(new)'}
+        </span>
       </h2>
 
       <fieldset>
-        <legend>Position</legend>
+        <legend className="eyebrow">Position</legend>
         {numberField('X (%)', tile.x, (x) => ({
           x: clamp(x, TILE_RANGES.x),
         }))}
@@ -115,7 +129,7 @@ export function TileInspector({
       </fieldset>
 
       <fieldset>
-        <legend>Size</legend>
+        <legend className="eyebrow">Size</legend>
         {numberField('Width (%)', tile.width, (width) => ({
           width: clamp(width, TILE_RANGES.width),
         }))}
@@ -125,7 +139,7 @@ export function TileInspector({
       </fieldset>
 
       <fieldset>
-        <legend>Rotation</legend>
+        <legend className="eyebrow">Rotation</legend>
         {numberField(
           'Rotation (deg)',
           tile.rotation,
@@ -147,7 +161,7 @@ export function TileInspector({
       </fieldset>
 
       <fieldset>
-        <legend>Border</legend>
+        <legend className="eyebrow">Border</legend>
         {numberField(
           'Border width (px)',
           tile.border?.width ?? 0,
@@ -162,12 +176,14 @@ export function TileInspector({
           }),
           1,
         )}
-        <label>
-          Border color
+        <div className="admin-field">
+          <label htmlFor="ti-border-color">Border color</label>
           {/* type="color" emits #rrggbb — exactly what the API's hex-only
               border.color validation (tile-fields.ts) accepts. */}
           <input
+            id="ti-border-color"
             type="color"
+            className="admin-input"
             aria-label="Border color"
             value={tile.border?.color ?? DEFAULT_BORDER_COLOR}
             onChange={(event) => {
@@ -178,17 +194,19 @@ export function TileInspector({
               }
             }}
           />
-        </label>
+        </div>
       </fieldset>
 
       <fieldset>
-        <legend>Behavior</legend>
+        <legend className="eyebrow">Behavior</legend>
         {/* The renderer only honors hover effects on photo tiles (quote
             hover is fixed by DESIGN) — don't offer a dead control. */}
         {tile.kind === 'photo' && (
-          <label>
-            Hover effect
+          <div className="admin-field">
+            <label htmlFor="ti-hover-effect">Hover effect</label>
             <select
+              id="ti-hover-effect"
+              className="admin-select"
               aria-label="Hover effect"
               value={tile.hoverEffect ?? 'develop'}
               onChange={(event) =>
@@ -201,7 +219,7 @@ export function TileInspector({
                 </option>
               ))}
             </select>
-          </label>
+          </div>
         )}
         {numberField('Z-index', tile.zIndex, (zIndex) => ({
           zIndex: Math.round(zIndex),
@@ -210,7 +228,7 @@ export function TileInspector({
 
       {tile.kind === 'photo' && (
         <fieldset>
-          <legend>Images</legend>
+          <legend className="eyebrow">Images</legend>
           {activeImageKey ? (
             <div className="ed-image-preview">
               <img
@@ -221,7 +239,7 @@ export function TileInspector({
                 )}
                 alt=""
               />
-              <span>{`Image ${activeImageIndex + 1} of ${tile.imageKeys.length}`}</span>
+              <span className="admin-mono">{`Image ${activeImageIndex + 1} of ${tile.imageKeys.length}`}</span>
             </div>
           ) : (
             <span>No image yet</span>
@@ -230,6 +248,7 @@ export function TileInspector({
           <div className="ed-image-actions">
             <button
               type="button"
+              className="admin-btn"
               aria-label="View previous image"
               onClick={() => onImageView('prev')}
               disabled={activeImageIndex <= 0}
@@ -238,6 +257,7 @@ export function TileInspector({
             </button>
             <button
               type="button"
+              className="admin-btn"
               aria-label="View next image"
               onClick={() => onImageView('next')}
               disabled={activeImageIndex >= tile.imageKeys.length - 1}
@@ -246,6 +266,7 @@ export function TileInspector({
             </button>
             <button
               type="button"
+              className="admin-btn admin-btn--danger"
               onClick={onImageDelete}
               disabled={tile.imageKeys.length <= 1}
             >
@@ -257,6 +278,7 @@ export function TileInspector({
             <div className="ed-image-move">
               <button
                 type="button"
+                className="admin-btn"
                 aria-label="Move image left"
                 onClick={() => onImageMove('prev')}
                 disabled={activeImageIndex <= 0}
@@ -265,6 +287,7 @@ export function TileInspector({
               </button>
               <button
                 type="button"
+                className="admin-btn"
                 aria-label="Move image right"
                 onClick={() => onImageMove('next')}
                 disabled={activeImageIndex >= tile.imageKeys.length - 1}
@@ -275,7 +298,7 @@ export function TileInspector({
           )}
 
           <div className="ed-add-image">
-            Add image
+            <span className="eyebrow">Add image</span>
             <CoverUpload
               onUploaded={onImageAdd}
               onUploadingChange={onUploadingChange}
@@ -284,10 +307,12 @@ export function TileInspector({
           </div>
 
           {tile.imageKeys.length > 1 && (
-            <label>
-              Change every (seconds)
+            <div className="admin-field">
+              <label htmlFor="ti-cycle-interval">Change every (seconds)</label>
               <input
+                id="ti-cycle-interval"
                 type="number"
+                className="admin-input"
                 aria-label="Change every (seconds)"
                 step={0.5}
                 placeholder={String(DEFAULT_CYCLE_INTERVAL_MS / 1000)}
@@ -307,28 +332,32 @@ export function TileInspector({
                   })
                 }}
               />
-            </label>
+            </div>
           )}
         </fieldset>
       )}
 
       {tile.kind === 'quote' && (
         <fieldset>
-          <legend>Quote</legend>
-          <label>
-            Quote text
+          <legend className="eyebrow">Quote</legend>
+          <div className="admin-field">
+            <label htmlFor="ti-quote-text">Quote text</label>
             <textarea
+              id="ti-quote-text"
+              className="admin-input"
               aria-label="Quote text"
               value={tile.textContent ?? ''}
               onChange={(event) =>
                 onChange({ textContent: event.target.value })
               }
             />
-          </label>
-          <label>
-            Cite
+          </div>
+          <div className="admin-field">
+            <label htmlFor="ti-cite">Cite</label>
             <input
+              id="ti-cite"
               type="text"
+              className="admin-input"
               aria-label="Cite"
               placeholder="with a cite it renders as the marquee"
               value={tile.cite ?? ''}
@@ -336,11 +365,15 @@ export function TileInspector({
                 onChange({ cite: event.target.value || null })
               }
             />
-          </label>
+          </div>
         </fieldset>
       )}
 
-      <button type="button" onClick={onDelete}>
+      <button
+        type="button"
+        className="admin-btn admin-btn--danger"
+        onClick={onDelete}
+      >
         Delete tile
       </button>
     </div>

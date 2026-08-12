@@ -164,6 +164,7 @@ export function AppsAdmin({ initialApps }: AppsAdminProps) {
             <span className="apps-admin-controls">
               <button
                 type="button"
+                className="admin-btn"
                 disabled={busy || index === 0}
                 onClick={() => void move(index, -1)}
                 aria-label={`Move ${app.name} up`}
@@ -172,6 +173,7 @@ export function AppsAdmin({ initialApps }: AppsAdminProps) {
               </button>
               <button
                 type="button"
+                className="admin-btn"
                 disabled={busy || index === apps.length - 1}
                 onClick={() => void move(index, 1)}
                 aria-label={`Move ${app.name} down`}
@@ -180,6 +182,7 @@ export function AppsAdmin({ initialApps }: AppsAdminProps) {
               </button>
               <button
                 type="button"
+                className="admin-btn admin-btn--danger"
                 disabled={busy}
                 onClick={() => void remove(app)}
               >
@@ -198,27 +201,31 @@ export function AppsAdmin({ initialApps }: AppsAdminProps) {
         }}
       >
         <h2>Add app</h2>
-        <label>
-          Name
+        <div className="admin-field">
+          <label htmlFor="app-name">Name</label>
           <input
+            id="app-name"
             type="text"
-            aria-label="Name"
+            className="admin-input"
             value={name}
             onChange={(event) => setName(event.target.value)}
           />
-        </label>
-        <label>
-          URL
+        </div>
+        <div className="admin-field">
+          <label htmlFor="app-url">URL</label>
           <input
+            id="app-url"
             type="url"
-            aria-label="URL"
+            className="admin-input"
             placeholder="https://…"
             value={url}
             onChange={(event) => setUrl(event.target.value)}
           />
-        </label>
-        <div>
-          Icon {iconKey ? '(uploaded)' : '(none)'}
+        </div>
+        <div className="admin-field">
+          <span className="eyebrow">
+            Icon {iconKey ? '(uploaded)' : '(none)'}
+          </span>
           <CoverUpload
             onUploaded={(key) => setIconKey(key)}
             onUploadingChange={setUploading}
@@ -226,7 +233,11 @@ export function AppsAdmin({ initialApps }: AppsAdminProps) {
           />
         </div>
         {validationError && <p role="alert">{validationError}</p>}
-        <button type="submit" disabled={busy}>
+        <button
+          type="submit"
+          className="admin-btn admin-btn--primary"
+          disabled={busy}
+        >
           Add
         </button>
         <span

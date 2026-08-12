@@ -38,9 +38,9 @@ const [categories, articles] = await Promise.all([
       </form>
     </header>
     <form method="get" class="article-filters">
-      <label>
-        Category
-        <select name="category">
+      <div class="admin-field">
+        <label for="category-filter">Category</label>
+        <select id="category-filter" name="category" class="admin-select">
           <option value="">All categories</option>
           {
             categories.map((category) => (
@@ -53,19 +53,21 @@ const [categories, articles] = await Promise.all([
             ))
           }
         </select>
-      </label>
-      <label>
-        Search
+      </div>
+      <div class="admin-field">
+        <label for="search-filter">Search</label>
         <input
+          id="search-filter"
           type="search"
           name="q"
           placeholder="Title or article text…"
           value={searchParam}
+          class="admin-input"
         />
-      </label>
+      </div>
       <button type="submit" class="admin-btn">Filter</button>
       {(categoryParam || searchParam) && (
-        <a href="/app/articles">Clear</a>
+        <a href="/app/articles" class="admin-btn admin-btn--link">Clear</a>
       )}
     </form>
     {articles.length === 0 && (
@@ -86,10 +88,10 @@ const [categories, articles] = await Promise.all([
             </span>
             {article.isFeatured && <span class="badge">featured</span>}
             <span class="article-dates">
-              <time datetime={article.createdAt.toISOString()}>
+              <time datetime={article.createdAt.toISOString()} class="admin-mono">
                 Created {formatFullDate(article.createdAt)}
               </time>
-              <time datetime={article.updatedAt.toISOString()}>
+              <time datetime={article.updatedAt.toISOString()} class="admin-mono">
                 Modified {formatRelativeDate(article.updatedAt)}
               </time>
             </span>
@@ -112,14 +114,14 @@ const [categories, articles] = await Promise.all([
     align-items: baseline;
     gap: 0.5rem;
     padding: 0.5rem 0;
-    border-bottom: 1px solid var(--admin-border-light, #eee);
+    border-bottom: 1px solid var(--admin-border-light);
   }
   li a {
     font-weight: 600;
-    color: var(--admin-accent, #333);
+    color: var(--admin-accent);
   }
   .category {
-    color: var(--admin-muted, #666);
+    color: var(--admin-muted);
     font-size: 0.85rem;
   }
   .article-filters {
@@ -129,20 +131,13 @@ const [categories, articles] = await Promise.all([
     gap: 1rem;
     margin-bottom: 1rem;
   }
-  .article-filters label {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    font-size: 0.85rem;
-    color: var(--admin-muted, #666);
-  }
   .article-dates {
     margin-left: auto;
     display: flex;
     gap: 0.75rem;
   }
   time {
-    color: var(--admin-faint, #999);
+    color: var(--admin-faint);
     font-size: 0.8rem;
     white-space: nowrap;
   }

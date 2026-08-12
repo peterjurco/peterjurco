@@ -1,30 +1,76 @@
 /*
  * Shared primitives for the authenticated /app admin area (REQUIREMENTS
- * "Admin" — no visual customization through the admin, more functional than
- * pretty; DESIGN.md's locked public palette/type is a completely separate
- * concern and must never be imported here). Loaded exactly once, via
- * AppNav.astro — since AppNav renders on every /app page and nowhere else,
- * this file's rules never reach the public homepage or the public article/
- * tag read views (a/[publicId], t/[publicId]) even though those also use
- * BaseLayout.
+ * "Admin"). Loaded exactly once, via AppNav.astro — since AppNav renders on
+ * every /app page and nowhere else, this file's rules never reach the public
+ * homepage or the public article/tag read views (a/[publicId], t/[publicId])
+ * even though those also use BaseLayout.
  *
- * Plain, neutral, utilitarian palette — deliberately distinct from the
- * public page's ochre/oxblood/cream tokens in DESIGN.md.
+ * "The light table" — a workspace palette, deliberately distinct from the
+ * public page's ochre/oxblood/cream tokens in DESIGN.md: warm paper surfaces
+ * on a dark charcoal bench, one amber accent standing in for a safelight,
+ * red/green reserved for status only. Same token *names* as before this
+ * redesign (--admin-text, --admin-accent, etc.) so every component's
+ * `var(--admin-*, <fallback>)` reference keeps working unchanged — only the
+ * values moved. Dark mode follows the OS preference; there is no in-app
+ * toggle, so light values live in :root and dark values only override under
+ * the media query.
  */
 
+@import "tailwindcss";
+
 :root {
-  --admin-text: #24292f;
-  --admin-muted: #57606a;
-  --admin-faint: #8b949e;
-  --admin-border: #d0d7de;
-  --admin-border-light: #eaeef2;
-  --admin-surface: #ffffff;
-  --admin-bg: #f6f8fa;
-  --admin-accent: #33528f;
-  --admin-accent-hover: #24406f;
-  --admin-accent-bg: #eef1f8;
-  --admin-danger: #b3261e;
-  --admin-success: #1a7f37;
+  --admin-text: #241f1d;
+  --admin-muted: #6e655c;
+  --admin-faint: #98897a;
+  --admin-border: #c9bca6;
+  --admin-border-light: #ddd3c2;
+  --admin-surface: #f7f4ef;
+  --admin-surface-sunken: #ece6da;
+  --admin-bg: #efeae1;
+  --admin-accent: #c1793a;
+  --admin-accent-hover: #a8642e;
+  --admin-accent-ink: #241f1d;
+  --admin-accent-bg: #f0dcc3;
+  --admin-danger: #a13d2e;
+  --admin-danger-bg: #f6e4e0;
+  --admin-success: #4b6b4c;
+  --admin-nav-bg: #2b2621;
+  --admin-nav-text: #f1e9dc;
+  --admin-nav-muted: #b8ab97;
+
+  --admin-font-body: "Archivo Variable", system-ui, -apple-system, sans-serif;
+  --admin-font-display: "Source Serif 4 Variable", Georgia, serif;
+  --admin-font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --admin-text: #ede6da;
+    --admin-muted: #b3a795;
+    --admin-faint: #8a8071;
+    --admin-border: #4a4137;
+    --admin-border-light: #3a332c;
+    --admin-surface: #241f1c;
+    --admin-surface-sunken: #191512;
+    --admin-bg: #1c1815;
+    --admin-accent: #d68f52;
+    --admin-accent-hover: #e2a06c;
+    --admin-accent-ink: #1c1815;
+    --admin-accent-bg: #3a2c1c;
+    --admin-danger: #c2604f;
+    --admin-danger-bg: #33201c;
+    --admin-success: #6e9070;
+    --admin-nav-bg: #141210;
+    --admin-nav-text: #ecdfc9;
+    --admin-nav-muted: #8f8574;
+  }
+}
+
+/* admin-base.css only ever loads on /app/* pages (via AppNav.astro), so a
+   bare `body` selector here is safe — it never reaches the public site. */
+body {
+  margin: 0;
+  background: var(--admin-bg);
 }
 
 /* Page container — replaces the ~46rem/72rem "max-width/margin/padding/
@@ -34,9 +80,10 @@
 .admin-shell {
   max-width: 46rem;
   margin: 0 auto;
-  padding: 1.5rem 1rem;
-  font-family: system-ui, -apple-system, sans-serif;
+  padding: 2rem 1rem 3rem;
+  font-family: var(--admin-font-body);
   color: var(--admin-text);
+  background: var(--admin-bg);
 }
 
 .admin-shell--wide {
@@ -45,9 +92,11 @@
 
 .admin-shell h1 {
   margin: 0 0 1.25rem;
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-family: var(--admin-font-display);
+  font-size: 1.75rem;
+  font-weight: 600;
   color: var(--admin-text);
+  text-wrap: balance;
 }
 
 /* Common page-title header row. Plain flex-wrap by default; pages with a
@@ -60,7 +109,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .admin-shell > header.header-split {
@@ -71,19 +120,37 @@
   margin: 0;
 }
 
+/* Eyebrow / data label — uppercase mono, used for field labels and small
+   counters (REQUIREMENTS: dates, counts, badges get the mono "stamped on a
+   contact sheet" treatment). */
+.eyebrow {
+  font-family: var(--admin-font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--admin-muted);
+}
+
 /* Visibility badge (public/private) — identical block used to be copy-pasted
    across the articles list, the dashboard's photo-hub widget, the photo tag
    page and the taxonomy admin's photo tags section. */
 .badge {
-  padding: 0.05rem 0.4rem;
-  font-size: 0.75rem;
+  padding: 0.15rem 0.55rem;
+  font-family: var(--admin-font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   border: 1px solid var(--admin-border);
   border-radius: 999px;
   color: var(--admin-muted);
 }
 
 .badge-public {
-  border-color: var(--admin-success);
+  border-color: color-mix(
+    in srgb,
+    var(--admin-success) 55%,
+    var(--admin-border)
+  );
   color: var(--admin-success);
 }
 
@@ -116,6 +183,7 @@
 
 .cover-upload input[type="file"] {
   font-size: 0.85rem;
+  font-family: var(--admin-font-body);
 }
 
 .cover-upload span {
@@ -132,33 +200,38 @@
 }
 
 /*
- * Opt-in primitives for plain HTML buttons/inputs that today render with
- * zero styling (AlbumForm, AppsAdmin, TaxonomyAdmin, plain form buttons on
- * list pages). Deliberately NOT bare `button`/`input` element selectors —
- * the home canvas editor's own WYSIWYG surface (.ed-canvas/.ed-tile/
- * .ed-handle in canvas-editor.css) lives inside the same .admin-shell
- * container, and a generic descendant selector would out-specificity its
- * carefully-scoped rules. Applying `.admin-btn`/`.admin-input` explicitly,
- * only where needed, avoids that entirely.
+ * Opt-in primitives for plain HTML buttons/inputs/selects. Deliberately NOT
+ * bare `button`/`input` element selectors — the home canvas editor's own
+ * WYSIWYG surface (.ed-canvas/.ed-tile/.ed-handle in canvas-editor.css) lives
+ * inside the same .admin-shell container, and a generic descendant selector
+ * would out-specificity its carefully-scoped rules. Applying `.admin-btn`/
+ * `.admin-input` explicitly, only where needed, avoids that entirely.
  */
 .admin-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  min-height: 2rem;
-  padding: 0.4rem 0.85rem;
-  font: inherit;
-  font-size: 0.85rem;
+  gap: 0.4rem;
+  min-height: 2.4rem;
+  padding: 0.55rem 1.05rem;
+  font-family: var(--admin-font-body);
+  font-weight: 600;
+  font-size: 0.88rem;
   color: var(--admin-text);
   background: var(--admin-surface);
   border: 1px solid var(--admin-border);
-  border-radius: 6px;
+  border-radius: 7px;
   cursor: pointer;
 }
 
 .admin-btn:hover:not(:disabled) {
-  background: var(--admin-bg);
+  background: var(--admin-surface-sunken);
   border-color: var(--admin-faint);
+}
+
+.admin-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent) 30%, transparent);
+  border-color: var(--admin-accent);
 }
 
 .admin-btn:disabled {
@@ -167,7 +240,7 @@
 }
 
 .admin-btn--primary {
-  color: #fff;
+  color: var(--admin-accent-ink);
   background: var(--admin-accent);
   border-color: var(--admin-accent);
 }
@@ -180,32 +253,70 @@
 .admin-btn--danger {
   color: var(--admin-danger);
   border-color: var(--admin-danger);
+  background: transparent;
 }
 
 .admin-btn--danger:hover:not(:disabled) {
-  background: #fdecea;
+  background: var(--admin-danger-bg);
 }
 
-.admin-input {
-  min-height: 2rem;
-  padding: 0.35rem 0.5rem;
-  font: inherit;
-  font-size: 0.85rem;
+.admin-btn--link {
+  min-height: auto;
+  padding: 0.55rem 0.2rem;
+  color: var(--admin-muted);
+  background: none;
+  border: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.admin-btn--link:hover:not(:disabled) {
   color: var(--admin-text);
-  background: var(--admin-surface);
-  border: 1px solid var(--admin-border);
-  border-radius: 6px;
+  background: none;
 }
 
-.admin-input:focus {
-  outline: 2px solid var(--admin-accent);
-  outline-offset: 1px;
+.admin-input,
+.admin-select {
+  min-height: 2.4rem;
+  padding: 0.55rem 0.75rem;
+  font-family: var(--admin-font-body);
+  font-size: 0.92rem;
+  color: var(--admin-text);
+  background: var(--admin-surface-sunken);
+  border: 1px solid var(--admin-border);
+  border-radius: 7px;
+}
+
+.admin-input::placeholder {
+  color: var(--admin-faint);
+}
+
+.admin-input:focus,
+.admin-select:focus {
+  outline: none;
+  border-color: var(--admin-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent) 28%, transparent);
 }
 
 .admin-field {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.4rem;
   font-size: 0.85rem;
   color: var(--admin-muted);
+}
+
+.admin-field > label {
+  font-family: var(--admin-font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--admin-muted);
+}
+
+/* Tabular data (dates, counts) — REQUIREMENTS: mono for anything counted or
+   dated, digits aligned. */
+.admin-mono {
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
 }

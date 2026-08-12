@@ -17,41 +17,50 @@
   align-items: center;
   gap: 0.25rem;
   padding: 0.5rem 0;
-  background: #fff;
-  border-bottom: 1px solid #ddd;
+  background: var(--admin-surface);
+  border-bottom: 1px solid var(--admin-border-light);
 }
 
 .editor-toolbar button,
 .editor-toolbar select {
   /* Comfortable tap targets on mobile. */
-  min-width: 2.25rem;
-  min-height: 2.25rem;
+  min-width: 2.4rem;
+  min-height: 2.4rem;
   padding: 0.25rem 0.5rem;
+  font-family: var(--admin-font-body);
   font-size: 0.9rem;
-  background: #fff;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  color: var(--admin-text);
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 7px;
   cursor: pointer;
 }
 
 .editor-toolbar button:hover {
-  background: var(--admin-bg, #f6f8fa);
-  border-color: var(--admin-faint, #999);
+  background: var(--admin-surface-sunken);
+  border-color: var(--admin-faint);
+}
+
+.editor-toolbar button:focus-visible,
+.editor-toolbar select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent) 30%, transparent);
+  border-color: var(--admin-accent);
 }
 
 .editor-toolbar button.is-active {
-  background: var(--admin-accent-bg, #e8e8e8);
-  border-color: var(--admin-accent, #999);
-  color: var(--admin-accent, inherit);
+  background: var(--admin-accent-bg);
+  border-color: var(--admin-accent);
+  color: var(--admin-accent);
 }
 
 .editor-toolbar-color input[type="color"] {
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2.4rem;
+  height: 2.4rem;
   padding: 0.15rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  background: #fff;
+  border: 1px solid var(--admin-border);
+  border-radius: 7px;
+  background: var(--admin-surface);
   cursor: pointer;
 }
 
@@ -59,22 +68,22 @@
   width: 1px;
   height: 1.5rem;
   margin: 0 0.25rem;
-  background: #ddd;
+  background: var(--admin-border-light);
 }
 
 .editor-save-state {
   margin-left: auto;
   font-size: 0.8rem;
-  color: #888;
+  color: var(--admin-muted);
 }
 
 .editor-save-state.is-success {
-  color: var(--admin-success, #1a7f37);
+  color: var(--admin-success);
   font-weight: 600;
 }
 
 .editor-save-state.is-error {
-  color: var(--admin-danger, #b3261e);
+  color: var(--admin-danger);
   font-weight: 600;
 }
 
@@ -98,10 +107,13 @@
 .article-meta-title {
   width: 100%;
   padding: 0.4rem 0;
+  font-family: var(--admin-font-display);
   font-size: 1.6rem;
-  font-weight: 700;
+  font-weight: 600;
+  color: var(--admin-text);
+  background: transparent;
   border: none;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--admin-border-light);
   outline: none;
 }
 
@@ -114,23 +126,48 @@
 }
 
 .article-meta-row select,
-.article-meta-row input[type="text"],
-.article-meta-row button {
-  min-height: 2rem;
-  padding: 0.25rem 0.5rem;
+.article-meta-row input[type="text"] {
+  min-height: 2.4rem;
+  padding: 0.55rem 0.75rem;
+  font-family: var(--admin-font-body);
   font-size: 0.85rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  background: #fff;
+  color: var(--admin-text);
+  background: var(--admin-surface-sunken);
+  border: 1px solid var(--admin-border);
+  border-radius: 7px;
+}
+
+.article-meta-row select:focus,
+.article-meta-row input[type="text"]:focus {
+  outline: none;
+  border-color: var(--admin-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent) 28%, transparent);
 }
 
 .article-meta-row button {
+  min-height: 2.4rem;
+  padding: 0.55rem 1.05rem;
+  font-family: var(--admin-font-body);
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--admin-text);
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 7px;
   cursor: pointer;
 }
 
 .article-meta-row button:hover {
-  background: var(--admin-bg, #f6f8fa);
-  border-color: var(--admin-faint, #999);
+  background: var(--admin-surface-sunken);
+  border-color: var(--admin-faint);
+}
+
+.article-meta-row button:focus-visible,
+.article-meta-row select:focus-visible,
+.article-meta-row input[type="text"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent) 30%, transparent);
+  border-color: var(--admin-accent);
 }
 
 .article-meta-flag {
@@ -138,24 +175,31 @@
   align-items: center;
   gap: 0.3rem;
   font-size: 0.85rem;
+  color: var(--admin-text);
 }
 
 .article-meta-delete {
-  color: var(--admin-danger, #b00020);
-  border-color: var(--admin-danger, #b00020);
+  color: var(--admin-danger);
+  background: transparent;
+  border-color: var(--admin-danger);
+}
+
+.article-meta-row button.article-meta-delete:hover {
+  background: var(--admin-danger-bg);
+  border-color: var(--admin-danger);
 }
 
 .article-meta-status {
   font-size: 0.8rem;
-  color: #888;
+  color: var(--admin-muted);
 }
 
 .article-meta-status.is-success {
-  color: var(--admin-success, #1a7f37);
+  color: var(--admin-success);
   font-weight: 600;
 }
 
 .article-meta-status.is-error {
-  color: var(--admin-danger, #b3261e);
+  color: var(--admin-danger);
   font-weight: 600;
 }

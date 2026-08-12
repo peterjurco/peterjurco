@@ -140,12 +140,14 @@ function EditableName({
     <>
       <input
         type="text"
+        className="admin-input"
         aria-label={`Rename ${name}`}
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
       />
       <button
         type="button"
+        className="admin-btn admin-btn--primary"
         disabled={busy}
         onClick={() => {
           onRename(draft.trim())
@@ -154,7 +156,12 @@ function EditableName({
       >
         Save
       </button>
-      <button type="button" disabled={busy} onClick={() => setEditing(false)}>
+      <button
+        type="button"
+        className="admin-btn"
+        disabled={busy}
+        onClick={() => setEditing(false)}
+      >
         Cancel
       </button>
     </>
@@ -184,11 +191,16 @@ function AddForm({
     >
       <input
         type="text"
+        className="admin-input"
         aria-label={label}
         value={name}
         onChange={(event) => setName(event.target.value)}
       />
-      <button type="submit" disabled={busy}>
+      <button
+        type="submit"
+        className="admin-btn admin-btn--primary"
+        disabled={busy}
+      >
         Add
       </button>
       <span
@@ -233,6 +245,7 @@ function TaxonomySection({
             />
             <button
               type="button"
+              className="admin-btn admin-btn--danger"
               disabled={busy}
               onClick={() =>
                 void remove(
@@ -321,6 +334,7 @@ function PhotoTagsSection({
             />
             <button
               type="button"
+              className="admin-btn"
               disabled={busy}
               onClick={() => void toggleVisibility(item)}
             >
@@ -331,6 +345,7 @@ function PhotoTagsSection({
             </span>
             <button
               type="button"
+              className="admin-btn admin-btn--danger"
               disabled={busy}
               onClick={() => void remove(item, deleteMessage(item))}
             >

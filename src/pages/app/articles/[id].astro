@@ -29,7 +29,7 @@ if (!article) {
 
 <BaseLayout title={`${article.title || 'Untitled'} — peterjur.co`}>
   <AppNav />
-  <main class="article-editor-page">
+  <main class="admin-shell article-editor-page">
     <ArticleMetaPanel
       client:load
       articleId={article.id}
@@ -49,10 +49,3 @@ if (!article) {
     />
   </main>
 </BaseLayout>
-
-<style>
-  .article-editor-page {
-    padding: 1rem;
-    font-family: system-ui, -apple-system, sans-serif;
-  }
-</style>

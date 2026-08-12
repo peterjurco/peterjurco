@@ -124,50 +124,68 @@ export function AlbumForm({
         void save()
       }}
     >
-      <label>
-        Name
+      <div className="admin-field">
+        <label htmlFor="album-name">Name</label>
         <input
+          id="album-name"
           type="text"
+          className="admin-input"
           aria-label="Name"
           value={name}
           onChange={(event) => setName(event.target.value)}
         />
-      </label>
-      <label>
-        Google Photos URL
+      </div>
+      <div className="admin-field">
+        <label htmlFor="album-google-photos-url">Google Photos URL</label>
         <input
+          id="album-google-photos-url"
           type="url"
+          className="admin-input"
           aria-label="Google Photos URL"
           placeholder="https://photos.app.goo.gl/…"
           value={googlePhotosUrl}
           onChange={(event) => setGooglePhotosUrl(event.target.value)}
         />
-      </label>
-      <label>
-        Tags
+      </div>
+      <div className="admin-field">
+        <label htmlFor="album-tags">Tags</label>
         <input
+          id="album-tags"
           type="text"
+          className="admin-input"
           aria-label="Tags"
           placeholder="tags, comma, separated"
           value={tagsText}
           onChange={(event) => setTagsText(event.target.value)}
         />
-      </label>
-      <div className="album-form-field">
-        Cover {coverImageKey ? '(uploaded)' : '(none)'}
+      </div>
+      <div className="admin-field">
+        <span className="eyebrow">Cover</span>
         <CoverUpload
           onUploaded={(key) => setCoverImageKey(key)}
           onUploadingChange={setUploading}
           disabled={busy && !uploading}
         />
+        <span className="eyebrow">
+          {coverImageKey ? '(uploaded)' : '(none)'}
+        </span>
       </div>
       {validationError && <p role="alert">{validationError}</p>}
       <div className="album-form-actions">
-        <button type="submit" disabled={busy}>
+        <button
+          type="submit"
+          className="admin-btn admin-btn--primary"
+          disabled={busy}
+        >
           Save
         </button>
         {albumId !== undefined && (
-          <button type="button" disabled={busy} onClick={() => void remove()}>
+          <button
+            type="button"
+            className="admin-btn admin-btn--danger"
+            disabled={busy}
+            onClick={() => void remove()}
+          >
             Delete
           </button>
         )}

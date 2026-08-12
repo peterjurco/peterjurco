@@ -467,17 +467,27 @@ export function CanvasEditor({ initialTiles }: CanvasEditorProps) {
       <aside className="ed-side">
         <div className="ed-actions">
           <div className="ed-add-photo">
-            Add photo
+            <span className="eyebrow">Add photo</span>
             <CoverUpload
               onUploaded={addPhotoTile}
               onUploadingChange={setUploading}
               disabled={status === 'Saving…'}
             />
           </div>
-          <button type="button" onClick={addQuoteTile} disabled={busy}>
+          <button
+            type="button"
+            className="admin-btn"
+            onClick={addQuoteTile}
+            disabled={busy}
+          >
             Add quote
           </button>
-          <button type="button" onClick={() => void save()} disabled={busy}>
+          <button
+            type="button"
+            className="admin-btn admin-btn--primary"
+            onClick={() => void save()}
+            disabled={busy}
+          >
             Save layout
           </button>
           <span

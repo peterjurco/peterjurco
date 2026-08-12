@@ -1,4 +1,8 @@
 ---
+import '@fontsource-variable/archivo'
+import '@fontsource-variable/source-serif-4'
+import '@fontsource/ibm-plex-mono/400.css'
+import '@fontsource/ibm-plex-mono/500.css'
 import '../styles/admin-base.css'
 
 /**
@@ -6,9 +10,10 @@ import '../styles/admin-base.css'
  * Photo hub / Apps / Admin targets ship in Plans 5 and 7 — the hrefs are
  * fixed now so they light up when those pages land.
  *
- * Imports admin-base.css (the shared admin palette/primitives) — this is the
- * one component present on every /app page and nowhere else, so it's the
- * natural single place to pull that stylesheet in for the whole admin area.
+ * Imports admin-base.css (the shared admin palette/primitives) and the three
+ * self-hosted admin typefaces — this is the one component present on every
+ * /app page and nowhere else, so it's the natural single place to pull them
+ * in for the whole admin area.
  */
 const links = [
   { href: '/app', label: 'Home' },
@@ -32,49 +37,69 @@ const active = links
   )
 ---
 
-<nav class="app-nav" aria-label="App">
-  {
-    links.map((link) => (
-      <a
-        href={link.href}
-        aria-current={active === link.href ? 'page' : undefined}
-      >
-        {link.label}
-      </a>
-    ))
-  }
-  <form method="post" action="/api/auth/logout">
-    <button type="submit" class="app-nav-logout">Log out</button>
-  </form>
-</nav>
+<div class="app-nav-bar">
+  <nav class="app-nav" aria-label="App">
+    <span class="app-nav-brand">peterjur<span>.</span>co</span>
+    <div class="app-nav-links">
+      {
+        links.map((link) => (
+          <a
+            href={link.href}
+            aria-current={active === link.href ? 'page' : undefined}
+          >
+            {link.label}
+          </a>
+        ))
+      }
+    </div>
+    <form method="post" action="/api/auth/logout">
+      <button type="submit" class="app-nav-logout">Log out</button>
+    </form>
+  </nav>
+</div>
 
 <style>
+  .app-nav-bar {
+    background: var(--admin-nav-bg);
+  }
   .app-nav {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.25rem;
+    gap: 1.5rem;
     max-width: 46rem;
     margin: 0 auto;
-    padding: 0.75rem 1rem;
-    background: var(--admin-surface, #fff);
-    border-bottom: 1px solid var(--admin-border, #eee);
-    font-family: system-ui, -apple-system, sans-serif;
+    padding: 0.9rem 1rem;
+    font-family: var(--admin-font-body);
     font-size: 0.9rem;
+  }
+  .app-nav-brand {
+    font-family: var(--admin-font-mono);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: var(--admin-nav-text);
+    white-space: nowrap;
+  }
+  .app-nav-brand span {
+    color: var(--admin-accent);
+  }
+  .app-nav-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
   }
   a {
     padding: 0.4rem 0.6rem;
     border-radius: 6px;
-    color: var(--admin-muted, #333);
+    color: var(--admin-nav-muted);
     text-decoration: none;
   }
   a:hover {
-    background: var(--admin-bg, #f6f8fa);
-    color: var(--admin-text, #111);
+    color: var(--admin-nav-text);
   }
   a[aria-current='page'] {
-    background: var(--admin-accent-bg, #eef1f8);
-    color: var(--admin-accent, #333);
+    color: var(--admin-nav-text);
+    box-shadow: inset 0 -2px 0 var(--admin-accent);
     font-weight: 600;
   }
   form {
@@ -82,15 +107,16 @@ const active = links
   }
   .app-nav-logout {
     padding: 0.4rem 0.75rem;
+    font-family: var(--admin-font-body);
     font-size: 0.85rem;
-    color: var(--admin-muted, #555);
-    background: var(--admin-surface, #fff);
-    border: 1px solid var(--admin-border, #ccc);
+    color: var(--admin-nav-muted);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--admin-nav-text) 20%, transparent);
     border-radius: 6px;
     cursor: pointer;
   }
   .app-nav-logout:hover {
-    background: var(--admin-bg, #f6f8fa);
-    border-color: var(--admin-faint, #999);
+    color: var(--admin-nav-text);
+    border-color: color-mix(in srgb, var(--admin-nav-text) 40%, transparent);
   }
 </style>

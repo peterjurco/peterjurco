@@ -102,9 +102,10 @@
   gap: 1rem;
   min-width: 0;
   padding: 1rem;
-  background: var(--admin-surface, #fff);
-  border: 1px solid var(--admin-border, #d0d7de);
-  border-radius: 8px;
+  font-family: var(--admin-font-body);
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 7px;
 }
 
 .ed-actions {
@@ -114,43 +115,30 @@
   align-items: center;
 }
 
-.ed-actions button {
-  min-height: 2rem;
-  padding: 0.4rem 0.85rem;
-  font-size: 0.85rem;
-  color: var(--admin-text, #24292f);
-  background: var(--admin-surface, #fff);
-  border: 1px solid var(--admin-border, #d0d7de);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.ed-actions button:hover:not(:disabled) {
-  background: var(--admin-bg, #f6f8fa);
-  border-color: var(--admin-faint, #8b949e);
-}
-
-.ed-actions button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
 .ed-actions > span {
   font-size: 0.8rem;
-  color: var(--admin-muted, #57606a);
+  color: var(--admin-muted);
 }
 
 .ed-actions > span.is-success {
-  color: var(--admin-success, #1a7f37);
+  color: var(--admin-success);
 }
 
 .ed-actions > span.is-error {
-  color: var(--admin-danger, #b3261e);
+  color: var(--admin-danger);
   font-weight: 600;
 }
 
 .ed-add-photo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 0.85rem;
+}
+
+.ed-add-photo .eyebrow,
+.ed-add-image .eyebrow {
+  white-space: nowrap;
 }
 
 .tile-inspector {
@@ -159,57 +147,40 @@
   gap: 0.65rem;
   font-size: 0.9rem;
   padding-top: 0.75rem;
-  border-top: 1px solid var(--admin-border-light, #eaeef2);
+  border-top: 1px solid var(--admin-border-light);
 }
 
 .tile-inspector h2 {
   font-size: 1rem;
   margin: 0;
-  color: var(--admin-text, #24292f);
+  font-weight: 600;
+  color: var(--admin-text);
 }
 
 .tile-inspector fieldset {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  border: 1px solid var(--admin-border-light, #ddd);
-  border-radius: 6px;
+  border: 1px solid var(--admin-border-light);
+  border-radius: 7px;
   padding: 0.5rem 0.65rem;
 }
 
 .tile-inspector legend {
   padding: 0 0.3rem;
-  font-size: 0.8rem;
-  color: var(--admin-muted, #57606a);
-}
-
-.tile-inspector label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  color: var(--admin-muted, #57606a);
 }
 
 .tile-inspector input[type="number"] {
   width: 5.5rem;
 }
 
-.tile-inspector input[type="number"],
-.tile-inspector input[type="text"],
-.tile-inspector textarea,
-.tile-inspector select {
-  padding: 0.25rem 0.4rem;
-  color: var(--admin-text, #24292f);
-  background: var(--admin-surface, #fff);
-  border: 1px solid var(--admin-border, #d0d7de);
-  border-radius: 4px;
+.tile-inspector input[type="range"] {
+  accent-color: var(--admin-accent);
 }
 
-.tile-inspector input:focus,
-.tile-inspector textarea:focus,
-.tile-inspector select:focus {
-  outline: 2px solid var(--admin-accent, #33528f);
-  outline-offset: 1px;
+.tile-inspector input[type="range"]:focus-visible {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 2px;
 }
 
 .tile-inspector textarea {
@@ -217,24 +188,12 @@
   width: 100%;
 }
 
-.tile-inspector > button {
+.tile-inspector > .admin-btn {
   align-self: flex-start;
-  min-height: 2rem;
-  padding: 0.4rem 0.85rem;
-  font-size: 0.85rem;
-  color: var(--admin-danger, #b3261e);
-  background: var(--admin-surface, #fff);
-  border: 1px solid var(--admin-danger, #b3261e);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.tile-inspector > button:hover {
-  background: #fdecea;
 }
 
 .ed-hint {
-  color: var(--admin-muted, #666);
+  color: var(--admin-muted);
   font-size: 0.9rem;
 }
 
@@ -248,13 +207,13 @@
 .ed-image-preview img {
   max-width: 100%;
   height: auto;
-  border: 1px solid var(--admin-border-light, #ddd);
-  border-radius: 4px;
+  border: 1px solid var(--admin-border-light);
+  border-radius: 7px;
 }
 
 .ed-image-preview span {
   font-size: 0.8rem;
-  color: var(--admin-muted, #57606a);
+  color: var(--admin-muted);
 }
 
 .ed-image-actions,
@@ -264,28 +223,4 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 0.85rem;
-}
-
-.ed-image-actions button,
-.ed-image-move button {
-  min-height: 1.9rem;
-  padding: 0.3rem 0.6rem;
-  font-size: 0.85rem;
-  color: var(--admin-text, #24292f);
-  background: var(--admin-surface, #fff);
-  border: 1px solid var(--admin-border, #d0d7de);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.ed-image-actions button:hover:not(:disabled),
-.ed-image-move button:hover:not(:disabled) {
-  background: var(--admin-bg, #f6f8fa);
-  border-color: var(--admin-faint, #8b949e);
-}
-
-.ed-image-actions button:disabled,
-.ed-image-move button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }

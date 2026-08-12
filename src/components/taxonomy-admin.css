@@ -1,4 +1,5 @@
-/* Categories & tags admin CRUD — was entirely unstyled (bare list + form). */
+/* Categories & tags admin CRUD — layout only; buttons/inputs use the shared
+   .admin-btn/.admin-input primitives from admin-base.css. */
 
 .taxonomy-admin {
   display: flex;
@@ -10,7 +11,7 @@
 .taxonomy-section h2 {
   margin: 0 0 0.5rem;
   font-size: 1rem;
-  color: var(--admin-text, #24292f);
+  color: var(--admin-text);
 }
 
 .taxonomy-section ul {
@@ -21,48 +22,16 @@
 
 .taxonomy-section li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.4rem 0;
-  border-bottom: 1px solid var(--admin-border-light, #eaeef2);
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--admin-border-light);
 }
 
-.taxonomy-section li input[type="text"] {
+.taxonomy-section li .admin-input {
   flex: 1;
-  min-width: 0;
-  min-height: 1.9rem;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.9rem;
-  color: var(--admin-text, #24292f);
-  background: var(--admin-surface, #fff);
-  border: 1px solid var(--admin-border, #d0d7de);
-  border-radius: 6px;
-}
-
-.taxonomy-section li input[type="text"]:focus {
-  outline: 2px solid var(--admin-accent, #33528f);
-  outline-offset: 1px;
-}
-
-.taxonomy-section li button {
-  min-height: 1.9rem;
-  padding: 0.3rem 0.6rem;
-  font-size: 0.85rem;
-  color: var(--admin-text, #24292f);
-  background: var(--admin-surface, #fff);
-  border: 1px solid var(--admin-border, #d0d7de);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.taxonomy-section li button:hover:not(:disabled) {
-  background: var(--admin-bg, #f6f8fa);
-  border-color: var(--admin-faint, #8b949e);
-}
-
-.taxonomy-section li button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  min-width: 8rem;
 }
 
 /* The click-to-edit name — a plain button styled to read as text, not a
@@ -76,66 +45,43 @@
   white-space: nowrap;
   font: inherit;
   font-weight: 600;
-  color: var(--admin-accent, #33528f);
+  color: var(--admin-accent);
   background: none;
   border: none;
+  border-radius: 4px;
   padding: 0.2rem 0;
   cursor: pointer;
 }
 
 .taxonomy-name:hover {
+  color: var(--admin-accent-hover);
   text-decoration: underline;
+}
+
+.taxonomy-name:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent) 28%, transparent);
 }
 
 .taxonomy-section form {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
   margin-top: 0.85rem;
 }
 
-.taxonomy-section form input[type="text"] {
-  min-height: 2rem;
-  padding: 0.35rem 0.5rem;
-  font-size: 0.9rem;
-  color: var(--admin-text, #24292f);
-  background: var(--admin-surface, #fff);
-  border: 1px solid var(--admin-border, #d0d7de);
-  border-radius: 6px;
-}
-
-.taxonomy-section form input[type="text"]:focus {
-  outline: 2px solid var(--admin-accent, #33528f);
-  outline-offset: 1px;
-}
-
-.taxonomy-section form button {
-  min-height: 2rem;
-  padding: 0.4rem 0.85rem;
-  font-size: 0.85rem;
-  color: #fff;
-  background: var(--admin-accent, #33528f);
-  border: 1px solid var(--admin-accent, #33528f);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.taxonomy-section form button:hover:not(:disabled) {
-  background: var(--admin-accent-hover, #24406f);
-  border-color: var(--admin-accent-hover, #24406f);
-}
-
-.taxonomy-section form button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+.taxonomy-section form .admin-input {
+  flex: 1;
+  min-width: 10rem;
 }
 
 .taxonomy-section form span {
   font-size: 0.8rem;
-  color: var(--admin-muted, #57606a);
+  color: var(--admin-muted);
 }
 
 .taxonomy-section form span.is-error {
-  color: var(--admin-danger, #b3261e);
+  color: var(--admin-danger);
   font-weight: 600;
 }

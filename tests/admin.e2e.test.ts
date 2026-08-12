@@ -93,9 +93,15 @@ describe('admin landing page', () => {
     expect(html).toContain('href="/app/admin/taxonomy"')
     expect(html).toContain('href="/app/home-editor"')
     expect(html).toContain('backup.yml')
-    // No theme/design/visual-customization controls of any kind.
-    expect(html.toLowerCase()).not.toContain('theme')
-    expect(html.toLowerCase()).not.toContain('color scheme')
+    // No theme/design/visual-customization controls of any kind. Checked
+    // outside <style> tags: Tailwind's generated CSS uses `@layer theme` as
+    // an internal cascade-layer name, unrelated to any user-facing control.
+    const htmlWithoutStyles = html.replace(
+      /<style[^>]*>[\s\S]*?<\/style>/gi,
+      '',
+    )
+    expect(htmlWithoutStyles.toLowerCase()).not.toContain('theme')
+    expect(htmlWithoutStyles.toLowerCase()).not.toContain('color scheme')
   })
 
   it('is reachable from the app menu', async () => {
