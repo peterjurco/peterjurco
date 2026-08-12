@@ -246,6 +246,48 @@ describe('htmlToTiptap', () => {
     ])
   })
 
+  it('preserves a link inside a figcaption, the real WP pattern for image-credit links', () => {
+    // The real dump wraps caption links exactly like this — no <p> around
+    // the <a>, since <figcaption> (a CONTAINER_TAG) flattens straight down
+    // to the bare anchor.
+    const doc = htmlToTiptap(
+      '<figure><img src="https://example.com/a.jpg">' +
+        '<figcaption><a href="https://example.com/map">link</a></figcaption></figure>',
+    )
+    expect(doc.content).toEqual([
+      {
+        type: 'paragraph',
+        content: [
+          { type: 'image', attrs: { src: 'https://example.com/a.jpg' } },
+        ],
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'link',
+            marks: [
+              { type: 'link', attrs: { href: 'https://example.com/map' } },
+            ],
+          },
+        ],
+      },
+    ])
+  })
+
+  it('preserves bold/italic marks that appear directly inside a container, without a <p> wrapper', () => {
+    const doc = htmlToTiptap('<div><strong>bold text</strong></div>')
+    expect(doc.content).toEqual([
+      {
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'bold text', marks: [{ type: 'bold' }] },
+        ],
+      },
+    ])
+  })
+
   it('never throws on malformed or empty HTML', () => {
     expect(() => htmlToTiptap('<p>unclosed<div><span>oops')).not.toThrow()
     expect(() => htmlToTiptap('')).not.toThrow()
