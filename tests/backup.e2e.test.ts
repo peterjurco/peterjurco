@@ -3,7 +3,7 @@ import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { AwsClient } from 'aws4fetch'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 /**
  * Runs the REAL scripts/backup-db.sh main() end-to-end against MinIO
@@ -17,6 +17,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
  * actually invoke pg_dump correctly, gzip the output, land it at the right
  * key, and prune old keys via real `aws s3api` calls against a real S3 API.
  */
+
+// Each test shells out to the real script, which itself spawns several
+// `aws s3api` subprocesses against a real endpoint — matches the budget
+// other real-network/subprocess e2e suites already use (photos, public-home)
+// so CI resource contention never flakes a script that is otherwise correct.
+vi.setConfig({ testTimeout: 30_000 })
 
 const SCRIPT = new URL('../scripts/backup-db.sh', import.meta.url).pathname
 const MINIO_ENDPOINT = 'http://localhost:9000'
