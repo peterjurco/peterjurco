@@ -3,11 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
 import * as schema from '../../src/db/schema'
-import type {
-  ArticleContent,
-  ArticlesDb,
-  MigratedArticleFields,
-} from '../../src/lib/articles/repo'
+import type { ArticleContent, ArticlesDb } from '../../src/lib/articles/repo'
 import {
   createMigratedArticle,
   getByLegacyWpId,
@@ -274,19 +270,30 @@ export async function runMigration(
           null)
         : null
 
-    const fields: MigratedArticleFields = {
+    const commonFields = {
       title: post.title,
       content: doc as unknown as ArticleContent,
-      categoryId,
-      visibility: 'private',
+      visibility: 'private' as const,
       featuredPhotoKey,
       createdAt: post.postDate,
       updatedAt: post.postModified,
     }
 
+    // UPDATE: a null categoryId here just means "still multi-category, per
+    // the fresh WP dump" — NOT "clear whatever category is set". Omitting
+    // the key (rather than writing null) leaves untouched whatever the
+    // owner may have already set by hand in the editor for a still-flagged
+    // post (see MigratedArticleUpdateFields / updateMigratedArticle).
+    // CREATE has nothing to preserve yet, so null is written as-is.
     const article = existing
-      ? await updateMigratedArticle(db, existing.id, fields)
-      : await createMigratedArticle(db, post.wpId, fields)
+      ? await updateMigratedArticle(db, existing.id, {
+          ...commonFields,
+          ...(categoryId === null ? {} : { categoryId }),
+        })
+      : await createMigratedArticle(db, post.wpId, {
+          ...commonFields,
+          categoryId,
+        })
     if (!article)
       throw new Error(`Failed to write article for WP post ${post.wpId}`)
     if (existing) updated++

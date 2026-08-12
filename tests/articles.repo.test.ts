@@ -361,6 +361,35 @@ describe('createMigratedArticle / updateMigratedArticle / getByLegacyWpId', () =
     const all = await db.select().from(articles)
     expect(all.filter((row) => row.legacyWpId === 88)).toHaveLength(1)
   })
+
+  it('leaves categoryId untouched when the patch omits it', async () => {
+    const category = await createCategory(db, 'Travel')
+    const created = await createMigratedArticle(db, 600, {
+      ...fields,
+      categoryId: category.id,
+    })
+    const { categoryId: _omitted, ...patchWithoutCategory } = fields
+    const updated = await updateMigratedArticle(
+      db,
+      created.id,
+      patchWithoutCategory,
+    )
+    expect(updated?.categoryId).toBe(category.id)
+  })
+
+  it('still updates categoryId when the patch includes it', async () => {
+    const before = await createCategory(db, 'Before')
+    const after = await createCategory(db, 'After')
+    const created = await createMigratedArticle(db, 601, {
+      ...fields,
+      categoryId: before.id,
+    })
+    const updated = await updateMigratedArticle(db, created.id, {
+      ...fields,
+      categoryId: after.id,
+    })
+    expect(updated?.categoryId).toBe(after.id)
+  })
 })
 
 describe('deleteArticle', () => {

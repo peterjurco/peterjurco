@@ -212,6 +212,20 @@ export interface MigratedArticleFields {
 }
 
 /**
+ * Same fields as `MigratedArticleFields`, but `categoryId` is optional —
+ * same "omitted key vs explicit null" convention as `updateArticle`'s patch
+ * type above. Omitting it leaves the column untouched by `.set()`; passing
+ * it (including explicit `null`) writes it. import.ts's re-run relies on
+ * this to avoid clobbering a category the owner already fixed by hand for a
+ * still-multi-category post — it omits the key rather than recomputing
+ * `null` from the WP dump every time.
+ */
+export type MigratedArticleUpdateFields = Omit<
+  MigratedArticleFields,
+  'categoryId'
+> & { categoryId?: number | null }
+
+/**
  * Owner-side lookup by WP legacy id — the WP migration's idempotency key
  * (scripts/migrate-wp/import.ts): re-running `--apply` against the same dump
  * must update the existing row rather than duplicate it.
@@ -258,7 +272,7 @@ export async function createMigratedArticle(
 export async function updateMigratedArticle(
   db: ArticlesDb,
   id: number,
-  fields: MigratedArticleFields,
+  fields: MigratedArticleUpdateFields,
 ): Promise<Article | null> {
   const [article] = await db
     .update(articles)

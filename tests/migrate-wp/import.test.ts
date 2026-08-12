@@ -8,6 +8,7 @@ import {
   articleTags,
   articleTagsMap,
 } from '../../src/db/schema'
+import { createCategory, getByLegacyWpId } from '../../src/lib/articles/repo'
 import type { R2Env } from '../../src/lib/media/r2'
 import { createTestDb } from '../helpers/test-db'
 import {
@@ -464,5 +465,92 @@ describe('runMigration — apply', () => {
       'hiking',
       'trail-running',
     ])
+  })
+})
+
+describe('runMigration — apply — categoryId re-run safety', () => {
+  it('does not revert a manually-fixed category on a still-multi-category post', async () => {
+    await insertWpPost(wpConn, {
+      id: 1,
+      title: 'Two cats',
+      content: '',
+      status: 'publish',
+    })
+    await insertWpTerm(wpConn, 10, 'category', 'Travel', [1])
+    await insertWpTerm(wpConn, 11, 'category', 'Food', [1])
+
+    await runMigration({
+      wpConn,
+      db,
+      apply: true,
+      r2Env,
+      ownedHost: OWNED_HOST,
+      publicImageBaseUrl: IMG_BASE,
+    })
+
+    const created = await getByLegacyWpId(db, 1)
+    expect(created?.categoryId).toBeNull()
+
+    // Owner resolves the flag by hand in the article editor.
+    const manualCategory = await createCategory(db, 'Travel')
+    await db
+      .update(articles)
+      .set({ categoryId: manualCategory.id })
+      .where(eq(articles.id, created?.id as number))
+
+    // Post is still multi-category in the source data — a later re-run (e.g.
+    // to pick up a newly-noticed post) must not wipe the manual fix.
+    const secondReport = await runMigration({
+      wpConn,
+      db,
+      apply: true,
+      r2Env,
+      ownedHost: OWNED_HOST,
+      publicImageBaseUrl: IMG_BASE,
+    })
+
+    expect(secondReport.multiCategoryPosts).toEqual([
+      { wpId: 1, title: 'Two cats', categories: ['Travel', 'Food'] },
+    ])
+    const afterRerun = await getByLegacyWpId(db, 1)
+    expect(afterRerun?.categoryId).toBe(manualCategory.id)
+  })
+
+  it('still updates categoryId for a single-category post whose category changes between runs', async () => {
+    await insertWpPost(wpConn, {
+      id: 1,
+      title: 'One cat',
+      content: '',
+      status: 'publish',
+    })
+    await insertWpTerm(wpConn, 10, 'category', 'Travel', [1])
+
+    await runMigration({
+      wpConn,
+      db,
+      apply: true,
+      r2Env,
+      ownedHost: OWNED_HOST,
+      publicImageBaseUrl: IMG_BASE,
+    })
+    const firstCategoryId = (await getByLegacyWpId(db, 1))?.categoryId
+    expect(firstCategoryId).not.toBeNull()
+
+    // The post's category assignment changes in the source dump.
+    await wpConn.query('DELETE FROM wp_term_relationships WHERE object_id = 1')
+    await insertWpTerm(wpConn, 20, 'category', 'Food', [1])
+
+    await runMigration({
+      wpConn,
+      db,
+      apply: true,
+      r2Env,
+      ownedHost: OWNED_HOST,
+      publicImageBaseUrl: IMG_BASE,
+    })
+
+    const afterRerun = await getByLegacyWpId(db, 1)
+    expect(afterRerun?.categoryId).not.toBeNull()
+    expect(afterRerun?.categoryId).not.toBe(firstCategoryId)
   })
 })
