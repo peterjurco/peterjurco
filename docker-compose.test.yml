@@ -31,6 +31,24 @@ services:
       timeout: 5s
       retries: 10
 
+  # Disposable MySQL-compatible DB standing in for a real WordPress export in
+  # the migrate-wp tests (tests/migrate-wp/*) — the test suite creates its own
+  # minimal wp_posts/wp_terms/wp_term_taxonomy/wp_term_relationships/
+  # wp_postmeta tables and seeds fixture rows itself (see
+  # tests/helpers/test-wp-db.ts); this service only provides the empty server.
+  wp-mysql:
+    image: mariadb:11
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: wp_migrate_test
+    ports:
+      - "3316:3306"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   # Serves the Neon serverless HTTP protocol in front of the plain Postgres
   # service so the production neon-http driver works in the dev-server health
   # test (see src/db/client.ts).

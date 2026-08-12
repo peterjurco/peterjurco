@@ -34,6 +34,7 @@ jobs:
 
     env:
       TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5544/peterjurco_test
+      TEST_WP_MYSQL_URL: mysql://root:root@localhost:3316/wp_migrate_test
 
     steps:
       - uses: actions/checkout@v4
@@ -55,6 +56,25 @@ jobs:
           done
           echo "MinIO did not become healthy within 30s" >&2
           docker logs minio >&2 || true
+          exit 1
+
+      # Disposable MySQL-compatible DB for the migrate-wp tests, mirroring
+      # the wp-mysql service in docker-compose.test.yml. Runs via `docker run`
+      # (same precedent as MinIO above) — the test suite seeds its own schema
+      # and fixture rows, so no init script is needed here, just a live server.
+      - name: Start MariaDB (migrate-wp tests)
+        run: |
+          docker run -d --name wp-mysql -p 3316:3306 \
+            -e MARIADB_ROOT_PASSWORD=root -e MARIADB_DATABASE=wp_migrate_test \
+            mariadb:11
+          for i in $(seq 1 60); do
+            if docker exec wp-mysql healthcheck.sh --connect --innodb_initialized 2>/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "MariaDB did not become healthy within 60s" >&2
+          docker logs wp-mysql >&2 || true
           exit 1
 
       - uses: pnpm/action-setup@v4

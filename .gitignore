@@ -9,3 +9,9 @@ dist/
 .DS_Store
 .dev.vars
 .dev.vars.test-backup
+
+# Personal WordPress DB dump used for the one-off migration — never commit.
+*.gz
+scripts/migrate-wp/*.sql
+scripts/migrate-wp/wp-dump*
+scripts/migrate-wp/migration-report.json

@@ -11,7 +11,8 @@
     "check": "astro check",
     "lint": "biome ci .",
     "format": "biome format --write .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "migrate-wp": "tsx scripts/migrate-wp/import.ts"
   },
   "packageManager": "pnpm@10.33.1",
   "pnpm": {
@@ -53,8 +54,10 @@
     "@types/react-dom": "^19.2.3",
     "drizzle-kit": "^0.31.10",
     "jsdom": "^29.1.1",
+    "mysql2": "^3.23.3",
     "node-html-parser": "^9.0.0",
     "pg": "^8.22.0",
+    "tsx": "^4.23.12",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10",
     "wrangler": "^4.83.0"
