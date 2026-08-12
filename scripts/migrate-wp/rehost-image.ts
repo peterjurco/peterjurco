@@ -1,3 +1,4 @@
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import {
   ALLOWED_IMAGE_CONTENT_TYPES,
   MAX_UPLOAD_BYTES,
@@ -130,4 +131,47 @@ export async function rehostImage(
 
   deps.cache.set(sourceUrl, key)
   return key
+}
+
+/**
+ * Loads a dedup cache previously saved by `saveRehostCache` — persisting it
+ * across process runs (not just within one `runMigration()` call) means a
+ * second `--apply` run reuses already-rehosted images' R2 keys instead of
+ * re-fetching the still-live old WP site and re-uploading, which would also
+ * orphan the first run's objects (never referenced again once the article
+ * rows are updated to point at the new keys). Only successes are persisted
+ * (see `saveRehostCache`) — a failed fetch isn't cached to disk, so a
+ * transient failure (e.g. the old site briefly down) is retried on the next
+ * run rather than permanently blacklisted. Missing or corrupt cache files
+ * are treated as empty rather than crashing the run.
+ */
+export function loadRehostCache(path: string): Map<string, string | null> {
+  if (!existsSync(path)) return new Map()
+  try {
+    const raw = JSON.parse(readFileSync(path, 'utf-8')) as Record<
+      string,
+      string
+    >
+    return new Map(Object.entries(raw))
+  } catch {
+    return new Map()
+  }
+}
+
+/**
+ * Saves the dedup cache's successful entries (sourceUrl → R2 key) to `path`.
+ * Called after each successful rehost (not just at the end of the run) so a
+ * crash mid-run doesn't lose already-completed rehosts either — same
+ * crash-safety goal as the migration report. Failed lookups (`null`) are
+ * intentionally NOT persisted — see `loadRehostCache`.
+ */
+export function saveRehostCache(
+  path: string,
+  cache: Map<string, string | null>,
+): void {
+  const successesOnly: Record<string, string> = {}
+  for (const [sourceUrl, key] of cache) {
+    if (key !== null) successesOnly[sourceUrl] = key
+  }
+  writeFileSync(path, JSON.stringify(successesOnly, null, 2))
 }

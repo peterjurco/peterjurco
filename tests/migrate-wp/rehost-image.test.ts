@@ -1,6 +1,12 @@
+import { rmSync } from 'node:fs'
 import { AwsClient } from 'aws4fetch'
-import { beforeAll, describe, expect, it, vi } from 'vitest'
-import { isOwnedUrl, rehostImage } from '../../scripts/migrate-wp/rehost-image'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import {
+  isOwnedUrl,
+  loadRehostCache,
+  rehostImage,
+  saveRehostCache,
+} from '../../scripts/migrate-wp/rehost-image'
 import type { R2Env } from '../../src/lib/media/r2'
 import { MAX_UPLOAD_BYTES } from '../../src/lib/media/r2'
 
@@ -220,4 +226,63 @@ describe('rehostImage', () => {
     )
     expect(key).not.toBeNull()
   }, 20_000)
+})
+
+describe('loadRehostCache / saveRehostCache', () => {
+  const CACHE_PATH = new URL('./.tmp-rehost-cache.json', import.meta.url)
+    .pathname
+
+  afterEach(() => {
+    rmSync(CACHE_PATH, { force: true })
+  })
+
+  it('returns an empty cache when the file does not exist', () => {
+    expect(loadRehostCache(CACHE_PATH).size).toBe(0)
+  })
+
+  it('round-trips across a save/reload, and a reloaded URL is never re-fetched', async () => {
+    const url = 'https://peterjur.co/wp-content/uploads/persisted.jpg'
+    const fetchSource = vi
+      .fn()
+      .mockResolvedValue(fakeImageResponse(new Uint8Array([5, 5, 5])))
+    const firstRunCache = new Map<string, string | null>()
+
+    const key = await rehostImage(env, url, {
+      ownedHost: OWNED_HOST,
+      cache: firstRunCache,
+      fetchSource,
+    })
+    expect(key).not.toBeNull()
+    saveRehostCache(CACHE_PATH, firstRunCache)
+
+    // Simulates a fresh process: a brand new in-memory cache, reloaded from disk.
+    const secondRunCache = loadRehostCache(CACHE_PATH)
+    expect(secondRunCache.get(url)).toBe(key)
+
+    const secondFetchSource = vi.fn()
+    const secondKey = await rehostImage(env, url, {
+      ownedHost: OWNED_HOST,
+      cache: secondRunCache,
+      fetchSource: secondFetchSource,
+    })
+    expect(secondKey).toBe(key)
+    expect(secondFetchSource).not.toHaveBeenCalled()
+  })
+
+  it('does not persist a cached failure to disk', async () => {
+    const url = 'https://peterjur.co/wp-content/uploads/will-fail.jpg'
+    const fetchSource = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'))
+    const cache = new Map<string, string | null>()
+
+    const key = await rehostImage(env, url, {
+      ownedHost: OWNED_HOST,
+      cache,
+      fetchSource,
+    })
+    expect(key).toBeNull()
+
+    saveRehostCache(CACHE_PATH, cache)
+    const reloaded = loadRehostCache(CACHE_PATH)
+    expect(reloaded.has(url)).toBe(false)
+  })
 })

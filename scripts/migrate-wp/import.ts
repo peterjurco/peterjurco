@@ -20,7 +20,12 @@ import {
   readRealPosts,
   type WpConnection,
 } from './read-dump'
-import { isOwnedUrl, rehostImage } from './rehost-image'
+import {
+  isOwnedUrl,
+  loadRehostCache,
+  rehostImage,
+  saveRehostCache,
+} from './rehost-image'
 
 /**
  * Idempotent orchestrator (DATA_MODEL "Migration considerations",
@@ -75,6 +80,14 @@ export interface RunMigrationOptions {
    * processed before the throw, rather than nothing at all.
    */
   reportPath?: string
+  /**
+   * When set, the image-rehost dedup cache (source URL → R2 key) is loaded
+   * from this path at the start of the run and saved back after every
+   * successful rehost — so a second `--apply` run reuses already-rehosted
+   * images instead of re-fetching the old site and orphaning the first
+   * run's R2 objects. See rehost-image.ts's loadRehostCache/saveRehostCache.
+   */
+  cachePath?: string
 }
 
 /** Minimal shape shared with html-to-tiptap.ts's internal node type, for walking the doc. */
@@ -143,8 +156,16 @@ function publicObjectUrl(key: string, baseUrl: string): string {
 export async function runMigration(
   options: RunMigrationOptions,
 ): Promise<MigrationReport> {
-  const { wpConn, db, apply, r2Env, ownedHost, fetchSource, reportPath } =
-    options
+  const {
+    wpConn,
+    db,
+    apply,
+    r2Env,
+    ownedHost,
+    fetchSource,
+    reportPath,
+    cachePath,
+  } = options
   const publicImageBaseUrl = apply
     ? requireEnv(options.publicImageBaseUrl, 'PUBLIC_R2_PUBLIC_BASE_URL')
     : (options.publicImageBaseUrl ?? '')
@@ -174,10 +195,15 @@ export async function runMigration(
     inlineImages: [],
     featuredImages: [],
   }
-  const imageCache = new Map<string, string | null>()
+  const imageCache = cachePath
+    ? loadRehostCache(cachePath)
+    : new Map<string, string | null>()
 
   const flushReport = (): void => {
     if (reportPath) writeFileSync(reportPath, JSON.stringify(report, null, 2))
+  }
+  const flushCacheIfRehosted = (key: string | null): void => {
+    if (key && cachePath) saveRehostCache(cachePath, imageCache)
   }
 
   try {
@@ -216,6 +242,7 @@ export async function runMigration(
           fetchSource,
           context: `wp#${post.wpId} (inline image)`,
         })
+        flushCacheIfRehosted(key)
         if (key) {
           rewrites.set(src, publicObjectUrl(key, publicImageBaseUrl))
           report.inlineImages.push({
@@ -258,6 +285,7 @@ export async function runMigration(
             fetchSource,
             context: `wp#${post.wpId} (featured image)`,
           })
+          flushCacheIfRehosted(key)
           if (key) {
             featuredPhotoKey = key
             report.featuredImages.push({
@@ -373,6 +401,9 @@ async function main(): Promise<void> {
   const reportPath = fileURLToPath(
     new URL('./migration-report.json', import.meta.url),
   )
+  const cachePath = fileURLToPath(
+    new URL('./.rehost-cache.json', import.meta.url),
+  )
 
   try {
     const report = await runMigration({
@@ -383,6 +414,7 @@ async function main(): Promise<void> {
       ownedHost,
       publicImageBaseUrl: process.env.PUBLIC_R2_PUBLIC_BASE_URL,
       reportPath,
+      cachePath,
     })
 
     console.log(`\nWrote ${reportPath}`)

@@ -1,3 +1,4 @@
+import { rmSync } from 'node:fs'
 import { AwsClient } from 'aws4fetch'
 import { eq } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -82,13 +83,17 @@ async function resetPostgres(): Promise<void> {
   await db.delete(articleCategories)
 }
 
+const CACHE_PATH = new URL('./.tmp-import-cache.json', import.meta.url).pathname
+
 beforeEach(async () => {
   await ensureBucket()
   await resetWpSchema(wpConn)
   await resetPostgres()
+  rmSync(CACHE_PATH, { force: true })
 })
 
 afterAll(async () => {
+  rmSync(CACHE_PATH, { force: true })
   await wpConn.end()
   await close()
 })
@@ -552,5 +557,52 @@ describe('runMigration — apply — categoryId re-run safety', () => {
     const afterRerun = await getByLegacyWpId(db, 1)
     expect(afterRerun?.categoryId).not.toBeNull()
     expect(afterRerun?.categoryId).not.toBe(firstCategoryId)
+  })
+})
+
+describe('runMigration — apply — rehost cache persists across runs', () => {
+  it('does not re-fetch an already-rehosted image on a second run', async () => {
+    await insertWpPost(wpConn, {
+      id: 1,
+      title: 'Has an image',
+      content:
+        '<p><img src="https://peterjur.co/wp-content/uploads/cached.jpg"></p>',
+      status: 'publish',
+    })
+
+    const firstFetch = fakeWpFetch()
+    await runMigration({
+      wpConn,
+      db,
+      apply: true,
+      r2Env,
+      ownedHost: OWNED_HOST,
+      fetchSource: firstFetch,
+      publicImageBaseUrl: IMG_BASE,
+      cachePath: CACHE_PATH,
+    })
+    expect(firstFetch).toHaveBeenCalledTimes(1)
+
+    // Simulates a fresh process invocation: no in-memory cache carries over,
+    // only whatever runMigration persisted to CACHE_PATH.
+    const secondFetch = fakeWpFetch()
+    const secondReport = await runMigration({
+      wpConn,
+      db,
+      apply: true,
+      r2Env,
+      ownedHost: OWNED_HOST,
+      fetchSource: secondFetch,
+      publicImageBaseUrl: IMG_BASE,
+      cachePath: CACHE_PATH,
+    })
+
+    expect(secondFetch).not.toHaveBeenCalled()
+    const rehostedEntry = secondReport.inlineImages.find(
+      (image) =>
+        image.sourceUrl === 'https://peterjur.co/wp-content/uploads/cached.jpg',
+    )
+    expect(rehostedEntry?.status).toBe('rehosted')
+    expect(rehostedEntry?.newKey).toMatch(/^migrated\//)
   })
 })
