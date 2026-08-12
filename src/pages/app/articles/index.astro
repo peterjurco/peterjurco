@@ -3,7 +3,7 @@ import AppNav from '../../../components/AppNav.astro'
 import { getAppDb } from '../../../db'
 import BaseLayout from '../../../layouts/BaseLayout.astro'
 import { listForOwner } from '../../../lib/articles/repo'
-import { formatDate } from '../../../lib/format-date'
+import { formatFullDate, formatRelativeDate } from '../../../lib/format-date'
 
 // Defense in depth: the middleware already gates /app/*.
 if (!Astro.locals.user) {
@@ -40,9 +40,14 @@ const articles = await listForOwner(db)
               {article.visibility}
             </span>
             {article.isFeatured && <span class="badge">featured</span>}
-            <time datetime={article.updatedAt.toISOString()}>
-              {formatDate(article.updatedAt)}
-            </time>
+            <span class="article-dates">
+              <time datetime={article.createdAt.toISOString()}>
+                Created {formatFullDate(article.createdAt)}
+              </time>
+              <time datetime={article.updatedAt.toISOString()}>
+                Modified {formatRelativeDate(article.updatedAt)}
+              </time>
+            </span>
           </li>
         ))
       }
@@ -72,9 +77,14 @@ const articles = await listForOwner(db)
     color: var(--admin-muted, #666);
     font-size: 0.85rem;
   }
-  time {
+  .article-dates {
     margin-left: auto;
+    display: flex;
+    gap: 0.75rem;
+  }
+  time {
     color: var(--admin-faint, #999);
     font-size: 0.8rem;
+    white-space: nowrap;
   }
 </style>
