@@ -1,5 +1,6 @@
+import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { users } from '../src/db/schema'
+import { articles, users } from '../src/db/schema'
 import { createCategory, getById } from '../src/lib/articles/repo'
 import { signValue } from '../src/lib/auth/cookie'
 import { createSession } from '../src/lib/auth/session'
@@ -9,6 +10,11 @@ import { createTestDb, DEFAULT_DEV_DATABASE_URL } from './helpers/test-db'
 const PORT = 43112
 const BASE_URL = `http://localhost:${PORT}`
 const SESSION_SECRET = 'articles-e2e-secret-32-characters!'
+// Mirrors tests/public-home.e2e.test.ts's convention: build-time PUBLIC_*
+// vars come from process.env at dev-server spawn time (see
+// tests/helpers/dev-server.ts), with transforms off so imageUrl() returns
+// the plain absolute original-object URL, not a relative /cdn-cgi/image path.
+const IMG_BASE = 'http://localhost:9000/peterjurco-test'
 
 const { db, close } = createTestDb()
 let server: DevServerHandle | undefined
@@ -60,6 +66,9 @@ beforeAll(async () => {
   if (!user) throw new Error('failed to insert e2e user')
   const { token } = await createSession(db, user.id)
   sessionCookie = await signValue(SESSION_SECRET, token)
+
+  process.env.PUBLIC_R2_PUBLIC_BASE_URL = IMG_BASE
+  process.env.PUBLIC_IMAGE_TRANSFORMS = 'off'
 
   server = await startDevServer({
     port: PORT,
@@ -278,6 +287,39 @@ describe('articles API — owner CRUD', () => {
     const afterUnpublish = await request(`/a/${publicId}`)
     expect(afterUnpublish.status).toBe(404)
   }, 60_000)
+
+  it('renders a real absolute og:image URL for the featured photo, not the dead /media/ path', async () => {
+    const id = await createArticleViaApi()
+    await request(`/api/articles/${id}`, {
+      method: 'PATCH',
+      authed: true,
+      body: { title: 'Cover photo article' },
+    })
+    // No API sets featuredPhotoKey yet (Plan 5's media layer / the WP
+    // migration are its first real writers) — set it directly.
+    await db
+      .update(articles)
+      .set({ featuredPhotoKey: 'covers/test-cover.jpg' })
+      .where(eq(articles.id, id))
+    await request(`/api/articles/${id}`, {
+      method: 'PATCH',
+      authed: true,
+      body: { visibility: 'public' },
+    })
+
+    const stored = await getById(db, id)
+    const publicPage = await request(`/a/${stored?.publicId}`)
+    expect(publicPage.status).toBe(200)
+    const html = await publicPage.text()
+
+    expect(html).not.toContain('/media/')
+    const expectedUrl = `${IMG_BASE}/covers/test-cover.jpg`
+    expect(html).toContain(`<meta property="og:image" content="${expectedUrl}"`)
+    expect(html).toContain(
+      `<meta name="twitter:image" content="${expectedUrl}"`,
+    )
+    expect(html).toContain('content="summary_large_image"')
+  })
 
   it('serves the editor page only to the owner', async () => {
     const id = await createArticleViaApi()

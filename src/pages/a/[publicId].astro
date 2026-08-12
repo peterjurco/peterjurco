@@ -1,9 +1,11 @@
 ---
 import { getAppDb } from '../../db'
 import BaseLayout from '../../layouts/BaseLayout.astro'
+import { absoluteUrl } from '../../lib/absolute-url'
 import { deriveExcerpt } from '../../lib/articles/excerpt'
 import { renderDoc } from '../../lib/articles/render-doc'
 import { getByPublicId } from '../../lib/articles/repo'
+import { imageUrl } from '../../lib/media/image-url'
 import '../../styles/article-body.css'
 
 // Public read view (TECH_DECISIONS §9): pure SSR — no editor JS is shipped.
@@ -18,10 +20,11 @@ const title = article.title || 'Untitled'
 const description = deriveExcerpt(article.content, 200)
 const html = renderDoc(article.content)
 const canonicalUrl = new URL(Astro.url.pathname, Astro.url)
-// Media serving lands in Plan 5 — until then featured_photo_key is null and
-// cards simply have no image. `/media/:key` is the planned public route.
-const imageUrl = article.featuredPhotoKey
-  ? new URL(`/media/${article.featuredPhotoKey}`, Astro.url)
+// og:image must be absolute — imageUrl is zone-relative when transforms are
+// on (see its docblock), so absolutize against the request URL. Same
+// convention as src/pages/t/[publicId].astro.
+const ogImage = article.featuredPhotoKey
+  ? absoluteUrl(imageUrl(article.featuredPhotoKey, { width: 1200 }), Astro.url)
   : null
 ---
 
@@ -32,14 +35,14 @@ const imageUrl = article.featuredPhotoKey
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonicalUrl} />
-    {imageUrl && <meta property="og:image" content={imageUrl} />}
+    {ogImage && <meta property="og:image" content={ogImage} />}
     <meta
       name="twitter:card"
-      content={imageUrl ? 'summary_large_image' : 'summary'}
+      content={ogImage ? 'summary_large_image' : 'summary'}
     />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
-    {imageUrl && <meta name="twitter:image" content={imageUrl} />}
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
   </Fragment>
   <main class="public-article">
     <article>
