@@ -68,6 +68,13 @@ export interface RunMigrationOptions {
   fetchSource?: typeof fetch
   /** Base URL images are rewritten to (PUBLIC_R2_PUBLIC_BASE_URL). Required only in apply mode. */
   publicImageBaseUrl?: string
+  /**
+   * When set, the report is flushed to this path after every post — not
+   * just once the whole loop completes — so a crash partway through a
+   * 247-post run still leaves an accurate report on disk for whatever was
+   * processed before the throw, rather than nothing at all.
+   */
+  reportPath?: string
 }
 
 /** Minimal shape shared with html-to-tiptap.ts's internal node type, for walking the doc. */
@@ -136,7 +143,8 @@ function publicObjectUrl(key: string, baseUrl: string): string {
 export async function runMigration(
   options: RunMigrationOptions,
 ): Promise<MigrationReport> {
-  const { wpConn, db, apply, r2Env, ownedHost, fetchSource } = options
+  const { wpConn, db, apply, r2Env, ownedHost, fetchSource, reportPath } =
+    options
   const publicImageBaseUrl = apply
     ? requireEnv(options.publicImageBaseUrl, 'PUBLIC_R2_PUBLIC_BASE_URL')
     : (options.publicImageBaseUrl ?? '')
@@ -152,170 +160,185 @@ export async function runMigration(
       })
     : null
 
-  const multiCategoryPosts: MultiCategoryFlag[] = []
-  const inlineImages: ImageOutcome[] = []
-  const featuredImages: ImageOutcome[] = []
+  // Built up incrementally and flushed to `reportPath` after every post (see
+  // RunMigrationOptions.reportPath) — never assembled only at the very end —
+  // so a thrown error partway through still leaves an accurate report for
+  // whatever was processed so far.
+  const report: MigrationReport = {
+    generatedAt: new Date().toISOString(),
+    mode: apply ? 'apply' : 'dry-run',
+    totalPosts: posts.length,
+    created: 0,
+    updated: 0,
+    multiCategoryPosts: [],
+    inlineImages: [],
+    featuredImages: [],
+  }
   const imageCache = new Map<string, string | null>()
-  let created = 0
-  let updated = 0
 
-  for (const post of posts) {
-    if (post.categories.length > 1) {
-      multiCategoryPosts.push({
-        wpId: post.wpId,
-        title: post.title,
-        categories: post.categories.map((category) => category.name),
-      })
-    }
+  const flushReport = (): void => {
+    if (reportPath) writeFileSync(reportPath, JSON.stringify(report, null, 2))
+  }
 
-    const doc = htmlToTiptap(post.contentHtml)
-    const rewrites = new Map<string, string>()
-
-    for (const src of collectImageSrcs(doc)) {
-      if (!isOwnedUrl(src, ownedHost)) {
-        inlineImages.push({
-          postId: post.wpId,
-          sourceUrl: src,
-          status: 'external',
-        })
-        continue
-      }
-      if (!apply) {
-        inlineImages.push({
-          postId: post.wpId,
-          sourceUrl: src,
-          status: 'would-rehost',
-        })
-        continue
-      }
-      const key = await rehostImage(r2Env, src, {
-        ownedHost,
-        cache: imageCache,
-        fetchSource,
-        context: `wp#${post.wpId} (inline image)`,
-      })
-      if (key) {
-        rewrites.set(src, publicObjectUrl(key, publicImageBaseUrl))
-        inlineImages.push({
-          postId: post.wpId,
-          sourceUrl: src,
-          status: 'rehosted',
-          newKey: key,
-        })
-      } else {
-        inlineImages.push({
-          postId: post.wpId,
-          sourceUrl: src,
-          status: 'failed',
-          reason:
-            'rehost failed — left pointing at the original WP URL (see warnings above)',
+  try {
+    for (const post of posts) {
+      if (post.categories.length > 1) {
+        report.multiCategoryPosts.push({
+          wpId: post.wpId,
+          title: post.title,
+          categories: post.categories.map((category) => category.name),
         })
       }
-    }
-    if (rewrites.size > 0) rewriteImageSrcs(doc, rewrites)
 
-    let featuredPhotoKey: string | null = null
-    if (post.featuredImageUrl) {
-      const url = post.featuredImageUrl
-      if (!isOwnedUrl(url, ownedHost)) {
-        featuredImages.push({
-          postId: post.wpId,
-          sourceUrl: url,
-          status: 'external',
-        })
-      } else if (!apply) {
-        featuredImages.push({
-          postId: post.wpId,
-          sourceUrl: url,
-          status: 'would-rehost',
-        })
-      } else {
-        const key = await rehostImage(r2Env, url, {
+      const doc = htmlToTiptap(post.contentHtml)
+      const rewrites = new Map<string, string>()
+
+      for (const src of collectImageSrcs(doc)) {
+        if (!isOwnedUrl(src, ownedHost)) {
+          report.inlineImages.push({
+            postId: post.wpId,
+            sourceUrl: src,
+            status: 'external',
+          })
+          continue
+        }
+        if (!apply) {
+          report.inlineImages.push({
+            postId: post.wpId,
+            sourceUrl: src,
+            status: 'would-rehost',
+          })
+          continue
+        }
+        const key = await rehostImage(r2Env, src, {
           ownedHost,
           cache: imageCache,
           fetchSource,
-          context: `wp#${post.wpId} (featured image)`,
+          context: `wp#${post.wpId} (inline image)`,
         })
         if (key) {
-          featuredPhotoKey = key
-          featuredImages.push({
+          rewrites.set(src, publicObjectUrl(key, publicImageBaseUrl))
+          report.inlineImages.push({
             postId: post.wpId,
-            sourceUrl: url,
+            sourceUrl: src,
             status: 'rehosted',
             newKey: key,
           })
         } else {
-          featuredImages.push({
+          report.inlineImages.push({
             postId: post.wpId,
-            sourceUrl: url,
+            sourceUrl: src,
             status: 'failed',
             reason:
-              'rehost failed — featured_photo_key left unset (see warnings above)',
+              'rehost failed — left pointing at the original WP URL (see warnings above)',
           })
         }
       }
+      if (rewrites.size > 0) rewriteImageSrcs(doc, rewrites)
+
+      let featuredPhotoKey: string | null = null
+      if (post.featuredImageUrl) {
+        const url = post.featuredImageUrl
+        if (!isOwnedUrl(url, ownedHost)) {
+          report.featuredImages.push({
+            postId: post.wpId,
+            sourceUrl: url,
+            status: 'external',
+          })
+        } else if (!apply) {
+          report.featuredImages.push({
+            postId: post.wpId,
+            sourceUrl: url,
+            status: 'would-rehost',
+          })
+        } else {
+          const key = await rehostImage(r2Env, url, {
+            ownedHost,
+            cache: imageCache,
+            fetchSource,
+            context: `wp#${post.wpId} (featured image)`,
+          })
+          if (key) {
+            featuredPhotoKey = key
+            report.featuredImages.push({
+              postId: post.wpId,
+              sourceUrl: url,
+              status: 'rehosted',
+              newKey: key,
+            })
+          } else {
+            report.featuredImages.push({
+              postId: post.wpId,
+              sourceUrl: url,
+              status: 'failed',
+              reason:
+                'rehost failed — featured_photo_key left unset (see warnings above)',
+            })
+          }
+        }
+      }
+
+      const existing = await getByLegacyWpId(db, post.wpId)
+
+      if (!apply) {
+        if (existing) report.updated++
+        else report.created++
+        flushReport()
+        continue
+      }
+
+      const categoryId =
+        post.categories.length === 1 && taxonomy
+          ? (taxonomy.categoryIdByWpId.get(
+              post.categories[0]?.wpId as number,
+            ) ?? null)
+          : null
+
+      const commonFields = {
+        title: post.title,
+        content: doc as unknown as ArticleContent,
+        visibility: 'private' as const,
+        featuredPhotoKey,
+        createdAt: post.postDate,
+        updatedAt: post.postModified,
+      }
+
+      // UPDATE: a null categoryId here just means "still multi-category, per
+      // the fresh WP dump" — NOT "clear whatever category is set". Omitting
+      // the key (rather than writing null) leaves untouched whatever the
+      // owner may have already set by hand in the editor for a still-flagged
+      // post (see MigratedArticleUpdateFields / updateMigratedArticle).
+      // CREATE has nothing to preserve yet, so null is written as-is.
+      const article = existing
+        ? await updateMigratedArticle(db, existing.id, {
+            ...commonFields,
+            ...(categoryId === null ? {} : { categoryId }),
+          })
+        : await createMigratedArticle(db, post.wpId, {
+            ...commonFields,
+            categoryId,
+          })
+      if (!article)
+        throw new Error(`Failed to write article for WP post ${post.wpId}`)
+      if (existing) report.updated++
+      else report.created++
+
+      await setTags(
+        db,
+        article.id,
+        post.tags.map((tag) => tag.name),
+      )
+      flushReport()
     }
-
-    const existing = await getByLegacyWpId(db, post.wpId)
-
-    if (!apply) {
-      if (existing) updated++
-      else created++
-      continue
-    }
-
-    const categoryId =
-      post.categories.length === 1 && taxonomy
-        ? (taxonomy.categoryIdByWpId.get(post.categories[0]?.wpId as number) ??
-          null)
-        : null
-
-    const commonFields = {
-      title: post.title,
-      content: doc as unknown as ArticleContent,
-      visibility: 'private' as const,
-      featuredPhotoKey,
-      createdAt: post.postDate,
-      updatedAt: post.postModified,
-    }
-
-    // UPDATE: a null categoryId here just means "still multi-category, per
-    // the fresh WP dump" — NOT "clear whatever category is set". Omitting
-    // the key (rather than writing null) leaves untouched whatever the
-    // owner may have already set by hand in the editor for a still-flagged
-    // post (see MigratedArticleUpdateFields / updateMigratedArticle).
-    // CREATE has nothing to preserve yet, so null is written as-is.
-    const article = existing
-      ? await updateMigratedArticle(db, existing.id, {
-          ...commonFields,
-          ...(categoryId === null ? {} : { categoryId }),
-        })
-      : await createMigratedArticle(db, post.wpId, {
-          ...commonFields,
-          categoryId,
-        })
-    if (!article)
-      throw new Error(`Failed to write article for WP post ${post.wpId}`)
-    if (existing) updated++
-    else created++
-
-    await setTags(
-      db,
-      article.id,
-      post.tags.map((tag) => tag.name),
-    )
+  } finally {
+    // Guarantees a report reflecting everything processed so far exists on
+    // disk even if the loop above threw partway through (fix for silent
+    // no-report-at-all crashes) — redundant with the per-post flush above on
+    // the success path, but the only write that happens on a thrown error.
+    flushReport()
   }
 
-  return {
-    generatedAt: new Date().toISOString(),
-    mode: apply ? 'apply' : 'dry-run',
-    totalPosts: posts.length,
-    created,
-    updated,
-    multiCategoryPosts,
-    inlineImages,
-    featuredImages,
-  }
+  return report
 }
 
 function redactUrl(url: string): string {
@@ -347,6 +370,10 @@ async function main(): Promise<void> {
     R2_ENDPOINT: process.env.R2_ENDPOINT,
   }
 
+  const reportPath = fileURLToPath(
+    new URL('./migration-report.json', import.meta.url),
+  )
+
   try {
     const report = await runMigration({
       wpConn,
@@ -355,12 +382,8 @@ async function main(): Promise<void> {
       r2Env,
       ownedHost,
       publicImageBaseUrl: process.env.PUBLIC_R2_PUBLIC_BASE_URL,
+      reportPath,
     })
-
-    const reportPath = fileURLToPath(
-      new URL('./migration-report.json', import.meta.url),
-    )
-    writeFileSync(reportPath, JSON.stringify(report, null, 2))
 
     console.log(`\nWrote ${reportPath}`)
     console.log(
