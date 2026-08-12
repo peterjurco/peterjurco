@@ -73,8 +73,8 @@
 .article-body blockquote {
   margin: 1rem 0;
   padding-left: 1rem;
-  border-left: 3px solid #ccc;
-  color: #555;
+  border-left: 3px solid var(--admin-border, #ccc);
+  color: var(--admin-muted, #555);
 }
 
 .article-body img {
@@ -82,6 +82,15 @@
   height: auto;
 }
 
+/*
+ * `#0645ad` (a Wikipedia-blue) reads fine on the public page's fixed light
+ * background, but the same hardcoded color is nearly illegible once this
+ * stylesheet also renders inside the admin editor, which now supports a
+ * dark theme. `--admin-accent` only exists on admin pages (admin-base.css),
+ * so the public page keeps its original blue via the fallback, while the
+ * editor gets a color already tuned for contrast in both its themes.
+ */
 .article-body a {
-  color: #0645ad;
+  color: var(--admin-accent, #0645ad);
+  text-decoration: underline;
 }
