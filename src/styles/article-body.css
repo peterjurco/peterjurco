@@ -4,7 +4,71 @@
  *   - the public SSR read page wraps renderDoc() output in it, and
  *   - the editor island puts it on the EditorContent wrapper, so descendant
  *     selectors hit the TipTap document too.
+ *
+ * Headings/paragraphs/lists below are declared explicitly (not left to the
+ * browser's UA stylesheet) — the editor island renders inside admin pages,
+ * which load Tailwind's preflight reset, and that reset strips exactly
+ * these UA defaults (heading size/weight, list markers/indent, paragraph
+ * spacing). The public read page never had this problem, but declaring
+ * them here keeps both contexts identical regardless of what other CSS is
+ * loaded on the page.
  */
+
+.article-body h1 {
+  margin: 0.67em 0;
+  font-size: 2em;
+  font-weight: 700;
+}
+
+.article-body h2 {
+  margin: 0.83em 0;
+  font-size: 1.5em;
+  font-weight: 700;
+}
+
+.article-body h3 {
+  margin: 1em 0;
+  font-size: 1.17em;
+  font-weight: 700;
+}
+
+.article-body h4 {
+  margin: 1.33em 0;
+  font-size: 1em;
+  font-weight: 700;
+}
+
+.article-body h5 {
+  margin: 1.67em 0;
+  font-size: 0.83em;
+  font-weight: 700;
+}
+
+.article-body h6 {
+  margin: 2.33em 0;
+  font-size: 0.67em;
+  font-weight: 700;
+}
+
+.article-body p {
+  margin: 1em 0;
+}
+
+.article-body ul {
+  margin: 1em 0;
+  padding-left: 2.5em;
+  list-style: disc;
+}
+
+.article-body ol {
+  margin: 1em 0;
+  padding-left: 2.5em;
+  list-style: decimal;
+}
+
+.article-body li {
+  display: list-item;
+}
 
 .article-body blockquote {
   margin: 1rem 0;
