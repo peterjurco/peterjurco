@@ -201,6 +201,73 @@ export async function setTags(
   }
 }
 
+export interface MigratedArticleFields {
+  title: string
+  content: ArticleContent
+  categoryId: number | null
+  visibility: ArticleVisibility
+  featuredPhotoKey: string | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+/**
+ * Owner-side lookup by WP legacy id — the WP migration's idempotency key
+ * (scripts/migrate-wp/import.ts): re-running `--apply` against the same dump
+ * must update the existing row rather than duplicate it.
+ */
+export async function getByLegacyWpId(
+  db: ArticlesDb,
+  legacyWpId: number,
+): Promise<Article | null> {
+  const [article] = await db
+    .select()
+    .from(articles)
+    .where(eq(articles.legacyWpId, legacyWpId))
+    .limit(1)
+  return article ?? null
+}
+
+/**
+ * Inserts a fully-formed article for the WP migration — explicit
+ * timestamps/visibility/category/legacy id, unlike `createArticle`'s
+ * empty-article-with-defaults shape (the editor's "new article" flow).
+ * Explicit `createdAt`/`updatedAt` override the columns' `defaultNow()` —
+ * Drizzle only applies a column default when it's omitted from `.values()` —
+ * so the original WP post dates survive the import, not the import time.
+ */
+export async function createMigratedArticle(
+  db: ArticlesDb,
+  legacyWpId: number,
+  fields: MigratedArticleFields,
+): Promise<Article> {
+  const [article] = await db
+    .insert(articles)
+    .values({ publicId: newPublicId(), legacyWpId, ...fields })
+    .returning()
+  if (!article) throw new Error('Article insert returned no row')
+  return article
+}
+
+/**
+ * Updates an already-migrated article in place (re-running `--apply` against
+ * the same WP post, matched by `legacy_wp_id`) — same explicit-timestamp
+ * override as `createMigratedArticle`: Drizzle's `$onUpdate` on `updatedAt`
+ * only fires when the column is omitted from `.set()`.
+ */
+export async function updateMigratedArticle(
+  db: ArticlesDb,
+  id: number,
+  fields: MigratedArticleFields,
+): Promise<Article | null> {
+  const [article] = await db
+    .update(articles)
+    .set(fields)
+    .where(eq(articles.id, id))
+    .returning()
+  return article ?? null
+}
+
 export async function deleteArticle(db: ArticlesDb, id: number): Promise<void> {
   await db.delete(articleTagsMap).where(eq(articleTagsMap.articleId, id))
   await db.delete(articles).where(eq(articles.id, id))

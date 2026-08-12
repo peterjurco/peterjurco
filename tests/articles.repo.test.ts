@@ -10,19 +10,23 @@ import { listFeatured } from '../src/lib/articles/queries'
 import {
   createArticle,
   createCategory,
+  createMigratedArticle,
   deleteArticle,
   EMPTY_DOC,
   getById,
+  getByLegacyWpId,
   getByPublicId,
   listCategories,
   listForOwner,
   listTags,
+  type MigratedArticleFields,
   reorderFeatured,
   setCategory,
   setFeatured,
   setTags,
   setVisibility,
   updateArticle,
+  updateMigratedArticle,
 } from '../src/lib/articles/repo'
 import { createTestDb } from './helpers/test-db'
 
@@ -301,6 +305,61 @@ describe('setTags', () => {
     expect((await getById(db, second.id))?.tags.map((tag) => tag.name)).toEqual(
       ['race'],
     )
+  })
+})
+
+describe('createMigratedArticle / updateMigratedArticle / getByLegacyWpId', () => {
+  const fields: MigratedArticleFields = {
+    title: 'WP post',
+    content: EMPTY_DOC,
+    categoryId: null,
+    visibility: 'private',
+    featuredPhotoKey: null,
+    createdAt: new Date('2015-03-04T10:00:00.000Z'),
+    updatedAt: new Date('2015-03-05T11:00:00.000Z'),
+  }
+
+  it('inserts an article carrying the WP dates verbatim, not import-time "now"', async () => {
+    const article = await createMigratedArticle(db, 4242, fields)
+    expect(article.legacyWpId).toBe(4242)
+    expect(article.createdAt.toISOString()).toBe('2015-03-04T10:00:00.000Z')
+    expect(article.updatedAt.toISOString()).toBe('2015-03-05T11:00:00.000Z')
+    expect(article.visibility).toBe('private')
+  })
+
+  it('finds the created article back by its legacy WP id', async () => {
+    const created = await createMigratedArticle(db, 777, fields)
+    const found = await getByLegacyWpId(db, 777)
+    expect(found?.id).toBe(created.id)
+  })
+
+  it('returns null for an unknown legacy WP id', async () => {
+    expect(await getByLegacyWpId(db, 999999)).toBeNull()
+  })
+
+  it('updateMigratedArticle overrides updatedAt explicitly, not via $onUpdate', async () => {
+    const created = await createMigratedArticle(db, 500, fields)
+    const updated = await updateMigratedArticle(db, created.id, {
+      ...fields,
+      title: 'Re-imported title',
+      updatedAt: new Date('2020-01-01T00:00:00.000Z'),
+    })
+    expect(updated?.title).toBe('Re-imported title')
+    // If $onUpdate had fired instead, this would be "now", not the WP date.
+    expect(updated?.updatedAt.toISOString()).toBe('2020-01-01T00:00:00.000Z')
+  })
+
+  it('is idempotent by legacy id: re-import updates in place, never duplicates', async () => {
+    const first = await createMigratedArticle(db, 88, fields)
+    const existing = await getByLegacyWpId(db, 88)
+    expect(existing).not.toBeNull()
+    const second = await updateMigratedArticle(db, existing?.id as number, {
+      ...fields,
+      title: 'Updated on re-run',
+    })
+    expect(second?.id).toBe(first.id)
+    const all = await db.select().from(articles)
+    expect(all.filter((row) => row.legacyWpId === 88)).toHaveLength(1)
   })
 })
 
