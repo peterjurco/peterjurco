@@ -129,6 +129,18 @@ export async function insertWpTerm(
   }
 }
 
+/** Sets `postId`'s WP "Link" post-format target via `_links_to`. */
+export async function setWpLinksTo(
+  conn: mysql.Pool,
+  postId: number,
+  url: string,
+): Promise<void> {
+  await conn.query(
+    'INSERT INTO wp_postmeta (post_id, meta_key, meta_value) VALUES (?, ?, ?)',
+    [postId, '_links_to', url],
+  )
+}
+
 /** Sets `postId`'s featured image via `_thumbnail_id`, creating the backing attachment row. */
 export async function setWpFeaturedImage(
   conn: mysql.Pool,

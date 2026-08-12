@@ -16,3 +16,4 @@ scripts/migrate-wp/*.sql
 scripts/migrate-wp/wp-dump*
 scripts/migrate-wp/migration-report.json
 scripts/migrate-wp/.rehost-cache.json
+scripts/migrate-wp/links-to-albums-report.json

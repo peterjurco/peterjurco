@@ -12,7 +12,8 @@
     "lint": "biome ci .",
     "format": "biome format --write .",
     "test": "vitest run",
-    "migrate-wp": "tsx scripts/migrate-wp/import.ts"
+    "migrate-wp": "tsx scripts/migrate-wp/import.ts",
+    "migrate-wp-links-to-albums": "tsx scripts/migrate-wp/links-to-albums.ts"
   },
   "packageManager": "pnpm@10.33.1",
   "pnpm": {
