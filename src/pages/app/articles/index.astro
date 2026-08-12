@@ -2,7 +2,7 @@
 import AppNav from '../../../components/AppNav.astro'
 import { getAppDb } from '../../../db'
 import BaseLayout from '../../../layouts/BaseLayout.astro'
-import { listForOwner } from '../../../lib/articles/repo'
+import { listCategories, listForOwner } from '../../../lib/articles/repo'
 import { formatFullDate, formatRelativeDate } from '../../../lib/format-date'
 
 // Defense in depth: the middleware already gates /app/*.
@@ -11,7 +11,19 @@ if (!Astro.locals.user) {
 }
 
 const db = getAppDb()
-const articles = await listForOwner(db)
+
+const categoryParam = Astro.url.searchParams.get('category') ?? ''
+const searchParam = Astro.url.searchParams.get('q') ?? ''
+// Blank/non-numeric ("All categories") means no category filter.
+const categoryId = categoryParam ? Number(categoryParam) : undefined
+
+const [categories, articles] = await Promise.all([
+  listCategories(db),
+  listForOwner(db, {
+    categoryId: Number.isNaN(categoryId) ? undefined : categoryId,
+    search: searchParam || undefined,
+  }),
+])
 ---
 
 <BaseLayout title="Articles — peterjur.co">
@@ -25,7 +37,40 @@ const articles = await listForOwner(db)
         </button>
       </form>
     </header>
-    {articles.length === 0 && <p>No articles yet.</p>}
+    <form method="get" class="article-filters">
+      <label>
+        Category
+        <select name="category">
+          <option value="">All categories</option>
+          {
+            categories.map((category) => (
+              <option
+                value={category.id}
+                selected={categoryParam === String(category.id)}
+              >
+                {category.name}
+              </option>
+            ))
+          }
+        </select>
+      </label>
+      <label>
+        Search
+        <input
+          type="search"
+          name="q"
+          placeholder="Title or article text…"
+          value={searchParam}
+        />
+      </label>
+      <button type="submit" class="admin-btn">Filter</button>
+      {(categoryParam || searchParam) && (
+        <a href="/app/articles">Clear</a>
+      )}
+    </form>
+    {articles.length === 0 && (
+      <p>{categoryParam || searchParam ? 'No articles match.' : 'No articles yet.'}</p>
+    )}
     <ul>
       {
         articles.map((article) => (
@@ -76,6 +121,20 @@ const articles = await listForOwner(db)
   .category {
     color: var(--admin-muted, #666);
     font-size: 0.85rem;
+  }
+  .article-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .article-filters label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+    color: var(--admin-muted, #666);
   }
   .article-dates {
     margin-left: auto;

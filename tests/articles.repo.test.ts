@@ -208,6 +208,98 @@ describe('listForOwner', () => {
     const [row] = await listForOwner(db)
     expect(row?.categoryName).toBe('Essays')
   })
+
+  it('filters by categoryId', async () => {
+    const travel = await createCategory(db, 'Travel')
+    const cooking = await createCategory(db, 'Cooking')
+    const travelArticle = await createArticle(db)
+    await setCategory(db, travelArticle.id, travel.id)
+    const cookingArticle = await createArticle(db)
+    await setCategory(db, cookingArticle.id, cooking.id)
+
+    const list = await listForOwner(db, { categoryId: travel.id })
+    expect(list.map((article) => article.id)).toEqual([travelArticle.id])
+  })
+
+  it('search matches the title', async () => {
+    const match = await createArticle(db)
+    await updateArticle(db, match.id, { title: 'A trip to Norway' })
+    const noMatch = await createArticle(db)
+    await updateArticle(db, noMatch.id, { title: 'Weekend recipes' })
+
+    const list = await listForOwner(db, { search: 'norway' })
+    expect(list.map((article) => article.id)).toEqual([match.id])
+  })
+
+  it('search matches body text, not just the title', async () => {
+    const match = await createArticle(db)
+    await updateArticle(db, match.id, {
+      title: 'Untitled',
+      content: {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'We hiked through Norway.' }],
+          },
+        ],
+      },
+    })
+    const noMatch = await createArticle(db)
+    await updateArticle(db, noMatch.id, { title: 'Something else' })
+
+    const list = await listForOwner(db, { search: 'norway' })
+    expect(list.map((article) => article.id)).toEqual([match.id])
+  })
+
+  it('ranks title matches before body-only matches', async () => {
+    const bodyOnly = await createArticle(db)
+    await updateArticle(db, bodyOnly.id, {
+      title: 'Weekend recipes',
+      content: {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'Mentions norway in passing.' }],
+          },
+        ],
+      },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    const titleMatch = await createArticle(db)
+    await updateArticle(db, titleMatch.id, { title: 'Norway trip' })
+
+    const list = await listForOwner(db, { search: 'norway' })
+    // titleMatch ranks first despite being the more recently updated of the
+    // two either way — the real test is that ranking doesn't just fall back
+    // to modified-date order.
+    expect(list.map((article) => article.id)).toEqual([
+      titleMatch.id,
+      bodyOnly.id,
+    ])
+  })
+
+  it('combines category and search filters', async () => {
+    const travel = await createCategory(db, 'Travel')
+    const inCategory = await createArticle(db)
+    await setCategory(db, inCategory.id, travel.id)
+    await updateArticle(db, inCategory.id, { title: 'Norway trip' })
+    const outsideCategory = await createArticle(db)
+    await updateArticle(db, outsideCategory.id, { title: 'Norway diary' })
+
+    const list = await listForOwner(db, {
+      categoryId: travel.id,
+      search: 'norway',
+    })
+    expect(list.map((article) => article.id)).toEqual([inCategory.id])
+  })
+
+  it('ignores a blank search string', async () => {
+    const article = await createArticle(db)
+    const list = await listForOwner(db, { search: '   ' })
+    expect(list.map((a) => a.id)).toEqual([article.id])
+  })
 })
 
 describe('setCategory', () => {

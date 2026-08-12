@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, notInArray } from 'drizzle-orm'
+import { and, desc, eq, inArray, notInArray, sql } from 'drizzle-orm'
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import type * as schema from '../../db/schema'
 import {
@@ -341,13 +341,61 @@ export async function getByPublicId(
 
 export type ArticleListItem = Article & { categoryName: string | null }
 
-/** Every article (all visibilities) for the authed list page. */
-export async function listForOwner(db: ArticlesDb): Promise<ArticleListItem[]> {
+export interface ListForOwnerFilters {
+  categoryId?: number
+  /** Matched against the title and, via a recursive JSON path, the body text. */
+  search?: string
+}
+
+/**
+ * Every article (all visibilities) for the authed list page, optionally
+ * narrowed by category and/or full-text search. `content` is a TipTap doc
+ * (jsonb), so body search walks it with a recursive jsonpath (`$.**.text`)
+ * to pull out every text node's contents rather than maintaining a separate
+ * search column — this list is admin-only and small (a few hundred rows at
+ * most), so a live per-request JSON walk is simpler than a denormalized
+ * column kept in sync across every write path.
+ *
+ * A search narrows results to title-or-body matches and ranks title matches
+ * first (REQUIREMENTS: search should surface title hits before body hits);
+ * within each of those two groups, and always when there's no search, rows
+ * stay in the usual most-recently-modified-first order.
+ */
+export async function listForOwner(
+  db: ArticlesDb,
+  filters: ListForOwnerFilters = {},
+): Promise<ArticleListItem[]> {
+  const search = filters.search?.trim()
+  const conditions = []
+  if (filters.categoryId !== undefined) {
+    conditions.push(eq(articles.categoryId, filters.categoryId))
+  }
+
+  let titleMatches: ReturnType<typeof sql> | undefined
+  if (search) {
+    const pattern = `%${search}%`
+    titleMatches = sql`${articles.title} ILIKE ${pattern}`
+    const bodyMatches = sql`exists (
+      select 1
+      from jsonb_array_elements_text(
+        jsonb_path_query_array(${articles.content}, '$.**.text')
+      ) as body_text(value)
+      where body_text.value ILIKE ${pattern}
+    )`
+    conditions.push(sql`(${titleMatches} or ${bodyMatches})`)
+  }
+
   const rows = await db
     .select({ article: articles, categoryName: articleCategories.name })
     .from(articles)
     .leftJoin(articleCategories, eq(articles.categoryId, articleCategories.id))
-    .orderBy(...newestFirst)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(
+      ...(titleMatches
+        ? [sql`case when ${titleMatches} then 0 else 1 end`]
+        : []),
+      ...newestFirst,
+    )
   return rows.map((row) => ({ ...row.article, categoryName: row.categoryName }))
 }
 
