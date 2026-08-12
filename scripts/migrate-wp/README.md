@@ -164,9 +164,14 @@ same way here).
 ## Task 5 — run + resolve (author-driven, not scripted)
 
 1. Run `--dry-run` against the real dump; review `migration-report.json`
-   with the author.
-2. Author resolves multi-category posts (chooses the category) — record the
-   decisions; re-run `--apply`.
+   with the author — start with its `summary` and `failedImages`, then
+   `multiCategoryPosts` for the flagged posts.
+2. Run `--apply`. For each post in `multiCategoryPosts`, open it in the
+   article editor (`/app/articles/:id`) and set its category by hand — the
+   script never reads or applies category decisions itself, it only ever
+   leaves them null. A later re-run (e.g. to pick up a newly-discovered
+   post) will not overwrite a category you've already set this way, even
+   though the post is still multi-category in the WP dump.
 3. Spot-check migrated articles in the editor and public view.
 
 **Acceptance:** all WP posts present in the new system; multi-category cases
