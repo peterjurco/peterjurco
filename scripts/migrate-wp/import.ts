@@ -43,10 +43,30 @@ export interface ImageOutcome {
   reason?: string
 }
 
+/** An `ImageOutcome` with `status: 'failed'`, tagged with where it came from. */
+export interface FailedImageOutcome extends ImageOutcome {
+  location: 'inline' | 'featured'
+}
+
 export interface MultiCategoryFlag {
   wpId: number
   title: string
   categories: string[]
+}
+
+/**
+ * Top-of-report counts so a non-technical reader (the site owner) doesn't
+ * have to scroll past hundreds of "nothing to do" rows in `inlineImages`/
+ * `featuredImages` to find the handful of things that actually need
+ * attention — same underlying data, just surfaced.
+ */
+export interface MigrationReportSummary {
+  postsCreated: number
+  postsUpdated: number
+  multiCategoryCount: number
+  imagesRehostedCount: number
+  imagesFailedCount: number
+  imagesExternalCount: number
 }
 
 export interface MigrationReport {
@@ -55,10 +75,49 @@ export interface MigrationReport {
   totalPosts: number
   created: number
   updated: number
+  summary: MigrationReportSummary
   /** Never auto-assigned (DATA_MODEL) — the author resolves these by hand. */
   multiCategoryPosts: MultiCategoryFlag[]
+  /** Every failed inline/featured image in one place — nothing else to act on. */
+  failedImages: FailedImageOutcome[]
   inlineImages: ImageOutcome[]
   featuredImages: ImageOutcome[]
+}
+
+/** The fields built up incrementally while the loop runs; `summary`/`failedImages` are derived from these. */
+type MutableReport = Omit<MigrationReport, 'summary' | 'failedImages'>
+
+function computeSummary(state: MutableReport): MigrationReportSummary {
+  const allImages = [...state.inlineImages, ...state.featuredImages]
+  return {
+    postsCreated: state.created,
+    postsUpdated: state.updated,
+    multiCategoryCount: state.multiCategoryPosts.length,
+    imagesRehostedCount: allImages.filter((i) => i.status === 'rehosted')
+      .length,
+    imagesFailedCount: allImages.filter((i) => i.status === 'failed').length,
+    imagesExternalCount: allImages.filter((i) => i.status === 'external')
+      .length,
+  }
+}
+
+function computeFailedImages(state: MutableReport): FailedImageOutcome[] {
+  return [
+    ...state.inlineImages
+      .filter((image) => image.status === 'failed')
+      .map((image) => ({ ...image, location: 'inline' as const })),
+    ...state.featuredImages
+      .filter((image) => image.status === 'failed')
+      .map((image) => ({ ...image, location: 'featured' as const })),
+  ]
+}
+
+function finalizeReport(state: MutableReport): MigrationReport {
+  return {
+    ...state,
+    summary: computeSummary(state),
+    failedImages: computeFailedImages(state),
+  }
 }
 
 export interface RunMigrationOptions {
@@ -185,7 +244,7 @@ export async function runMigration(
   // RunMigrationOptions.reportPath) — never assembled only at the very end —
   // so a thrown error partway through still leaves an accurate report for
   // whatever was processed so far.
-  const report: MigrationReport = {
+  const report: MutableReport = {
     generatedAt: new Date().toISOString(),
     mode: apply ? 'apply' : 'dry-run',
     totalPosts: posts.length,
@@ -200,7 +259,9 @@ export async function runMigration(
     : new Map<string, string | null>()
 
   const flushReport = (): void => {
-    if (reportPath) writeFileSync(reportPath, JSON.stringify(report, null, 2))
+    if (reportPath) {
+      writeFileSync(reportPath, JSON.stringify(finalizeReport(report), null, 2))
+    }
   }
   const flushCacheIfRehosted = (key: string | null): void => {
     if (key && cachePath) saveRehostCache(cachePath, imageCache)
@@ -366,7 +427,7 @@ export async function runMigration(
     flushReport()
   }
 
-  return report
+  return finalizeReport(report)
 }
 
 function redactUrl(url: string): string {

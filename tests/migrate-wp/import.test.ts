@@ -606,3 +606,65 @@ describe('runMigration — apply — rehost cache persists across runs', () => {
     expect(rehostedEntry?.newKey).toMatch(/^migrated\//)
   })
 })
+
+describe('runMigration — report summary and failedImages', () => {
+  it('surfaces top-level counts and a flat list of only the failed images', async () => {
+    await insertWpPost(wpConn, {
+      id: 1,
+      title: 'Two cats',
+      content:
+        '<p><img src="https://peterjur.co/wp-content/uploads/good.jpg"></p>' +
+        '<p><img src="https://peterjur.co/wp-content/uploads/missing/bad.jpg"></p>' +
+        '<p><img src="https://example.com/external.jpg"></p>',
+      status: 'publish',
+    })
+    await insertWpTerm(wpConn, 10, 'category', 'Travel', [1])
+    await insertWpTerm(wpConn, 11, 'category', 'Food', [1])
+    await setWpFeaturedImage(
+      wpConn,
+      1,
+      99,
+      'https://peterjur.co/wp-content/uploads/missing/cover.jpg',
+    )
+
+    const report = await runMigration({
+      wpConn,
+      db,
+      apply: true,
+      r2Env,
+      ownedHost: OWNED_HOST,
+      fetchSource: fakeWpFetch(),
+      publicImageBaseUrl: IMG_BASE,
+    })
+
+    expect(report.summary).toEqual({
+      postsCreated: 1,
+      postsUpdated: 0,
+      multiCategoryCount: 1,
+      imagesRehostedCount: 1,
+      imagesFailedCount: 2,
+      imagesExternalCount: 1,
+    })
+
+    expect(report.failedImages).toHaveLength(2)
+    expect(report.failedImages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourceUrl: 'https://peterjur.co/wp-content/uploads/missing/bad.jpg',
+          status: 'failed',
+          location: 'inline',
+        }),
+        expect.objectContaining({
+          sourceUrl: 'https://peterjur.co/wp-content/uploads/missing/cover.jpg',
+          status: 'failed',
+          location: 'featured',
+        }),
+      ]),
+    )
+    // Every entry that's failed anywhere else in the report is represented here too.
+    const otherFailedCount =
+      report.inlineImages.filter((i) => i.status === 'failed').length +
+      report.featuredImages.filter((i) => i.status === 'failed').length
+    expect(report.failedImages).toHaveLength(otherFailedCount)
+  })
+})
