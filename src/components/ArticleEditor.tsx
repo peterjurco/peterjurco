@@ -1,5 +1,6 @@
 import type { Editor } from '@tiptap/core'
 import { EditorContent, useEditor } from '@tiptap/react'
+import type { MouseEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { documentExtensions } from '../lib/articles/extensions'
 import { EditorToolbar } from './EditorToolbar'
@@ -132,12 +133,30 @@ export function ArticleEditor({
     return () => window.removeEventListener('beforeunload', warn)
   }, [saveState])
 
+  // Links don't openOnClick (see extensions.ts) — a plain click must place
+  // the cursor, not navigate away mid-edit. Cmd/Ctrl+click is the escape
+  // hatch: open the link the way a browser normally would on modifier-click.
+  // A plain onClick on an ancestor still runs after TipTap's own click
+  // handling on the link (preventDefault stops navigation, not bubbling),
+  // so this fires regardless of what the Link extension itself does.
+  function handleLinkClick(event: MouseEvent<HTMLDivElement>): void {
+    if (!(event.metaKey || event.ctrlKey)) return
+    const link = (event.target as HTMLElement).closest('a')
+    if (!link?.href) return
+    event.preventDefault()
+    window.open(link.href, '_blank', 'noopener,noreferrer')
+  }
+
   return (
     <div className="article-editor">
       {editable && editor && (
         <EditorToolbar editor={editor} saveLabel={SAVE_LABELS[saveState]} />
       )}
-      <EditorContent editor={editor} className="article-doc article-body" />
+      <EditorContent
+        editor={editor}
+        className="article-doc article-body"
+        onClick={handleLinkClick}
+      />
     </div>
   )
 }

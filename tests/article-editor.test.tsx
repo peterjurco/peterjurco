@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import type { Editor } from '@tiptap/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ArticleEditor } from '../src/components/ArticleEditor'
@@ -30,22 +37,25 @@ afterEach(() => {
 })
 
 /** Renders the island and waits for the TipTap editor to mount. */
-async function renderEditor(editable: boolean) {
+async function renderEditor(
+  editable: boolean,
+  content: Record<string, unknown> = CONTENT,
+) {
   let editor: Editor | null = null
   const utils = render(
     <ArticleEditor
       articleId={7}
       editable={editable}
-      initialContent={CONTENT}
+      initialContent={content}
       autosaveDelayMs={30}
       onReady={(instance) => {
         editor = instance
       }}
     />,
   )
-  await screen.findByText('Stored article body')
   await waitFor(() => {
     expect(editor).not.toBeNull()
+    expect(utils.container.querySelector('.tiptap')).toBeTruthy()
   })
   if (!editor) throw new Error('unreachable')
   return { ...utils, editor: editor as Editor }
@@ -243,5 +253,64 @@ describe('ArticleEditor — editable mode', () => {
     await waitFor(() => {
       expect(editor.isEditable).toBe(false)
     })
+  })
+})
+
+describe('ArticleEditor — link clicks', () => {
+  const LINK_CONTENT = {
+    type: 'doc',
+    content: [
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'a link',
+            marks: [{ type: 'link', attrs: { href: 'https://example.com' } }],
+          },
+        ],
+      },
+    ],
+  }
+
+  it('a plain click places the cursor instead of opening the link', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
+    const { container } = await renderEditor(true, LINK_CONTENT)
+    const link = container.querySelector('a')
+    expect(link).toBeTruthy()
+
+    fireEvent.click(link as HTMLAnchorElement)
+
+    expect(openSpy).not.toHaveBeenCalled()
+  })
+
+  it('Cmd/Ctrl+click opens the link in a new tab without editing', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
+    const { container, editor } = await renderEditor(true, LINK_CONTENT)
+    const link = container.querySelector('a') as HTMLAnchorElement
+    const contentBefore = editor.getJSON()
+
+    fireEvent.click(link, { ctrlKey: true })
+
+    expect(openSpy).toHaveBeenCalledWith(
+      link.href,
+      '_blank',
+      'noopener,noreferrer',
+    )
+    expect(editor.getJSON()).toEqual(contentBefore)
+  })
+
+  it('Cmd+click (metaKey) also opens the link', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
+    const { container } = await renderEditor(true, LINK_CONTENT)
+    const link = container.querySelector('a') as HTMLAnchorElement
+
+    fireEvent.click(link, { metaKey: true })
+
+    expect(openSpy).toHaveBeenCalledWith(
+      link.href,
+      '_blank',
+      'noopener,noreferrer',
+    )
   })
 })
