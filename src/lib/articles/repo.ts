@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, notInArray, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, notInArray, sql } from 'drizzle-orm'
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import type * as schema from '../../db/schema'
 import {
@@ -419,4 +419,40 @@ export async function listCategories(
 
 export async function listTags(db: ArticlesDb): Promise<ArticleTag[]> {
   return db.select().from(articleTags).orderBy(articleTags.name)
+}
+
+/**
+ * Most-used tag names per category, most-used first, capped at `limit` per
+ * category — powers the article editor's "popular in this category"
+ * quick-add chips. One query grouped by category+tag, ordered by usage
+ * count; the per-category top-N cut happens in JS rather than a SQL window
+ * function — this table is tiny (a personal blog's tag set), and a global
+ * `ORDER BY count DESC` already preserves each category's internal order
+ * when split out per key below.
+ */
+export async function listTopTagsByCategory(
+  db: ArticlesDb,
+  limit: number,
+): Promise<Record<number, string[]>> {
+  const rows = await db
+    .select({
+      categoryId: articles.categoryId,
+      name: articleTags.name,
+      count: sql<number>`count(*)`,
+    })
+    .from(articleTagsMap)
+    .innerJoin(articles, eq(articleTagsMap.articleId, articles.id))
+    .innerJoin(articleTags, eq(articleTagsMap.tagId, articleTags.id))
+    .where(isNotNull(articles.categoryId))
+    .groupBy(articles.categoryId, articleTags.id, articleTags.name)
+    .orderBy(desc(sql`count(*)`))
+
+  const result: Record<number, string[]> = {}
+  for (const row of rows) {
+    if (row.categoryId === null) continue
+    result[row.categoryId] ??= []
+    const list = result[row.categoryId] as string[]
+    if (list.length < limit) list.push(row.name)
+  }
+  return result
 }

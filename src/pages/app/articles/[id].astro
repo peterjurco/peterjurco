@@ -5,7 +5,12 @@ import { ArticleMetaPanel } from '../../../components/ArticleMetaPanel'
 import { getAppDb } from '../../../db'
 import BaseLayout from '../../../layouts/BaseLayout.astro'
 import { parseId } from '../../../lib/api'
-import { getById, listCategories } from '../../../lib/articles/repo'
+import {
+  getById,
+  listCategories,
+  listTags,
+  listTopTagsByCategory,
+} from '../../../lib/articles/repo'
 
 // Defense in depth: the middleware already gates /app/*.
 if (!Astro.locals.user) {
@@ -18,13 +23,24 @@ if (id === null) {
 }
 
 const db = getAppDb()
-const [article, categories] = await Promise.all([
+const [article, categories, allTags, topTagsByCategory] = await Promise.all([
   getById(db, id),
   listCategories(db),
+  listTags(db),
+  listTopTagsByCategory(db, 3),
 ])
 if (!article) {
   return new Response('Not found', { status: 404 })
 }
+
+// The "popular in this category" quick-add chips only make sense while
+// actively drafting — once an article is old, its own established tags
+// matter more than the whole category's current trends.
+const now = new Date()
+const createdToday =
+  article.createdAt.getUTCFullYear() === now.getUTCFullYear() &&
+  article.createdAt.getUTCMonth() === now.getUTCMonth() &&
+  article.createdAt.getUTCDate() === now.getUTCDate()
 ---
 
 <BaseLayout title={`${article.title || 'Untitled'} — peterjur.co`}>
@@ -40,6 +56,9 @@ if (!article) {
       initialTags={article.tags.map((tag) => tag.name)}
       initialIsFeatured={article.isFeatured}
       categories={categories.map(({ id, name }) => ({ id, name }))}
+      allTagNames={allTags.map((tag) => tag.name)}
+      topTagsByCategory={topTagsByCategory}
+      createdToday={createdToday}
     />
     <ArticleEditor
       client:load

@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ArticleMetaPanel } from '../src/components/ArticleMetaPanel'
@@ -27,20 +28,36 @@ afterEach(() => {
 
 interface PanelOverrides {
   initialTags?: string[]
+  initialCategoryId?: number | null
+  categories?: { id: number; name: string }[]
+  allTagNames?: string[]
+  topTagsByCategory?: Record<number, string[]>
+  createdToday?: boolean
   navigate?: (url: string) => void
 }
 
-function renderPanel({ initialTags = [], navigate }: PanelOverrides = {}) {
+function renderPanel({
+  initialTags = [],
+  initialCategoryId = null,
+  categories = [{ id: 1, name: 'Essays' }],
+  allTagNames = [],
+  topTagsByCategory = {},
+  createdToday = false,
+  navigate,
+}: PanelOverrides = {}) {
   return render(
     <ArticleMetaPanel
       articleId={7}
       publicId="pub-7"
       initialTitle="Hello"
       initialVisibility="private"
-      initialCategoryId={null}
+      initialCategoryId={initialCategoryId}
       initialTags={initialTags}
       initialIsFeatured={false}
-      categories={[{ id: 1, name: 'Essays' }]}
+      categories={categories}
+      allTagNames={allTagNames}
+      topTagsByCategory={topTagsByCategory}
+      createdToday={createdToday}
       debounceMs={30}
       navigate={navigate}
     />,
@@ -187,6 +204,138 @@ describe('ArticleMetaPanel — delete', () => {
     await new Promise((resolve) => setTimeout(resolve, 30))
     expect(fetchMock).not.toHaveBeenCalled()
     expect(navigate).not.toHaveBeenCalled()
+  })
+})
+
+describe('ArticleMetaPanel — tag suggestions while typing', () => {
+  it('shows matching existing tag names as suggestions', () => {
+    renderPanel({ allTagNames: ['travel', 'food', 'football'] })
+    const tags = screen.getByLabelText('Tags')
+    fireEvent.focus(tags)
+    fireEvent.change(tags, { target: { value: 'fo' } })
+
+    const listbox = screen.getByRole('list')
+    expect(within(listbox).getByText('food')).toBeTruthy()
+    expect(within(listbox).getByText('football')).toBeTruthy()
+    expect(within(listbox).queryByText('travel')).toBeNull()
+  })
+
+  it('excludes a tag already added earlier in the field', () => {
+    renderPanel({ allTagNames: ['food', 'fondue'] })
+    const tags = screen.getByLabelText('Tags')
+    fireEvent.focus(tags)
+    fireEvent.change(tags, { target: { value: 'food, fo' } })
+
+    const listbox = screen.getByRole('list')
+    expect(within(listbox).getByText('fondue')).toBeTruthy()
+    expect(within(listbox).queryByText('food')).toBeNull()
+  })
+
+  it('shows no dropdown until something is typed after the last comma', () => {
+    renderPanel({ allTagNames: ['travel'] })
+    const tags = screen.getByLabelText('Tags')
+    fireEvent.focus(tags)
+    expect(screen.queryByRole('list')).toBeNull()
+  })
+
+  it('hides the dropdown once the field loses focus', () => {
+    renderPanel({ allTagNames: ['travel'] })
+    const tags = screen.getByLabelText('Tags')
+    fireEvent.focus(tags)
+    fireEvent.change(tags, { target: { value: 'tra' } })
+    expect(screen.getByRole('list')).toBeTruthy()
+
+    fireEvent.blur(tags)
+    expect(screen.queryByRole('list')).toBeNull()
+  })
+
+  it('clicking a suggestion completes the tag without committing it yet', async () => {
+    renderPanel({ allTagNames: ['travel'] })
+    const tags = screen.getByLabelText('Tags') as HTMLInputElement
+    fireEvent.focus(tags)
+    fireEvent.change(tags, { target: { value: 'tra' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'travel' }))
+
+    expect(tags.value).toBe('travel, ')
+    await new Promise((resolve) => setTimeout(resolve, 60))
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('ArticleMetaPanel — popular-in-category quick-add chips', () => {
+  it('shows the top tags for the selected category when the article is new', () => {
+    renderPanel({
+      initialCategoryId: 1,
+      createdToday: true,
+      topTagsByCategory: { 1: ['hiking', 'photos'] },
+    })
+    expect(screen.getByRole('button', { name: '+ hiking' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '+ photos' })).toBeTruthy()
+  })
+
+  it('shows nothing when no category is selected', () => {
+    renderPanel({
+      initialCategoryId: null,
+      createdToday: true,
+      topTagsByCategory: { 1: ['hiking'] },
+    })
+    expect(screen.queryByRole('button', { name: '+ hiking' })).toBeNull()
+  })
+
+  it('shows nothing for an article that was not created today', () => {
+    renderPanel({
+      initialCategoryId: 1,
+      createdToday: false,
+      topTagsByCategory: { 1: ['hiking'] },
+    })
+    expect(screen.queryByRole('button', { name: '+ hiking' })).toBeNull()
+  })
+
+  it('hides a chip for a tag already in the field', () => {
+    renderPanel({
+      initialCategoryId: 1,
+      createdToday: true,
+      initialTags: ['hiking'],
+      topTagsByCategory: { 1: ['hiking', 'photos'] },
+    })
+    expect(screen.queryByRole('button', { name: '+ hiking' })).toBeNull()
+    expect(screen.getByRole('button', { name: '+ photos' })).toBeTruthy()
+  })
+
+  it('clicking a chip adds the tag and commits immediately', async () => {
+    renderPanel({
+      initialCategoryId: 1,
+      createdToday: true,
+      topTagsByCategory: { 1: ['hiking'] },
+    })
+    fireEvent.click(screen.getByRole('button', { name: '+ hiking' }))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    expect(patchCalls()[0]?.body).toEqual({ tags: ['hiking'] })
+    expect((screen.getByLabelText('Tags') as HTMLInputElement).value).toBe(
+      'hiking',
+    )
+  })
+
+  it("shows the newly selected category's own chips after switching category", async () => {
+    renderPanel({
+      createdToday: true,
+      categories: [
+        { id: 1, name: 'Essays' },
+        { id: 2, name: 'Travel' },
+      ],
+      topTagsByCategory: { 1: ['writing'], 2: ['hiking'] },
+      initialCategoryId: 1,
+    })
+    expect(screen.getByRole('button', { name: '+ writing' })).toBeTruthy()
+
+    fireEvent.change(screen.getByLabelText('Category'), {
+      target: { value: '2' },
+    })
+
+    expect(screen.getByRole('button', { name: '+ hiking' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '+ writing' })).toBeNull()
   })
 })
 

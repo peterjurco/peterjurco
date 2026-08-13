@@ -19,6 +19,7 @@ import {
   listCategories,
   listForOwner,
   listTags,
+  listTopTagsByCategory,
   type MigratedArticleFields,
   reorderFeatured,
   setCategory,
@@ -397,6 +398,62 @@ describe('setTags', () => {
     expect((await getById(db, second.id))?.tags.map((tag) => tag.name)).toEqual(
       ['race'],
     )
+  })
+})
+
+describe('listTopTagsByCategory', () => {
+  it('ranks tags by how many articles in the category use them', async () => {
+    const travel = await createCategory(db, 'Travel')
+    const a = await createArticle(db)
+    const b = await createArticle(db)
+    const c = await createArticle(db)
+    await setCategory(db, a.id, travel.id)
+    await setCategory(db, b.id, travel.id)
+    await setCategory(db, c.id, travel.id)
+    // 'hiking' on all 3 articles, 'photos' on only 1 — an unambiguous rank.
+    await setTags(db, a.id, ['hiking', 'photos'])
+    await setTags(db, b.id, ['hiking'])
+    await setTags(db, c.id, ['hiking'])
+
+    const top = await listTopTagsByCategory(db, 3)
+    expect(top[travel.id]).toEqual(['hiking', 'photos'])
+  })
+
+  it('caps the list at `limit` per category', async () => {
+    const travel = await createCategory(db, 'Travel')
+    const article = await createArticle(db)
+    await setCategory(db, article.id, travel.id)
+    await setTags(db, article.id, ['a', 'b', 'c', 'd'])
+
+    const top = await listTopTagsByCategory(db, 2)
+    expect(top[travel.id]).toHaveLength(2)
+  })
+
+  it('never mixes tag usage across categories', async () => {
+    const travel = await createCategory(db, 'Travel')
+    const cooking = await createCategory(db, 'Cooking')
+    const travelArticle = await createArticle(db)
+    const cookingArticle = await createArticle(db)
+    await setCategory(db, travelArticle.id, travel.id)
+    await setCategory(db, cookingArticle.id, cooking.id)
+    await setTags(db, travelArticle.id, ['shared'])
+    await setTags(db, cookingArticle.id, ['shared'])
+
+    const top = await listTopTagsByCategory(db, 3)
+    expect(top[travel.id]).toEqual(['shared'])
+    expect(top[cooking.id]).toEqual(['shared'])
+  })
+
+  it('excludes articles with no category', async () => {
+    const article = await createArticle(db)
+    await setTags(db, article.id, ['uncategorized-tag'])
+
+    const top = await listTopTagsByCategory(db, 3)
+    expect(Object.values(top).flat()).not.toContain('uncategorized-tag')
+  })
+
+  it('returns an empty object when nothing is tagged', async () => {
+    expect(await listTopTagsByCategory(db, 3)).toEqual({})
   })
 })
 

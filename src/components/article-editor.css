@@ -203,3 +203,77 @@
   color: var(--admin-danger);
   font-weight: 600;
 }
+
+/* Tags: type-ahead dropdown + "popular in category" quick-add chips. */
+
+.article-meta-tags-wrap {
+  position: relative;
+}
+
+.article-meta-tag-dropdown {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 12rem;
+  max-width: 18rem;
+  max-height: 12rem;
+  margin: 0;
+  padding: 0.25rem;
+  overflow-y: auto;
+  list-style: none;
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 7px;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--admin-text) 12%, transparent);
+}
+
+.article-meta-tag-dropdown button {
+  display: block;
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  font-family: var(--admin-font-body);
+  font-size: 0.85rem;
+  text-align: left;
+  color: var(--admin-text);
+  background: none;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.article-meta-tag-dropdown button:hover,
+.article-meta-tag-dropdown button:focus-visible {
+  outline: none;
+  background: var(--admin-surface-sunken);
+}
+
+.article-meta-quick-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+.article-meta-quick-tag {
+  padding: 0.25rem 0.6rem;
+  font-family: var(--admin-font-body);
+  font-size: 0.8rem;
+  color: var(--admin-accent);
+  background: var(--admin-accent-bg);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.article-meta-quick-tag:hover {
+  border-color: var(--admin-accent);
+}
+
+.article-meta-quick-tag:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent) 30%, transparent);
+}
