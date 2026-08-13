@@ -37,7 +37,7 @@ const [categories, articles] = await Promise.all([
         </button>
       </form>
     </header>
-    <form method="get" class="article-filters">
+    <form method="get" class="article-filters" id="article-filters">
       <div class="admin-field">
         <label for="category-filter">Category</label>
         <select id="category-filter" name="category" class="admin-select">
@@ -65,7 +65,6 @@ const [categories, articles] = await Promise.all([
           class="admin-input"
         />
       </div>
-      <button type="submit" class="admin-btn">Filter</button>
       {(categoryParam || searchParam) && (
         <a href="/app/articles" class="admin-btn admin-btn--link">Clear</a>
       )}
@@ -80,20 +79,25 @@ const [categories, articles] = await Promise.all([
             <a href={`/app/articles/${article.id}`}>
               {article.title || 'Untitled'}
             </a>
-            {article.categoryName && (
-              <span class="category">{article.categoryName}</span>
-            )}
-            <span class={`badge badge-${article.visibility}`}>
-              {article.visibility}
-            </span>
-            {article.isFeatured && <span class="badge">featured</span>}
-            <span class="article-dates">
-              <time datetime={article.createdAt.toISOString()} class="admin-mono">
-                Created {formatFullDate(article.createdAt)}
-              </time>
-              <time datetime={article.updatedAt.toISOString()} class="admin-mono">
-                Modified {formatRelativeDate(article.updatedAt)}
-              </time>
+            <span class="article-meta">
+              {article.categoryName && (
+                <span class="category">{article.categoryName}</span>
+              )}
+              {article.visibility === 'public' && (
+                <span class="badge badge-public">Public</span>
+              )}
+              {article.isFeatured && <span class="badge">featured</span>}
+              <span class="article-dates">
+                <time
+                  datetime={article.createdAt.toISOString()}
+                  class="admin-mono created-date"
+                >
+                  Created {formatFullDate(article.createdAt)}
+                </time>
+                <time datetime={article.updatedAt.toISOString()} class="admin-mono">
+                  Modified {formatRelativeDate(article.updatedAt)}
+                </time>
+              </span>
             </span>
           </li>
         ))
@@ -102,6 +106,20 @@ const [categories, articles] = await Promise.all([
     <p><a href="/app">← Back</a></p>
   </main>
 </BaseLayout>
+
+<script>
+  const form = document.getElementById('article-filters') as HTMLFormElement | null
+  const search = document.getElementById('search-filter') as HTMLInputElement | null
+  const category = document.getElementById('category-filter') as HTMLSelectElement | null
+
+  category?.addEventListener('change', () => form?.requestSubmit())
+
+  let debounceTimer: ReturnType<typeof setTimeout>
+  search?.addEventListener('input', () => {
+    clearTimeout(debounceTimer)
+    debounceTimer = setTimeout(() => form?.requestSubmit(), 350)
+  })
+</script>
 
 <style>
   ul {
@@ -131,6 +149,13 @@ const [categories, articles] = await Promise.all([
     gap: 1rem;
     margin-bottom: 1rem;
   }
+  .article-meta {
+    display: flex;
+    flex: 1;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
   .article-dates {
     margin-left: auto;
     display: flex;
@@ -140,5 +165,15 @@ const [categories, articles] = await Promise.all([
     color: var(--admin-faint);
     font-size: 0.8rem;
     white-space: nowrap;
+  }
+
+  @media (max-width: 640px) {
+    li {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .created-date {
+      display: none;
+    }
   }
 </style>

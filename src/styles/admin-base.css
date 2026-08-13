@@ -287,6 +287,17 @@ body {
   border-radius: 7px;
 }
 
+.admin-select {
+  /* Native select chrome renders its arrow flush against the box edge with
+     no room to breathe — swap for a custom arrow with real spacing. */
+  appearance: none;
+  padding-right: 2.25rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23888888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 0.85rem;
+}
+
 .admin-input::placeholder {
   color: var(--admin-faint);
 }

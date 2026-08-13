@@ -40,23 +40,44 @@ const active = links
 <div class="app-nav-bar">
   <nav class="app-nav" aria-label="App">
     <span class="app-nav-brand">peterjur<span>.</span>co</span>
-    <div class="app-nav-links">
-      {
-        links.map((link) => (
-          <a
-            href={link.href}
-            aria-current={active === link.href ? 'page' : undefined}
-          >
-            {link.label}
-          </a>
-        ))
-      }
+    <button
+      type="button"
+      class="app-nav-toggle"
+      aria-expanded="false"
+      aria-controls="app-nav-panel"
+      aria-label="Menu"
+    >
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+    <div class="app-nav-panel" id="app-nav-panel">
+      <div class="app-nav-links">
+        {
+          links.map((link) => (
+            <a
+              href={link.href}
+              aria-current={active === link.href ? 'page' : undefined}
+            >
+              {link.label}
+            </a>
+          ))
+        }
+      </div>
+      <form method="post" action="/api/auth/logout">
+        <button type="submit" class="app-nav-logout">Log out</button>
+      </form>
     </div>
-    <form method="post" action="/api/auth/logout">
-      <button type="submit" class="app-nav-logout">Log out</button>
-    </form>
   </nav>
 </div>
+
+<script>
+  const toggle = document.querySelector<HTMLButtonElement>('.app-nav-toggle')
+  toggle?.addEventListener('click', () => {
+    const expanded = toggle.getAttribute('aria-expanded') === 'true'
+    toggle.setAttribute('aria-expanded', String(!expanded))
+  })
+</script>
 
 <style>
   .app-nav-bar {
@@ -83,10 +104,41 @@ const active = links
   .app-nav-brand span {
     color: var(--admin-accent);
   }
+  .app-nav-panel {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex: 1;
+  }
   .app-nav-links {
     display: flex;
     flex-wrap: wrap;
     gap: 0.25rem;
+  }
+  .app-nav-toggle {
+    display: none;
+    margin-left: auto;
+    width: 2.2rem;
+    height: 2.2rem;
+    padding: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--admin-nav-text) 20%, transparent);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .app-nav-toggle span {
+    display: block;
+    width: 1.1rem;
+    height: 2px;
+    background: var(--admin-nav-muted);
+    border-radius: 1px;
+  }
+  .app-nav-toggle:hover span {
+    background: var(--admin-nav-text);
   }
   a {
     padding: 0.4rem 0.6rem;
@@ -118,5 +170,36 @@ const active = links
   .app-nav-logout:hover {
     color: var(--admin-nav-text);
     border-color: color-mix(in srgb, var(--admin-nav-text) 40%, transparent);
+  }
+
+  @media (max-width: 640px) {
+    .app-nav-toggle {
+      display: flex;
+    }
+    .app-nav-panel {
+      display: none;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.25rem;
+      flex-basis: 100%;
+      width: 100%;
+    }
+    .app-nav-toggle[aria-expanded='true'] + .app-nav-panel {
+      display: flex;
+    }
+    .app-nav-links {
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+    .app-nav-links a {
+      display: block;
+      padding: 0.6rem;
+    }
+    .app-nav-panel form {
+      margin-left: 0;
+    }
+    .app-nav-logout {
+      width: 100%;
+    }
   }
 </style>
