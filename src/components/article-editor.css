@@ -259,21 +259,50 @@
 }
 
 .article-meta-quick-tag {
-  padding: 0.25rem 0.6rem;
-  font-family: var(--admin-font-body);
-  font-size: 0.8rem;
-  color: var(--admin-accent);
+  display: inline-flex;
+  align-items: stretch;
   background: var(--admin-accent-bg);
   border: 1px solid transparent;
   border-radius: 999px;
-  cursor: pointer;
 }
 
 .article-meta-quick-tag:hover {
   border-color: var(--admin-accent);
 }
 
-.article-meta-quick-tag:focus-visible {
+.article-meta-quick-tag-add,
+.article-meta-quick-tag-reject {
+  font-family: var(--admin-font-body);
+  font-size: 0.8rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.article-meta-quick-tag-add {
+  padding: 0.25rem 0.4rem 0.25rem 0.6rem;
+  color: var(--admin-accent);
+  border-radius: 999px 0 0 999px;
+}
+
+.article-meta-quick-tag-add:hover {
+  color: var(--admin-accent-hover);
+}
+
+.article-meta-quick-tag-reject {
+  padding: 0.25rem 0.55rem 0.25rem 0.3rem;
+  color: var(--admin-faint);
+  border-radius: 0 999px 999px 0;
+}
+
+.article-meta-quick-tag-reject:hover {
+  color: var(--admin-danger);
+}
+
+.article-meta-quick-tag-add:focus-visible,
+.article-meta-quick-tag-reject:focus-visible {
+  position: relative;
+  z-index: 1;
   outline: none;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent) 30%, transparent);
 }

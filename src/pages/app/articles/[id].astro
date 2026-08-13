@@ -27,7 +27,7 @@ const [article, categories, allTags, topTagsByCategory] = await Promise.all([
   getById(db, id),
   listCategories(db),
   listTags(db),
-  listTopTagsByCategory(db, 3),
+  listTopTagsByCategory(db, 5),
 ])
 if (!article) {
   return new Response('Not found', { status: 404 })

@@ -318,6 +318,39 @@ describe('ArticleMetaPanel — popular-in-category quick-add chips', () => {
     )
   })
 
+  it('rejecting a chip removes only that one, without adding or committing it', async () => {
+    renderPanel({
+      initialCategoryId: 1,
+      createdToday: true,
+      topTagsByCategory: { 1: ['hiking', 'photos'] },
+    })
+
+    fireEvent.click(
+      screen.getByRole('button', { name: "Don't suggest hiking" }),
+    )
+
+    expect(screen.queryByRole('button', { name: '+ hiking' })).toBeNull()
+    expect(screen.getByRole('button', { name: '+ photos' })).toBeTruthy()
+    await new Promise((resolve) => setTimeout(resolve, 60))
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect((screen.getByLabelText('Tags') as HTMLInputElement).value).toBe('')
+  })
+
+  it('hides the whole row once every chip has been picked or rejected', () => {
+    renderPanel({
+      initialCategoryId: 1,
+      createdToday: true,
+      topTagsByCategory: { 1: ['hiking', 'photos'] },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: '+ hiking' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: "Don't suggest photos" }),
+    )
+
+    expect(screen.queryByText('Popular in category')).toBeNull()
+  })
+
   it("shows the newly selected category's own chips after switching category", async () => {
     renderPanel({
       createdToday: true,

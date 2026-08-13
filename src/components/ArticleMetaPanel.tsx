@@ -60,6 +60,14 @@ export function ArticleMetaPanel({
   const [isFeatured, setIsFeatured] = useState(initialIsFeatured)
   const [status, setStatus] = useState<MetaState>('')
   const [tagsFocused, setTagsFocused] = useState(false)
+  /**
+   * Quick-add chips dismissed with the × button — this article's session
+   * only, not persisted. Reopening this article (or any other) starts fresh;
+   * the underlying usage ranking never changes.
+   */
+  const [rejectedQuickTags, setRejectedQuickTags] = useState<Set<string>>(
+    new Set(),
+  )
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   /**
    * Fields edited but not yet PATCHed. Accumulated across debounced edits and
@@ -156,6 +164,11 @@ export function ArticleMetaPanel({
     setTagsText(`${prefix}${name}, `)
   }
 
+  /** Dismisses a quick-add chip without adding it — this article only. */
+  function rejectQuickTag(name: string): void {
+    setRejectedQuickTags((current) => new Set(current).add(name))
+  }
+
   // Everything after the last comma is "still being typed" — matched against
   // every known tag name for the dropdown. Both the dropdown and the
   // quick-add chips exclude tags already present, so neither ever suggests
@@ -176,7 +189,7 @@ export function ArticleMetaPanel({
           .slice(0, MAX_TAG_SUGGESTIONS)
   const quickTags = (
     categoryId === null ? [] : (topTagsByCategory[categoryId] ?? [])
-  ).filter((name) => !chosenTags.has(name))
+  ).filter((name) => !chosenTags.has(name) && !rejectedQuickTags.has(name))
 
   async function toggleVisibility(): Promise<void> {
     const next = visibility === 'private' ? 'public' : 'private'
@@ -340,14 +353,23 @@ export function ArticleMetaPanel({
         <div className="article-meta-quick-tags">
           <span className="eyebrow">Popular in category</span>
           {quickTags.map((name) => (
-            <button
-              key={name}
-              type="button"
-              className="article-meta-quick-tag"
-              onClick={() => addTag(name)}
-            >
-              + {name}
-            </button>
+            <span key={name} className="article-meta-quick-tag">
+              <button
+                type="button"
+                className="article-meta-quick-tag-add"
+                onClick={() => addTag(name)}
+              >
+                + {name}
+              </button>
+              <button
+                type="button"
+                className="article-meta-quick-tag-reject"
+                aria-label={`Don't suggest ${name}`}
+                onClick={() => rejectQuickTag(name)}
+              >
+                ×
+              </button>
+            </span>
           ))}
         </div>
       )}
