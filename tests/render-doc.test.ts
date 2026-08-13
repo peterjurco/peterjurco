@@ -116,6 +116,45 @@ describe('renderDoc — faithful rendering', () => {
     const html = renderDoc(doc({ type: 'paragraph' }))
     expect(html).toBe('<p></p>')
   })
+
+  it('renders a youtube videoEmbed as an iframe', () => {
+    const html = renderDoc(
+      doc({
+        type: 'videoEmbed',
+        attrs: {
+          provider: 'youtube',
+          src: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+        },
+      }),
+    )
+    expect(html).toContain('<iframe')
+    expect(html).toContain('src="https://www.youtube.com/embed/dQw4w9WgXcQ"')
+    expect(html).toContain('</iframe>')
+  })
+
+  it('renders a vimeo videoEmbed as an iframe', () => {
+    const html = renderDoc(
+      doc({
+        type: 'videoEmbed',
+        attrs: {
+          provider: 'vimeo',
+          src: 'https://player.vimeo.com/video/12345',
+        },
+      }),
+    )
+    expect(html).toContain('src="https://player.vimeo.com/video/12345"')
+  })
+
+  it('renders a self-hosted file videoEmbed as a <video> tag', () => {
+    const html = renderDoc(
+      doc({
+        type: 'videoEmbed',
+        attrs: { provider: 'file', src: 'https://cdn.example.com/clip.mp4' },
+      }),
+    )
+    expect(html).toContain('<video')
+    expect(html).toContain('src="https://cdn.example.com/clip.mp4"')
+  })
 })
 
 describe('renderDoc — XSS safety', () => {
@@ -152,6 +191,41 @@ describe('renderDoc — XSS safety', () => {
       doc({ type: 'image', attrs: { src: 'javascript:alert(1)' } }),
     )
     expect(html).not.toContain('<img')
+    expect(html).not.toContain('javascript:')
+  })
+
+  it('drops a videoEmbed whose src does not match its declared provider', () => {
+    // A hand-crafted PATCH body claiming "youtube" but pointing anywhere
+    // else — src host allowlisting must be re-checked here, not trusted
+    // from whatever the WP importer once produced.
+    const html = renderDoc(
+      doc({
+        type: 'videoEmbed',
+        attrs: { provider: 'youtube', src: 'https://evil.example.com/embed' },
+      }),
+    )
+    expect(html).not.toContain('<iframe')
+    expect(html).not.toContain('evil.example.com')
+  })
+
+  it('drops a videoEmbed with an unrecognized provider', () => {
+    const html = renderDoc(
+      doc({
+        type: 'videoEmbed',
+        attrs: { provider: 'evil', src: 'https://www.youtube.com/embed/abc' },
+      }),
+    )
+    expect(html).not.toContain('<iframe')
+  })
+
+  it('drops a file videoEmbed with an unsafe src', () => {
+    const html = renderDoc(
+      doc({
+        type: 'videoEmbed',
+        attrs: { provider: 'file', src: 'javascript:alert(1)' },
+      }),
+    )
+    expect(html).not.toContain('<video')
     expect(html).not.toContain('javascript:')
   })
 

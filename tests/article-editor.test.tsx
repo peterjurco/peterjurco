@@ -87,6 +87,22 @@ describe('ArticleEditor — read-only mode', () => {
     await new Promise((resolve) => setTimeout(resolve, 80))
     expect(fetchMock).not.toHaveBeenCalled()
   })
+
+  it('opens an article containing a videoEmbed node without crashing', async () => {
+    const { container } = await renderEditor(false, {
+      type: 'doc',
+      content: [
+        {
+          type: 'videoEmbed',
+          attrs: {
+            provider: 'youtube',
+            src: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+          },
+        },
+      ],
+    })
+    expect(container.querySelector('iframe')).toBeTruthy()
+  })
 })
 
 describe('ArticleEditor — editable mode', () => {

@@ -26,6 +26,27 @@ interface JsonNode {
   text?: unknown
 }
 
+/** youtube.com/youtube-nocookie.com `/embed/...` URLs the videoEmbed node is allowed to iframe. */
+const YOUTUBE_EMBED_RE =
+  /^https:\/\/(www\.)?youtube(-nocookie)?\.com\/embed\/[\w-]+$/
+
+/** vimeo.com's own player embed URLs. */
+const VIMEO_EMBED_RE = /^https:\/\/player\.vimeo\.com\/video\/\d+$/
+
+/**
+ * Re-validates a videoEmbed node's `src` against its declared `provider` —
+ * defense in depth against a hand-crafted PATCH body, not just trust in
+ * whatever the WP importer produced (see html-to-tiptap.ts's matching
+ * allowlist, which is where these hosts are chosen).
+ */
+function isSafeVideoSrc(provider: unknown, src: unknown): boolean {
+  if (typeof src !== 'string') return false
+  if (provider === 'youtube') return YOUTUBE_EMBED_RE.test(src)
+  if (provider === 'vimeo') return VIMEO_EMBED_RE.test(src)
+  if (provider === 'file') return isSafeUrl(src)
+  return false
+}
+
 /** http(s), mailto or relative — never javascript:, data:, vbscript:, … */
 function isSafeUrl(value: unknown): value is string {
   if (typeof value !== 'string' || value.length === 0) return false
@@ -107,6 +128,15 @@ const ALLOWED_NODES: Record<string, NodeSanitizer> = {
     if (!isSafeUrl(attrs.src)) return null
     const safe: Record<string, unknown> = { src: attrs.src }
     if (typeof attrs.alt === 'string') safe.alt = attrs.alt
+    if (typeof attrs.title === 'string') safe.title = attrs.title
+    return safe
+  },
+  videoEmbed: (attrs) => {
+    if (!isSafeVideoSrc(attrs.provider, attrs.src)) return null
+    const safe: Record<string, unknown> = {
+      provider: attrs.provider,
+      src: attrs.src,
+    }
     if (typeof attrs.title === 'string') safe.title = attrs.title
     return safe
   },

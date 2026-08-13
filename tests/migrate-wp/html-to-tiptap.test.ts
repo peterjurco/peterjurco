@@ -229,6 +229,133 @@ describe('htmlToTiptap', () => {
     ])
   })
 
+  it('converts a raw YouTube <iframe> to a videoEmbed', () => {
+    const doc = htmlToTiptap(
+      '<iframe src="https://www.youtube.com/embed/RH9yIdQEI7A?feature=oembed" width="560" height="315"></iframe>',
+    )
+    expect(doc.content).toEqual([
+      {
+        type: 'videoEmbed',
+        attrs: {
+          provider: 'youtube',
+          src: 'https://www.youtube.com/embed/RH9yIdQEI7A',
+        },
+      },
+    ])
+  })
+
+  it('converts a youtu.be watch URL iframe/link form to a videoEmbed', () => {
+    const doc = htmlToTiptap(
+      '<iframe src="https://youtu.be/1OJCu9hG79Y"></iframe>',
+    )
+    expect(doc.content).toEqual([
+      {
+        type: 'videoEmbed',
+        attrs: {
+          provider: 'youtube',
+          src: 'https://www.youtube.com/embed/1OJCu9hG79Y',
+        },
+      },
+    ])
+  })
+
+  it('converts a Vimeo <iframe> to a videoEmbed', () => {
+    const doc = htmlToTiptap(
+      '<iframe src="https://player.vimeo.com/video/76979871"></iframe>',
+    )
+    expect(doc.content).toEqual([
+      {
+        type: 'videoEmbed',
+        attrs: {
+          provider: 'vimeo',
+          src: 'https://player.vimeo.com/video/76979871',
+        },
+      },
+    ])
+  })
+
+  it('degrades a non-video iframe (e.g. a Komoot route map) to the old text-only behavior', () => {
+    const doc = htmlToTiptap(
+      '<iframe src="https://www.komoot.com/tour/288943061/embed"></iframe>',
+    )
+    expect(doc.content).toEqual([{ type: 'paragraph', content: [] }])
+  })
+
+  it('converts a self-hosted <video src> to a file videoEmbed', () => {
+    const doc = htmlToTiptap(
+      '<figure class="wp-block-video"><video controls src="http://peterjur.co/wp-content/uploads/2022/12/IMG_7970.mov"></video></figure>',
+    )
+    expect(doc.content).toEqual([
+      {
+        type: 'videoEmbed',
+        attrs: {
+          provider: 'file',
+          src: 'http://peterjur.co/wp-content/uploads/2022/12/IMG_7970.mov',
+        },
+      },
+    ])
+  })
+
+  it('falls back to a <source> child when <video> has no src attribute', () => {
+    const doc = htmlToTiptap(
+      '<video controls><source src="https://peterjur.co/clip.mp4" type="video/mp4"></video>',
+    )
+    expect(doc.content).toEqual([
+      {
+        type: 'videoEmbed',
+        attrs: { provider: 'file', src: 'https://peterjur.co/clip.mp4' },
+      },
+    ])
+  })
+
+  it('drops a <video> with an unsafe src', () => {
+    const doc = htmlToTiptap('<video src="javascript:alert(1)"></video>')
+    expect(doc.content).toEqual([{ type: 'paragraph', content: [] }])
+  })
+
+  it('converts a Gutenberg wp-block-embed bare-URL video block to a videoEmbed', () => {
+    const doc = htmlToTiptap(
+      '<figure class="wp-block-embed is-type-video is-provider-youtube wp-block-embed-youtube wp-embed-aspect-16-9">' +
+        '<div class="wp-block-embed__wrapper">\nhttps://youtu.be/1OJCu9hG79Y\n</div></figure>',
+    )
+    expect(doc.content).toEqual([
+      {
+        type: 'videoEmbed',
+        attrs: {
+          provider: 'youtube',
+          src: 'https://www.youtube.com/embed/1OJCu9hG79Y',
+        },
+      },
+    ])
+  })
+
+  it('leaves a non-video wp-block-embed (e.g. Spotify) as the pre-existing plain-text fallback', () => {
+    const doc = htmlToTiptap(
+      '<figure class="wp-block-embed is-type-rich is-provider-spotify wp-block-embed-spotify">' +
+        '<div class="wp-block-embed__wrapper">\nhttps://open.spotify.com/track/abc\n</div></figure>',
+    )
+    expect(doc.content).toEqual([
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: '\nhttps://open.spotify.com/track/abc\n',
+          },
+        ],
+      },
+    ])
+  })
+
+  it('round-trips a videoEmbed through renderDoc without being stripped', () => {
+    const doc = htmlToTiptap(
+      '<iframe src="https://www.youtube.com/embed/RH9yIdQEI7A"></iframe>',
+    )
+    const html = renderDoc(doc)
+    expect(html).toContain('<iframe')
+    expect(html).toContain('youtube.com/embed/RH9yIdQEI7A')
+  })
+
   it('drops script/style tags entirely rather than surfacing their text', () => {
     const doc = htmlToTiptap(
       '<p>before</p><script>alert(1)</script><style>p{color:red}</style><p>after</p>',

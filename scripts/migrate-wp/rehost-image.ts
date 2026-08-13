@@ -8,6 +8,23 @@ import {
 } from '../../src/lib/media/r2'
 
 /**
+ * Video-specific limits, kept local to the migration script rather than
+ * alongside `ALLOWED_IMAGE_CONTENT_TYPES`/`MAX_UPLOAD_BYTES` in
+ * src/lib/media/r2.ts — those gate the live browser-upload presign API
+ * (src/pages/api/media/presign.ts) and must stay image-sized; this migration
+ * script is the only caller that ever needs to accept a video. Sizes/types
+ * confirmed against the real WP export's self-hosted clips (.mov, .mkv —
+ * up to ~160MB).
+ */
+const ALLOWED_VIDEO_CONTENT_TYPES = [
+  'video/mp4',
+  'video/quicktime',
+  'video/x-matroska',
+  'video/webm',
+] as const
+export const MAX_VIDEO_UPLOAD_BYTES = 300 * 1024 * 1024
+
+/**
  * Fetches an image from the still-live old WordPress site and re-uploads it
  * to R2 (owner decision: rehost now rather than preserving external URLs —
  * see plans/08-migration.md's revised scope). Reuses `presignPut` from
@@ -60,16 +77,24 @@ function warn(deps: RehostDeps, sourceUrl: string, reason: string): void {
   log(`[migrate-wp] ${prefix}: ${sourceUrl} — ${reason}`)
 }
 
+interface RehostLimits {
+  allowedContentTypes: readonly string[]
+  maxBytes: number
+}
+
 /**
  * Fetches `sourceUrl` and uploads it to R2, returning the new object key —
  * or `null` (never throws) when the URL isn't owned, or anything about the
  * fetch/validation/upload fails. Dedupes via `deps.cache`, including caching
- * failures so a bad URL is never retried within the same run.
+ * failures so a bad URL is never retried within the same run. Shared core
+ * for `rehostImage`/`rehostVideo` — only the content-type allowlist and size
+ * cap differ between them.
  */
-export async function rehostImage(
+async function rehostFile(
   env: R2Env,
   sourceUrl: string,
   deps: RehostDeps,
+  limits: RehostLimits,
 ): Promise<string | null> {
   if (deps.cache.has(sourceUrl)) return deps.cache.get(sourceUrl) ?? null
 
@@ -101,18 +126,13 @@ export async function rehostImage(
     .get('content-type')
     ?.split(';')[0]
     ?.trim()
-  if (
-    !contentType ||
-    !(ALLOWED_IMAGE_CONTENT_TYPES as readonly string[]).includes(contentType)
-  ) {
+  if (!contentType || !limits.allowedContentTypes.includes(contentType)) {
     return fail(`disallowed content-type: ${contentType ?? '(none)'}`)
   }
 
   const bytes = new Uint8Array(await response.arrayBuffer())
-  if (bytes.byteLength > MAX_UPLOAD_BYTES) {
-    return fail(
-      `too large: ${bytes.byteLength} bytes (max ${MAX_UPLOAD_BYTES})`,
-    )
+  if (bytes.byteLength > limits.maxBytes) {
+    return fail(`too large: ${bytes.byteLength} bytes (max ${limits.maxBytes})`)
   }
 
   const key = objectKey('migrated', filenameFromUrl(sourceUrl))
@@ -131,6 +151,29 @@ export async function rehostImage(
 
   deps.cache.set(sourceUrl, key)
   return key
+}
+
+export async function rehostImage(
+  env: R2Env,
+  sourceUrl: string,
+  deps: RehostDeps,
+): Promise<string | null> {
+  return rehostFile(env, sourceUrl, deps, {
+    allowedContentTypes: ALLOWED_IMAGE_CONTENT_TYPES,
+    maxBytes: MAX_UPLOAD_BYTES,
+  })
+}
+
+/** Same as `rehostImage`, for self-hosted `<video>` files (wp-block-video) found inline. */
+export async function rehostVideo(
+  env: R2Env,
+  sourceUrl: string,
+  deps: RehostDeps,
+): Promise<string | null> {
+  return rehostFile(env, sourceUrl, deps, {
+    allowedContentTypes: ALLOWED_VIDEO_CONTENT_TYPES,
+    maxBytes: MAX_VIDEO_UPLOAD_BYTES,
+  })
 }
 
 /**

@@ -388,6 +388,119 @@ describe('runMigration — apply', () => {
     expect(external?.status).toBe('external')
   })
 
+  it('rehosts a self-hosted <video> and rewrites its src, but leaves a YouTube embed src untouched', async () => {
+    await insertWpPost(wpConn, {
+      id: 1,
+      title: 'A post with both kinds of video',
+      content:
+        '<figure class="wp-block-video"><video controls src="https://peterjur.co/wp-content/uploads/2022/12/clip.mov"></video></figure>' +
+        '<iframe src="https://www.youtube.com/embed/RH9yIdQEI7A?feature=oembed"></iframe>',
+      status: 'publish',
+    })
+
+    const fetchSource = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/missing/'))
+        return new Response('nope', { status: 404 })
+      return new Response(new Uint8Array([9, 9, 9]) as BodyInit, {
+        status: 200,
+        headers: { 'content-type': 'video/quicktime' },
+      })
+    }) as unknown as typeof fetch
+
+    const report = await runMigration({
+      wpConn,
+      db,
+      apply: true,
+      r2Env,
+      ownedHost: OWNED_HOST,
+      fetchSource,
+      publicImageBaseUrl: IMG_BASE,
+    })
+
+    const [row] = await db.select().from(articles)
+    const content = row?.content as {
+      content: Array<{
+        type: string
+        attrs?: { provider?: string; src?: string }
+      }>
+    }
+    const videos = content.content.filter((node) => node.type === 'videoEmbed')
+    expect(videos).toHaveLength(2)
+
+    const file = videos.find((v) => v.attrs?.provider === 'file')
+    expect(file?.attrs?.src?.startsWith(`${IMG_BASE}/migrated/`)).toBe(true)
+
+    const youtube = videos.find((v) => v.attrs?.provider === 'youtube')
+    expect(youtube?.attrs?.src).toBe(
+      'https://www.youtube.com/embed/RH9yIdQEI7A',
+    )
+
+    const rehosted = report.inlineVideos.find(
+      (video) =>
+        video.sourceUrl ===
+        'https://peterjur.co/wp-content/uploads/2022/12/clip.mov',
+    )
+    expect(rehosted?.status).toBe('rehosted')
+  })
+
+  it('wpIds scopes the run: only the listed posts are read, diffed or written — everything else is untouched', async () => {
+    await insertWpPost(wpConn, {
+      id: 1,
+      title: 'Has a video',
+      content:
+        '<iframe src="https://www.youtube.com/embed/RH9yIdQEI7A"></iframe>',
+      status: 'publish',
+    })
+    await insertWpPost(wpConn, {
+      id: 2,
+      title: 'WP original title',
+      content: '<p>WP original body</p>',
+      status: 'publish',
+    })
+
+    await runMigration({
+      wpConn,
+      db,
+      apply: true,
+      r2Env,
+      ownedHost: OWNED_HOST,
+      publicImageBaseUrl: IMG_BASE,
+    })
+
+    // Simulates the owner hand-editing post 2 in the admin after import —
+    // if the scoped re-run touched it, this edit would be gone.
+    const before = await getByLegacyWpId(db, 2)
+    if (!before) throw new Error('post 2 not imported')
+    await db
+      .update(articles)
+      .set({ title: 'Hand-edited title' })
+      .where(eq(articles.id, before.id))
+
+    // Also change the WP dump's title for post 2 — proves the scoped run
+    // never even reads it, not just that it happens to leave it alone.
+    await wpConn.query('UPDATE wp_posts SET post_title = ? WHERE ID = 2', [
+      'WP title changed after the fact',
+    ])
+
+    const report = await runMigration({
+      wpConn,
+      db,
+      apply: true,
+      r2Env,
+      ownedHost: OWNED_HOST,
+      publicImageBaseUrl: IMG_BASE,
+      wpIds: [1],
+    })
+
+    expect(report.totalPosts).toBe(1)
+    expect(report.created).toBe(0)
+    expect(report.updated).toBe(1)
+
+    const untouched = await getByLegacyWpId(db, 2)
+    expect(untouched?.title).toBe('Hand-edited title')
+  })
+
   it('sets featuredPhotoKey on success and leaves it null + reports the failure otherwise', async () => {
     await insertWpPost(wpConn, {
       id: 1,
@@ -644,6 +757,9 @@ describe('runMigration — report summary and failedImages', () => {
       imagesRehostedCount: 1,
       imagesFailedCount: 2,
       imagesExternalCount: 1,
+      videosRehostedCount: 0,
+      videosFailedCount: 0,
+      videosExternalCount: 0,
     })
 
     expect(report.failedImages).toHaveLength(2)

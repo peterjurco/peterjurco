@@ -161,6 +161,13 @@ re-uploaded to R2 (external images keep their original URL untouched), and
 original status (owner decision — WP `publish`/`draft`/`private` all map the
 same way here).
 
+**A normal `--apply` re-run overwrites every already-migrated article's
+title/content/tags in full** — there's no detection of edits made since import
+in the new admin editor. For a targeted re-run that must not touch articles
+the author has since hand-edited, pass `--wp-ids=66,1032,2710` (comma-
+separated WP post ids) — every post not listed is skipped entirely: not read,
+not diffed, not written.
+
 ## Task 5 — run + resolve (author-driven, not scripted)
 
 1. Run `--dry-run` against the real dump; review `migration-report.json`

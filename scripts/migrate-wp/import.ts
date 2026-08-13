@@ -24,6 +24,7 @@ import {
   isOwnedUrl,
   loadRehostCache,
   rehostImage,
+  rehostVideo,
   saveRehostCache,
 } from './rehost-image'
 
@@ -67,6 +68,9 @@ export interface MigrationReportSummary {
   imagesRehostedCount: number
   imagesFailedCount: number
   imagesExternalCount: number
+  videosRehostedCount: number
+  videosFailedCount: number
+  videosExternalCount: number
 }
 
 export interface MigrationReport {
@@ -82,6 +86,8 @@ export interface MigrationReport {
   failedImages: FailedImageOutcome[]
   inlineImages: ImageOutcome[]
   featuredImages: ImageOutcome[]
+  /** Self-hosted <video> files (wp-block-video) found inline — same rehost pipeline as images. */
+  inlineVideos: ImageOutcome[]
 }
 
 /** The fields built up incrementally while the loop runs; `summary`/`failedImages` are derived from these. */
@@ -98,6 +104,14 @@ function computeSummary(state: MutableReport): MigrationReportSummary {
     imagesFailedCount: allImages.filter((i) => i.status === 'failed').length,
     imagesExternalCount: allImages.filter((i) => i.status === 'external')
       .length,
+    videosRehostedCount: state.inlineVideos.filter(
+      (v) => v.status === 'rehosted',
+    ).length,
+    videosFailedCount: state.inlineVideos.filter((v) => v.status === 'failed')
+      .length,
+    videosExternalCount: state.inlineVideos.filter(
+      (v) => v.status === 'external',
+    ).length,
   }
 }
 
@@ -109,6 +123,9 @@ function computeFailedImages(state: MutableReport): FailedImageOutcome[] {
     ...state.featuredImages
       .filter((image) => image.status === 'failed')
       .map((image) => ({ ...image, location: 'featured' as const })),
+    ...state.inlineVideos
+      .filter((video) => video.status === 'failed')
+      .map((video) => ({ ...video, location: 'inline' as const })),
   ]
 }
 
@@ -147,6 +164,15 @@ export interface RunMigrationOptions {
    * run's R2 objects. See rehost-image.ts's loadRehostCache/saveRehostCache.
    */
   cachePath?: string
+  /**
+   * When set, only these WP post ids are processed — every other post is
+   * skipped entirely (not read, not diffed, not written; its existing
+   * article, if any, is left completely untouched). For a targeted re-run
+   * (e.g. backfilling newly-supported video embeds into specific
+   * already-migrated articles) rather than the full full-content overwrite a
+   * normal `--apply` does for every post in the dump.
+   */
+  wpIds?: number[]
 }
 
 /** Minimal shape shared with html-to-tiptap.ts's internal node type, for walking the doc. */
@@ -194,6 +220,44 @@ function rewriteImageSrcs(
   walk(nodesOf(doc))
 }
 
+function isFileVideoNode(node: WalkableNode): boolean {
+  return node.type === 'videoEmbed' && node.attrs?.provider === 'file'
+}
+
+/** Every distinct self-hosted (`provider: 'file'`) video `src` in the doc — YouTube/Vimeo embeds need no rehosting. */
+function collectVideoFileSrcs(doc: ProseMirrorDoc): string[] {
+  const srcs = new Set<string>()
+  const walk = (nodes: WalkableNode[] | undefined): void => {
+    if (!nodes) return
+    for (const node of nodes) {
+      if (isFileVideoNode(node) && typeof node.attrs?.src === 'string') {
+        srcs.add(node.attrs.src)
+      }
+      walk(node.content)
+    }
+  }
+  walk(nodesOf(doc))
+  return [...srcs]
+}
+
+/** Rewrites self-hosted video `src`s in place per `rewrites` (old URL → new public URL). */
+function rewriteVideoSrcs(
+  doc: ProseMirrorDoc,
+  rewrites: Map<string, string>,
+): void {
+  const walk = (nodes: WalkableNode[] | undefined): void => {
+    if (!nodes) return
+    for (const node of nodes) {
+      if (isFileVideoNode(node) && typeof node.attrs?.src === 'string') {
+        const next = rewrites.get(node.attrs.src)
+        if (next && node.attrs) node.attrs.src = next
+      }
+      walk(node.content)
+    }
+  }
+  walk(nodesOf(doc))
+}
+
 /** Dedupes WP terms by id — for building the one global mapTaxonomy() call. */
 function uniqueTerms(terms: WpTerm[]): WpTerm[] {
   const byId = new Map<number, WpTerm>()
@@ -224,12 +288,16 @@ export async function runMigration(
     fetchSource,
     reportPath,
     cachePath,
+    wpIds,
   } = options
   const publicImageBaseUrl = apply
     ? requireEnv(options.publicImageBaseUrl, 'PUBLIC_R2_PUBLIC_BASE_URL')
     : (options.publicImageBaseUrl ?? '')
 
-  const posts = await readRealPosts(wpConn)
+  const allPosts = await readRealPosts(wpConn)
+  const posts = wpIds
+    ? allPosts.filter((post) => wpIds.includes(post.wpId))
+    : allPosts
 
   // Real taxonomy writes happen ONLY in apply mode — dry-run must not create
   // a single category/tag row.
@@ -253,6 +321,7 @@ export async function runMigration(
     multiCategoryPosts: [],
     inlineImages: [],
     featuredImages: [],
+    inlineVideos: [],
   }
   const imageCache = cachePath
     ? loadRehostCache(cachePath)
@@ -276,6 +345,8 @@ export async function runMigration(
           categories: post.categories.map((category) => category.name),
         })
       }
+
+      const existing = await getByLegacyWpId(db, post.wpId)
 
       const doc = htmlToTiptap(post.contentHtml)
       const rewrites = new Map<string, string>()
@@ -324,6 +395,51 @@ export async function runMigration(
       }
       if (rewrites.size > 0) rewriteImageSrcs(doc, rewrites)
 
+      const videoRewrites = new Map<string, string>()
+      for (const src of collectVideoFileSrcs(doc)) {
+        if (!isOwnedUrl(src, ownedHost)) {
+          report.inlineVideos.push({
+            postId: post.wpId,
+            sourceUrl: src,
+            status: 'external',
+          })
+          continue
+        }
+        if (!apply) {
+          report.inlineVideos.push({
+            postId: post.wpId,
+            sourceUrl: src,
+            status: 'would-rehost',
+          })
+          continue
+        }
+        const key = await rehostVideo(r2Env, src, {
+          ownedHost,
+          cache: imageCache,
+          fetchSource,
+          context: `wp#${post.wpId} (inline video)`,
+        })
+        flushCacheIfRehosted(key)
+        if (key) {
+          videoRewrites.set(src, publicObjectUrl(key, publicImageBaseUrl))
+          report.inlineVideos.push({
+            postId: post.wpId,
+            sourceUrl: src,
+            status: 'rehosted',
+            newKey: key,
+          })
+        } else {
+          report.inlineVideos.push({
+            postId: post.wpId,
+            sourceUrl: src,
+            status: 'failed',
+            reason:
+              'rehost failed — left pointing at the original WP URL (see warnings above)',
+          })
+        }
+      }
+      if (videoRewrites.size > 0) rewriteVideoSrcs(doc, videoRewrites)
+
       let featuredPhotoKey: string | null = null
       if (post.featuredImageUrl) {
         const url = post.featuredImageUrl
@@ -366,8 +482,6 @@ export async function runMigration(
           }
         }
       }
-
-      const existing = await getByLegacyWpId(db, post.wpId)
 
       if (!apply) {
         if (existing) report.updated++
@@ -434,8 +548,25 @@ function redactUrl(url: string): string {
   return url.replace(/:\/\/[^@]*@/, '://***@')
 }
 
+/** Parses `--wp-ids=66,1032,2710` into `[66, 1032, 2710]`, or undefined when absent. */
+function parseWpIdsArg(argv: string[]): number[] | undefined {
+  const arg = argv.find((a) => a.startsWith('--wp-ids='))
+  if (!arg) return undefined
+  const ids = arg
+    .slice('--wp-ids='.length)
+    .split(',')
+    .map((id) => Number(id.trim()))
+  if (ids.some((id) => !Number.isInteger(id))) {
+    throw new Error(
+      `--wp-ids must be a comma-separated list of integers, got: ${arg}`,
+    )
+  }
+  return ids
+}
+
 async function main(): Promise<void> {
   const apply = process.argv.includes('--apply')
+  const wpIds = parseWpIdsArg(process.argv)
   const wpMysqlUrl = requireEnv(process.env.WP_MYSQL_URL, 'WP_MYSQL_URL')
   const databaseUrl = requireEnv(process.env.DATABASE_URL, 'DATABASE_URL')
   const ownedHost = process.env.WP_OWNED_HOST ?? 'peterjur.co'
@@ -446,6 +577,7 @@ async function main(): Promise<void> {
   console.log(`  WP source:   ${redactUrl(wpMysqlUrl)}`)
   console.log(`  Target DB:   ${redactUrl(databaseUrl)}`)
   console.log(`  Owned host:  ${ownedHost}`)
+  if (wpIds) console.log(`  Scoped to WP ids: ${wpIds.join(', ')}`)
 
   const wpConn = createWpConnection(wpMysqlUrl)
   const pool = new Pool({ connectionString: databaseUrl })
@@ -476,6 +608,7 @@ async function main(): Promise<void> {
       publicImageBaseUrl: process.env.PUBLIC_R2_PUBLIC_BASE_URL,
       reportPath,
       cachePath,
+      wpIds,
     })
 
     console.log(`\nWrote ${reportPath}`)
@@ -496,6 +629,12 @@ async function main(): Promise<void> {
         `would-rehost: ${report.featuredImages.filter((i) => i.status === 'would-rehost').length}, ` +
         `external: ${report.featuredImages.filter((i) => i.status === 'external').length}, ` +
         `failed: ${report.featuredImages.filter((i) => i.status === 'failed').length}`,
+    )
+    console.log(
+      `Inline videos — rehosted: ${report.inlineVideos.filter((i) => i.status === 'rehosted').length}, ` +
+        `would-rehost: ${report.inlineVideos.filter((i) => i.status === 'would-rehost').length}, ` +
+        `external: ${report.inlineVideos.filter((i) => i.status === 'external').length}, ` +
+        `failed: ${report.inlineVideos.filter((i) => i.status === 'failed').length}`,
     )
   } finally {
     await wpConn.end()

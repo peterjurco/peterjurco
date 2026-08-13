@@ -4,7 +4,9 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   isOwnedUrl,
   loadRehostCache,
+  MAX_VIDEO_UPLOAD_BYTES,
   rehostImage,
+  rehostVideo,
   saveRehostCache,
 } from '../../scripts/migrate-wp/rehost-image'
 import type { R2Env } from '../../src/lib/media/r2'
@@ -226,6 +228,93 @@ describe('rehostImage', () => {
     )
     expect(key).not.toBeNull()
   }, 20_000)
+})
+
+describe('rehostVideo', () => {
+  it('fetches, uploads to R2 and returns a migrated/ key for a video/mp4 file', async () => {
+    const bytes = new Uint8Array([1, 2, 3, 4, 5])
+    const fetchSource = vi
+      .fn()
+      .mockResolvedValue(fakeImageResponse(bytes, 'video/mp4'))
+    const cache = new Map<string, string | null>()
+
+    const key = await rehostVideo(
+      env,
+      'https://peterjur.co/wp-content/uploads/2022/12/clip.mov',
+      { ownedHost: OWNED_HOST, cache, fetchSource },
+    )
+
+    expect(key).toMatch(/^migrated\/[A-Za-z0-9_-]{21}\.mov$/)
+    const stored = await getFromMinio(key as string)
+    expect(stored.status).toBe(200)
+    expect(new Uint8Array(await stored.arrayBuffer())).toEqual(bytes)
+  })
+
+  it('accepts video/quicktime and video/x-matroska — the real WP export uses both', async () => {
+    for (const contentType of ['video/quicktime', 'video/x-matroska']) {
+      const fetchSource = vi
+        .fn()
+        .mockResolvedValue(fakeImageResponse(new Uint8Array([1]), contentType))
+      const key = await rehostVideo(
+        env,
+        `https://peterjur.co/wp-content/uploads/${contentType}.bin`,
+        { ownedHost: OWNED_HOST, cache: new Map(), fetchSource },
+      )
+      expect(key, contentType).not.toBeNull()
+    }
+  })
+
+  it('rejects an image content-type — the image/video allowlists are separate', async () => {
+    const fetchSource = vi
+      .fn()
+      .mockResolvedValue(fakeImageResponse(new Uint8Array([1]), 'image/jpeg'))
+
+    const key = await rehostVideo(
+      env,
+      'https://peterjur.co/wp-content/uploads/not-a-video.jpg',
+      { ownedHost: OWNED_HOST, cache: new Map(), fetchSource },
+    )
+    expect(key).toBeNull()
+  })
+
+  it('accepts a file bigger than the image cap — video has its own, larger limit', async () => {
+    const overImageCap = new Uint8Array(MAX_UPLOAD_BYTES + 1)
+    const fetchSource = vi
+      .fn()
+      .mockResolvedValue(fakeImageResponse(overImageCap, 'video/mp4'))
+
+    const key = await rehostVideo(
+      env,
+      'https://peterjur.co/wp-content/uploads/bigger-than-image-cap.mp4',
+      { ownedHost: OWNED_HOST, cache: new Map(), fetchSource },
+    )
+    expect(key).not.toBeNull()
+  }, 20_000)
+
+  it('rejects a video over MAX_VIDEO_UPLOAD_BYTES without uploading', async () => {
+    const oversized = new Uint8Array(MAX_VIDEO_UPLOAD_BYTES + 1)
+    const fetchSource = vi
+      .fn()
+      .mockResolvedValue(fakeImageResponse(oversized, 'video/mp4'))
+
+    const key = await rehostVideo(
+      env,
+      'https://peterjur.co/wp-content/uploads/huge.mp4',
+      { ownedHost: OWNED_HOST, cache: new Map(), fetchSource },
+    )
+    expect(key).toBeNull()
+  }, 30_000)
+
+  it('never attempts a fetch for an external (non-owned) domain', async () => {
+    const fetchSource = vi.fn()
+    const key = await rehostVideo(env, 'https://example.com/clip.mp4', {
+      ownedHost: OWNED_HOST,
+      cache: new Map(),
+      fetchSource,
+    })
+    expect(key).toBeNull()
+    expect(fetchSource).not.toHaveBeenCalled()
+  })
 })
 
 describe('loadRehostCache / saveRehostCache', () => {
