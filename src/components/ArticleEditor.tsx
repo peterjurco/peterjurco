@@ -39,6 +39,7 @@ export function ArticleEditor({
   onReady,
 }: ArticleEditorProps) {
   const [saveState, setSaveState] = useState<SaveState>('idle')
+  const [metaPressed, setMetaPressed] = useState(false)
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   /** Latest unsaved document — null when everything typed has been sent. */
   const pendingContent = useRef<Record<string, unknown> | null>(null)
@@ -133,6 +134,29 @@ export function ArticleEditor({
     return () => window.removeEventListener('beforeunload', warn)
   }, [saveState])
 
+  // Tracks whether Cmd/Ctrl is currently held, purely so the cursor can hint
+  // "this link will open" before the click — the click handling itself
+  // (below) re-checks event.metaKey/ctrlKey independently. `blur` resets it
+  // so switching windows/apps mid-hold never leaves the cursor stuck.
+  useEffect(() => {
+    function handleModifierKey(event: KeyboardEvent): void {
+      if (event.key === 'Meta' || event.key === 'Control') {
+        setMetaPressed(event.type === 'keydown')
+      }
+    }
+    function handleBlur(): void {
+      setMetaPressed(false)
+    }
+    window.addEventListener('keydown', handleModifierKey)
+    window.addEventListener('keyup', handleModifierKey)
+    window.addEventListener('blur', handleBlur)
+    return () => {
+      window.removeEventListener('keydown', handleModifierKey)
+      window.removeEventListener('keyup', handleModifierKey)
+      window.removeEventListener('blur', handleBlur)
+    }
+  }, [])
+
   // Links don't openOnClick (see extensions.ts) — a plain click must place
   // the cursor, not navigate away mid-edit. Cmd/Ctrl+click is the escape
   // hatch: open the link the way a browser normally would on modifier-click.
@@ -154,7 +178,7 @@ export function ArticleEditor({
       )}
       <EditorContent
         editor={editor}
-        className="article-doc article-body"
+        className={`article-doc article-body${metaPressed ? ' meta-pressed' : ''}`}
         onClick={handleLinkClick}
       />
     </div>

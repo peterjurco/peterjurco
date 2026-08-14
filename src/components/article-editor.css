@@ -96,6 +96,13 @@
   line-height: 1.6;
 }
 
+/* Cmd/Ctrl+click opens a link (ArticleEditor.tsx) — hint it with a pointer
+   cursor only while the modifier is actually held, since a plain click just
+   places the text cursor instead. */
+.article-doc.meta-pressed a {
+  cursor: pointer;
+}
+
 /* Metadata panel (title / category / tags / visibility / featured / delete). */
 
 .article-meta-panel {

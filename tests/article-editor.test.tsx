@@ -329,4 +329,27 @@ describe('ArticleEditor — link clicks', () => {
       'noopener,noreferrer',
     )
   })
+
+  it('adds a pointer-cursor hint class while Ctrl/Cmd is held, removes it on keyup', async () => {
+    const { container } = await renderEditor(true, LINK_CONTENT)
+    const doc = container.querySelector('.article-doc') as HTMLElement
+    expect(doc.classList.contains('meta-pressed')).toBe(false)
+
+    fireEvent.keyDown(window, { key: 'Control' })
+    expect(doc.classList.contains('meta-pressed')).toBe(true)
+
+    fireEvent.keyUp(window, { key: 'Control' })
+    expect(doc.classList.contains('meta-pressed')).toBe(false)
+  })
+
+  it('clears the hint on window blur, so it never gets stuck after switching apps', async () => {
+    const { container } = await renderEditor(true, LINK_CONTENT)
+    const doc = container.querySelector('.article-doc') as HTMLElement
+
+    fireEvent.keyDown(window, { key: 'Meta' })
+    expect(doc.classList.contains('meta-pressed')).toBe(true)
+
+    fireEvent(window, new Event('blur'))
+    expect(doc.classList.contains('meta-pressed')).toBe(false)
+  })
 })
