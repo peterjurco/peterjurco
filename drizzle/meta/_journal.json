@@ -36,6 +36,13 @@
       "when": 1783765939307,
       "tag": "0004_home_tiles_image_keys_array",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786722370722,
+      "tag": "0005_add_photo_tag_cover_aspect_ratio",
+      "breakpoints": true
     }
   ]
 }

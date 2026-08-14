@@ -5,6 +5,7 @@ import { photoAlbums, photoAlbumsTagsMap, photoTags } from '../../db/schema'
 import { deleteOrphanedImages } from '../media/cleanup'
 import type { R2Env } from '../media/r2'
 import { newPublicId } from '../public-id'
+import type { CoverAspectRatio } from './cover-aspect-ratio'
 
 /**
  * Photo hub repository (REQUIREMENTS "Google Photos album hub"): an album is
@@ -294,6 +295,18 @@ export async function setTagVisibility(
   visibility: PhotoTagVisibility,
 ): Promise<void> {
   await db.update(photoTags).set({ visibility }).where(eq(photoTags.id, id))
+}
+
+/** Sets the aspect ratio the public page (/t/:publicId) crops this tag's album covers to. */
+export async function setTagCoverAspectRatio(
+  db: PhotosDb,
+  id: number,
+  coverAspectRatio: CoverAspectRatio,
+): Promise<void> {
+  await db
+    .update(photoTags)
+    .set({ coverAspectRatio })
+    .where(eq(photoTags.id, id))
 }
 
 export type PublicTag = PhotoTag & { albums: PhotoAlbum[] }

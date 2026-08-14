@@ -160,6 +160,9 @@ export const photoTags = pgTable(
     visibility: photoTagVisibility('visibility').notNull().default('private'),
     // Always generated for consistency; only meaningful while visibility = public.
     publicId: text('public_id').notNull(),
+    // One of COVER_ASPECT_RATIOS's keys (src/lib/photos/cover-aspect-ratio.ts);
+    // null means "not set yet" — the public page falls back to the default.
+    coverAspectRatio: text('cover_aspect_ratio'),
   },
   (table) => [
     uniqueIndex('photo_tags_public_id_unique').on(table.publicId),

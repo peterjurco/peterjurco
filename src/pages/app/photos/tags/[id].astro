@@ -4,6 +4,10 @@ import { getAppDb } from '../../../../db'
 import BaseLayout from '../../../../layouts/BaseLayout.astro'
 import { parseId } from '../../../../lib/api'
 import { imageUrl } from '../../../../lib/media/image-url'
+import {
+  COVER_ASPECT_RATIOS,
+  DEFAULT_COVER_ASPECT_RATIO,
+} from '../../../../lib/photos/cover-aspect-ratio'
 import { getTagById, listByTag } from '../../../../lib/photos/repo'
 
 // Defense in depth: the middleware already gates /app/*.
@@ -25,6 +29,7 @@ if (!tag) {
 }
 const albums = await listByTag(db, id)
 const nextVisibility = tag.visibility === 'private' ? 'public' : 'private'
+const coverAspectRatio = tag.coverAspectRatio ?? DEFAULT_COVER_ASPECT_RATIO
 ---
 
 <BaseLayout title={`#${tag.name} — peterjur.co`}>
@@ -49,6 +54,22 @@ const nextVisibility = tag.visibility === 'private' ? 'public' : 'private'
           </a>
         )
       }
+      <label class="admin-field cover-ratio-field">
+        <span>Cover shape (public page)</span>
+        <select
+          id="cover-aspect-ratio"
+          class="admin-select"
+          data-tag-id={tag.id}
+        >
+          {
+            Object.entries(COVER_ASPECT_RATIOS).map(([value, label]) => (
+              <option value={value} selected={coverAspectRatio === value}>
+                {label} ({value})
+              </option>
+            ))
+          }
+        </select>
+      </label>
     </header>
     {albums.length === 0 && <p>No albums with this tag.</p>}
     <ul>
@@ -96,9 +117,44 @@ const nextVisibility = tag.visibility === 'private' ? 'public' : 'private'
       window.alert('Could not change the tag visibility — please try again.')
     }
   })
+
+  const ratioSelect = document.getElementById(
+    'cover-aspect-ratio',
+  ) as HTMLSelectElement | null
+  ratioSelect?.addEventListener('change', async () => {
+    const { tagId } = ratioSelect.dataset
+    try {
+      const response = await fetch(`/api/photos/tags/${tagId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coverAspectRatio: ratioSelect.value }),
+      })
+      if (!response.ok) throw new Error(`PATCH failed (${response.status})`)
+    } catch {
+      window.alert('Could not change the cover shape — please try again.')
+    }
+  })
 </script>
 
 <style>
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  .cover-ratio-field {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: auto;
+  }
+  .cover-ratio-field span {
+    font-size: 0.85rem;
+    color: var(--admin-muted);
+    white-space: nowrap;
+  }
   ul {
     padding: 0;
     list-style: none;

@@ -9,6 +9,7 @@ dist/
 .DS_Store
 .dev.vars
 .dev.vars.test-backup
+.superpowers/
 
 # Personal WordPress DB dump used for the one-off migration — never commit.
 *.gz

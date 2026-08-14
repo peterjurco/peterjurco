@@ -1,0 +1,1 @@
+ALTER TABLE "photo_tags" ADD COLUMN "cover_aspect_ratio" text;

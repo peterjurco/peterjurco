@@ -285,6 +285,40 @@ describe('photos API — tags', () => {
     expect(missing.status).toBe(404)
   })
 
+  it('sets the cover aspect ratio independently of visibility, and rejects unknown ratios', async () => {
+    const create = await request('/api/photos/tags', {
+      method: 'POST',
+      authed: true,
+      body: { name: `ratio-${Date.now()}` },
+    })
+    const tag = (await create.json()) as { id: number }
+    expect((await getTagById(db, tag.id))?.coverAspectRatio).toBeNull()
+
+    const setRatio = await request(`/api/photos/tags/${tag.id}`, {
+      method: 'PATCH',
+      authed: true,
+      body: { coverAspectRatio: '16/9' },
+    })
+    expect(setRatio.status).toBe(200)
+    const afterSet = await getTagById(db, tag.id)
+    expect(afterSet?.coverAspectRatio).toBe('16/9')
+    expect(afterSet?.visibility).toBe('private') // untouched
+
+    const badRatio = await request(`/api/photos/tags/${tag.id}`, {
+      method: 'PATCH',
+      authed: true,
+      body: { coverAspectRatio: '21/9' },
+    })
+    expect(badRatio.status).toBe(400)
+
+    const empty = await request(`/api/photos/tags/${tag.id}`, {
+      method: 'PATCH',
+      authed: true,
+      body: {},
+    })
+    expect(empty.status).toBe(400)
+  })
+
   it('rejects empty tag names and returns the existing tag on duplicates', async () => {
     const empty = await request('/api/photos/tags', {
       method: 'POST',
