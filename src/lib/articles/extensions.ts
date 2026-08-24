@@ -1,7 +1,12 @@
 import type { Extensions } from '@tiptap/core'
 import { Node } from '@tiptap/core'
 import { Image } from '@tiptap/extension-image'
-import { Color, FontFamily, TextStyle } from '@tiptap/extension-text-style'
+import {
+  Color,
+  FontFamily,
+  FontSize,
+  TextStyle,
+} from '@tiptap/extension-text-style'
 import { StarterKit } from '@tiptap/starter-kit'
 
 /**
@@ -66,7 +71,8 @@ export const VideoEmbed = Node.create({
  *
  * StarterKit (v3) covers headings, blockquote, bold/italic/strike, lists and
  * links; list indentation is TipTap's native list nesting
- * (sinkListItem/liftListItem). Color + FontFamily ride on the textStyle mark.
+ * (sinkListItem/liftListItem). Color + FontFamily + FontSize ride on the
+ * textStyle mark.
  */
 export function documentExtensions(): Extensions {
   return [
@@ -82,5 +88,6 @@ export function documentExtensions(): Extensions {
     TextStyle,
     Color,
     FontFamily,
+    FontSize,
   ]
 }

@@ -128,8 +128,110 @@ describe('ArticleEditor — editable mode', () => {
     }
     expect(screen.getByTitle('Text color')).toBeTruthy()
     expect(screen.getByTitle('Font family')).toBeTruthy()
+    expect(screen.getByLabelText('Font size')).toBeTruthy()
+    expect(screen.getByTitle('Reset font size')).toBeTruthy()
+    expect(screen.getByTitle('Clear formatting')).toBeTruthy()
+    for (const font of [
+      'Reading Serif',
+      'Reading Sans',
+      'Plex Mono',
+      'Unbounded',
+    ]) {
+      expect(screen.getByRole('option', { name: font })).toBeTruthy()
+    }
     const prosemirror = container.querySelector('.tiptap')
     expect(prosemirror?.getAttribute('contenteditable')).toBe('true')
+  })
+
+  it('sets a font size on selected text via the toolbar input', async () => {
+    const { editor } = await renderEditor(true, {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'resize me' }] },
+      ],
+    })
+    act(() => {
+      editor.commands.selectAll()
+    })
+    const input = screen.getByLabelText('Font size') as HTMLInputElement
+    fireEvent.change(input, { target: { value: '24' } })
+    expect(editor.getHTML()).toContain('font-size: 24px')
+  })
+
+  it('clamps an out-of-range font size on blur', async () => {
+    const { editor } = await renderEditor(true, {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'resize me' }] },
+      ],
+    })
+    act(() => {
+      editor.commands.selectAll()
+    })
+    const input = screen.getByLabelText('Font size') as HTMLInputElement
+    fireEvent.change(input, { target: { value: '999' } })
+    fireEvent.blur(input)
+    expect(editor.getHTML()).toContain('font-size: 72px')
+  })
+
+  it('clears the font size via the reset button', async () => {
+    const { editor } = await renderEditor(true, {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'resize me',
+              marks: [{ type: 'textStyle', attrs: { fontSize: '24px' } }],
+            },
+          ],
+        },
+      ],
+    })
+    act(() => {
+      editor.commands.selectAll()
+    })
+    fireEvent.click(screen.getByTitle('Reset font size'))
+    expect(editor.getHTML()).not.toContain('font-size')
+  })
+
+  it('clears color/font overrides but keeps bold via "Clear formatting"', async () => {
+    const { editor } = await renderEditor(true, {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'styled',
+              marks: [
+                { type: 'bold' },
+                {
+                  type: 'textStyle',
+                  attrs: {
+                    color: '#ff0000',
+                    fontFamily: 'Georgia',
+                    fontSize: '24px',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    })
+    act(() => {
+      editor.commands.selectAll()
+    })
+    fireEvent.click(screen.getByTitle('Clear formatting'))
+    const html = editor.getHTML()
+    expect(html).toContain('<strong>styled</strong>')
+    expect(html).not.toContain('color')
+    expect(html).not.toContain('font-family')
+    expect(html).not.toContain('font-size')
   })
 
   it('autosaves content changes with a debounced PATCH', async () => {

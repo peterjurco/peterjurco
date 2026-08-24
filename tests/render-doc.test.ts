@@ -58,6 +58,18 @@ describe('renderDoc — faithful rendering', () => {
     expect(html).toContain('tinted')
   })
 
+  it('renders font size via textStyle spans', () => {
+    const html = renderDoc(
+      doc(
+        paragraph(
+          text('big', [{ type: 'textStyle', attrs: { fontSize: '24px' } }]),
+        ),
+      ),
+    )
+    expect(html).toContain('font-size: 24px')
+    expect(html).toContain('big')
+  })
+
   it('renders links with safe rel and target', () => {
     const html = renderDoc(
       doc(
@@ -295,6 +307,26 @@ describe('renderDoc — XSS safety', () => {
     expect(html).not.toContain('evil.example.com')
     expect(html).not.toContain('<script>')
     expect(html).toContain('styled')
+  })
+
+  it('rejects out-of-range or malformed font-size values', () => {
+    for (const fontSize of [
+      '999px',
+      '1px',
+      '18',
+      '18px; background:url(https://evil.example.com)',
+      'calc(1px)',
+    ]) {
+      const html = renderDoc(
+        doc(
+          paragraph(
+            text('plain', [{ type: 'textStyle', attrs: { fontSize } }]),
+          ),
+        ),
+      )
+      expect(html, JSON.stringify(fontSize)).not.toContain('font-size')
+      expect(html).toContain('plain')
+    }
   })
 
   it('returns an empty string for malformed input', () => {

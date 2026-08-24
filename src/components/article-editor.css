@@ -22,7 +22,8 @@
 }
 
 .editor-toolbar button,
-.editor-toolbar select {
+.editor-toolbar select,
+.editor-toolbar input {
   /* Comfortable tap targets on mobile. */
   min-width: 2.4rem;
   min-height: 2.4rem;
@@ -42,7 +43,8 @@
 }
 
 .editor-toolbar button:focus-visible,
-.editor-toolbar select:focus-visible {
+.editor-toolbar select:focus-visible,
+.editor-toolbar input:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent) 30%, transparent);
   border-color: var(--admin-accent);
@@ -62,6 +64,11 @@
   border-radius: 7px;
   background: var(--admin-surface);
   cursor: pointer;
+}
+
+.editor-toolbar-font-size {
+  width: 3.6rem;
+  text-align: center;
 }
 
 .editor-toolbar-divider {

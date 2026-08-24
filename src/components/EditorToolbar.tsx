@@ -12,7 +12,24 @@ const FONT_FAMILIES = [
   { label: 'Serif', value: 'Georgia, serif' },
   { label: 'Sans', value: 'Helvetica, Arial, sans-serif' },
   { label: 'Mono', value: 'Menlo, Consolas, monospace' },
+  {
+    label: 'Reading Serif',
+    value: "'Source Serif 4 Variable', Georgia, serif",
+  },
+  {
+    label: 'Reading Sans',
+    value: "'Archivo Variable', Helvetica, Arial, sans-serif",
+  },
+  { label: 'Plex Mono', value: "'IBM Plex Mono', Menlo, Consolas, monospace" },
+  { label: 'Unbounded', value: "'Unbounded Variable', sans-serif" },
 ]
+
+const MIN_FONT_SIZE = 8
+const MAX_FONT_SIZE = 72
+
+function clampFontSize(value: number): number {
+  return Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, value))
+}
 
 interface ToolbarButtonProps {
   title: string
@@ -59,6 +76,9 @@ export function EditorToolbar({ editor, saveLabel }: EditorToolbarProps) {
       fontFamily:
         (editor.getAttributes('textStyle').fontFamily as string | undefined) ??
         '',
+      fontSize:
+        (editor.getAttributes('textStyle').fontSize as string | undefined) ??
+        '',
     }),
   })
 
@@ -76,6 +96,24 @@ export function EditorToolbar({ editor, saveLabel }: EditorToolbarProps) {
     const src = window.prompt('Image URL')
     if (!src) return
     editor.chain().focus().setImage({ src }).run()
+  }
+
+  function applyFontSize(rawValue: string): void {
+    if (rawValue === '') return
+    const parsed = Number(rawValue)
+    if (Number.isNaN(parsed)) return
+    editor.chain().focus().setFontSize(`${parsed}px`).run()
+  }
+
+  function commitFontSize(rawValue: string): void {
+    if (rawValue === '') return
+    const parsed = Number(rawValue)
+    if (Number.isNaN(parsed)) return
+    editor
+      .chain()
+      .focus()
+      .setFontSize(`${clampFontSize(parsed)}px`)
+      .run()
   }
 
   return (
@@ -146,6 +184,28 @@ export function EditorToolbar({ editor, saveLabel }: EditorToolbarProps) {
           </option>
         ))}
       </select>
+      <input
+        type="number"
+        className="editor-toolbar-font-size"
+        aria-label="Font size"
+        title="Font size"
+        min={MIN_FONT_SIZE}
+        max={MAX_FONT_SIZE}
+        placeholder="Size"
+        value={state.fontSize ? state.fontSize.replace('px', '') : ''}
+        onChange={(event) => applyFontSize(event.target.value)}
+        onBlur={(event) => commitFontSize(event.target.value)}
+      />
+      <ToolbarButton
+        title="Reset font size"
+        label="⟲"
+        onClick={() => editor.chain().focus().unsetFontSize().run()}
+      />
+      <ToolbarButton
+        title="Clear formatting"
+        label="✕"
+        onClick={() => editor.chain().focus().unsetMark('textStyle').run()}
+      />
       <span className="editor-toolbar-divider" />
       <ToolbarButton
         title="Bullet list"

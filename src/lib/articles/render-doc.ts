@@ -77,6 +77,15 @@ function isSafeFontFamily(value: unknown): value is string {
   return typeof value === 'string' && /^[a-zA-Z0-9,' -]+$/.test(value)
 }
 
+/** Matches the toolbar's 8–72px range (EditorToolbar.tsx) — never unbounded. */
+function isSafeFontSize(value: unknown): value is string {
+  if (typeof value !== 'string') return false
+  const match = /^(\d{1,2})px$/.exec(value)
+  if (!match) return false
+  const size = Number(match[1])
+  return size >= 8 && size <= 72
+}
+
 type MarkSanitizer = (
   attrs: Record<string, unknown>,
 ) => Record<string, unknown> | null
@@ -92,6 +101,7 @@ const ALLOWED_MARKS: Record<string, MarkSanitizer> = {
     const safe: Record<string, unknown> = {}
     if (isSafeStyleValue(attrs.color)) safe.color = attrs.color
     if (isSafeFontFamily(attrs.fontFamily)) safe.fontFamily = attrs.fontFamily
+    if (isSafeFontSize(attrs.fontSize)) safe.fontSize = attrs.fontSize
     return Object.keys(safe).length > 0 ? safe : null
   },
 }
