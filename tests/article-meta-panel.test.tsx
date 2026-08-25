@@ -10,6 +10,7 @@ import {
 } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ArticleMetaPanel } from '../src/components/ArticleMetaPanel'
+import { resetSaveStatus } from '../src/lib/articles/save-status'
 
 const fetchMock = vi.fn(
   async () => new Response(JSON.stringify({ ok: true }), { status: 200 }),
@@ -18,12 +19,14 @@ const fetchMock = vi.fn(
 beforeEach(() => {
   fetchMock.mockClear()
   vi.stubGlobal('fetch', fetchMock)
+  resetSaveStatus()
 })
 
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
+  resetSaveStatus()
 })
 
 interface PanelOverrides {

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { setSaveStatus } from '../lib/articles/save-status'
 import './article-editor.css'
 
 interface CategoryOption {
@@ -58,7 +59,7 @@ export function ArticleMetaPanel({
   const [categoryId, setCategoryId] = useState(initialCategoryId)
   const [tagsText, setTagsText] = useState(initialTags.join(', '))
   const [isFeatured, setIsFeatured] = useState(initialIsFeatured)
-  const [status, setStatus] = useState<MetaState>('')
+  const [status, setStatusRaw] = useState<MetaState>('')
   const [tagsFocused, setTagsFocused] = useState(false)
   /**
    * Quick-add chips dismissed with the × button — this article's session
@@ -80,6 +81,21 @@ export function ArticleMetaPanel({
   /** True while fields sit in pendingPatch waiting for the debounce timer. */
   function hasPendingEdits(): boolean {
     return Object.keys(pendingPatch.current).length > 0
+  }
+
+  /** Mirrors every transition into the page's shared save-status store. */
+  function setStatus(next: MetaState): void {
+    setStatusRaw(next)
+    setSaveStatus(
+      'meta',
+      next === 'Saving…'
+        ? 'saving'
+        : next === 'Saved'
+          ? 'saved'
+          : next === 'Save failed'
+            ? 'error'
+            : 'idle',
+    )
   }
 
   async function patch(body: Record<string, unknown>): Promise<boolean> {
@@ -342,12 +358,6 @@ export function ArticleMetaPanel({
         >
           Delete
         </button>
-        <span
-          className={`article-meta-status${status === 'Saved' ? ' is-success' : ''}${status === 'Save failed' ? ' is-error' : ''}`}
-          aria-live="polite"
-        >
-          {status}
-        </span>
       </div>
       {createdToday && quickTags.length > 0 && (
         <div className="article-meta-quick-tags">

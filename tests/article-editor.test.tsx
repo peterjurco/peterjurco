@@ -11,6 +11,7 @@ import {
 import type { Editor } from '@tiptap/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ArticleEditor } from '../src/components/ArticleEditor'
+import { resetSaveStatus } from '../src/lib/articles/save-status'
 
 const CONTENT = {
   type: 'doc',
@@ -29,11 +30,13 @@ const fetchMock = vi.fn(
 beforeEach(() => {
   fetchMock.mockClear()
   vi.stubGlobal('fetch', fetchMock)
+  resetSaveStatus()
 })
 
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  resetSaveStatus()
 })
 
 /** Renders the island and waits for the TipTap editor to mount. */

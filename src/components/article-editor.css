@@ -203,21 +203,6 @@
   border-color: var(--admin-danger);
 }
 
-.article-meta-status {
-  font-size: 0.8rem;
-  color: var(--admin-muted);
-}
-
-.article-meta-status.is-success {
-  color: var(--admin-success);
-  font-weight: 600;
-}
-
-.article-meta-status.is-error {
-  color: var(--admin-danger);
-  font-weight: 600;
-}
-
 /* Tags: type-ahead dropdown + "popular in category" quick-add chips. */
 
 .article-meta-tags-wrap {

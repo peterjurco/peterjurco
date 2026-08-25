@@ -3,6 +3,7 @@ import { EditorContent, useEditor } from '@tiptap/react'
 import type { MouseEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { documentExtensions } from '../lib/articles/extensions'
+import { setSaveStatus, useSharedSaveLabel } from '../lib/articles/save-status'
 import { EditorToolbar } from './EditorToolbar'
 import './article-editor.css'
 
@@ -18,14 +19,6 @@ interface ArticleEditorProps {
   onReady?: (editor: Editor) => void
 }
 
-const SAVE_LABELS: Record<SaveState, string> = {
-  idle: '',
-  dirty: 'Saving…',
-  saving: 'Saving…',
-  saved: 'Saved',
-  error: 'Save failed',
-}
-
 /**
  * The Google-Docs-style article island (TECH_DECISIONS §2): one component,
  * `editable` driven by permission. Read-only renders the document alone —
@@ -38,9 +31,15 @@ export function ArticleEditor({
   autosaveDelayMs = 800,
   onReady,
 }: ArticleEditorProps) {
-  const [saveState, setSaveState] = useState<SaveState>('idle')
+  const [saveState, setSaveStateRaw] = useState<SaveState>('idle')
   const [metaPressed, setMetaPressed] = useState(false)
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  /** Mirrors every transition into the page's shared save-status store. */
+  function setSaveState(next: SaveState): void {
+    setSaveStateRaw(next)
+    setSaveStatus('content', next === 'dirty' ? 'saving' : next)
+  }
   /** Latest unsaved document — null when everything typed has been sent. */
   const pendingContent = useRef<Record<string, unknown> | null>(null)
   const inFlight = useRef(false)
@@ -171,10 +170,12 @@ export function ArticleEditor({
     window.open(link.href, '_blank', 'noopener,noreferrer')
   }
 
+  const saveLabel = useSharedSaveLabel()
+
   return (
     <div className="article-editor">
       {editable && editor && (
-        <EditorToolbar editor={editor} saveLabel={SAVE_LABELS[saveState]} />
+        <EditorToolbar editor={editor} saveLabel={saveLabel} />
       )}
       <EditorContent
         editor={editor}
