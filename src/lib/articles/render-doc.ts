@@ -86,6 +86,25 @@ function isSafeFontSize(value: unknown): value is string {
   return size >= 8 && size <= 72
 }
 
+/** table cells' colspan/rowspan — a merged-cell span, never unbounded. */
+function isSafeSpan(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= 1 &&
+    value <= 1000
+  )
+}
+
+function sanitizeTableCellAttrs(
+  attrs: Record<string, unknown>,
+): Record<string, unknown> {
+  const safe: Record<string, unknown> = {}
+  if (isSafeSpan(attrs.colspan)) safe.colspan = attrs.colspan
+  if (isSafeSpan(attrs.rowspan)) safe.rowspan = attrs.rowspan
+  return safe
+}
+
 type MarkSanitizer = (
   attrs: Record<string, unknown>,
 ) => Record<string, unknown> | null
@@ -134,6 +153,10 @@ const ALLOWED_NODES: Record<string, NodeSanitizer> = {
         ? attrs.language
         : null,
   }),
+  table: () => ({}),
+  tableRow: () => ({}),
+  tableHeader: sanitizeTableCellAttrs,
+  tableCell: sanitizeTableCellAttrs,
   image: (attrs) => {
     if (!isSafeUrl(attrs.src)) return null
     const safe: Record<string, unknown> = { src: attrs.src }

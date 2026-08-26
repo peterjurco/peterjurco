@@ -70,6 +70,80 @@ describe('renderDoc — faithful rendering', () => {
     expect(html).toContain('big')
   })
 
+  it('renders a table with header and body cells', () => {
+    const html = renderDoc(
+      doc({
+        type: 'table',
+        content: [
+          {
+            type: 'tableRow',
+            content: [
+              { type: 'tableHeader', content: [paragraph(text('Name'))] },
+              { type: 'tableHeader', content: [paragraph(text('Score'))] },
+            ],
+          },
+          {
+            type: 'tableRow',
+            content: [
+              { type: 'tableCell', content: [paragraph(text('Alice'))] },
+              { type: 'tableCell', content: [paragraph(text('10'))] },
+            ],
+          },
+        ],
+      }),
+    )
+    expect(html).toContain('<table')
+    expect(html).toContain('<th')
+    expect(html).toContain('Name')
+    expect(html).toContain('Score')
+    expect(html).toContain('<td')
+    expect(html).toContain('Alice')
+    expect(html).toContain('10')
+  })
+
+  it('sanitizes colspan/rowspan on table cells, dropping out-of-range values', () => {
+    const validHtml = renderDoc(
+      doc({
+        type: 'table',
+        content: [
+          {
+            type: 'tableRow',
+            content: [
+              {
+                type: 'tableCell',
+                attrs: { colspan: 2, rowspan: 3 },
+                content: [paragraph(text('merged'))],
+              },
+            ],
+          },
+        ],
+      }),
+    )
+    expect(validHtml).toContain('colspan="2"')
+    expect(validHtml).toContain('rowspan="3"')
+
+    const invalidHtml = renderDoc(
+      doc({
+        type: 'table',
+        content: [
+          {
+            type: 'tableRow',
+            content: [
+              {
+                type: 'tableCell',
+                attrs: { colspan: -5, rowspan: 'DROP TABLE' },
+                content: [paragraph(text('cell'))],
+              },
+            ],
+          },
+        ],
+      }),
+    )
+    expect(invalidHtml).not.toContain('colspan="-5"')
+    expect(invalidHtml).not.toContain('DROP TABLE')
+    expect(invalidHtml).toContain('cell')
+  })
+
   it('renders links with safe rel and target', () => {
     const html = renderDoc(
       doc(

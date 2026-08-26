@@ -106,6 +106,34 @@ describe('ArticleEditor — read-only mode', () => {
     })
     expect(container.querySelector('iframe')).toBeTruthy()
   })
+
+  it('opens an article containing a table without crashing', async () => {
+    const { container } = await renderEditor(false, {
+      type: 'doc',
+      content: [
+        {
+          type: 'table',
+          content: [
+            {
+              type: 'tableRow',
+              content: [
+                {
+                  type: 'tableCell',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: 'cell' }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    })
+    expect(container.querySelector('table')).toBeTruthy()
+  })
 })
 
 describe('ArticleEditor — editable mode', () => {

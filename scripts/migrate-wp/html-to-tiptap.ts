@@ -9,7 +9,8 @@ import { NodeType, parse, TextNode } from 'node-html-parser'
  * node/mark vocabulary the editor and SSR renderer share
  * (src/lib/articles/extensions.ts, src/lib/articles/render-doc.ts):
  * doc/paragraph/text/heading/blockquote/bulletList/orderedList/listItem/
- * hardBreak/image/videoEmbed nodes, bold/italic/strike/link marks. Tags
+ * hardBreak/image/videoEmbed/table/tableRow/tableCell/tableHeader nodes,
+ * bold/italic/strike/link marks. Tags
  * outside that vocabulary never crash the conversion — they degrade to plain
  * paragraphs
  * (or are dropped, for non-content tags like <script>/<style>) so a messy
@@ -190,6 +191,36 @@ function convertInline(node: ParsedNode, marks: PMMark[]): PMNode[] {
   return node.childNodes.flatMap((child) => convertInline(child, marks))
 }
 
+/** A cell's content model is "block+" — never zero blocks, even when empty. */
+function convertTableCellContent(cell: ParsedHTMLElement): PMNode[] {
+  const blocks = convertBlocks(cell.childNodes)
+  return blocks.length > 0 ? blocks : [EMPTY_PARAGRAPH]
+}
+
+function convertTableRow(tr: ParsedHTMLElement): PMNode | null {
+  const cells = tr.children
+    .filter((child) => ['td', 'th'].includes(tagNameOf(child)))
+    .map((cell) => ({
+      type: tagNameOf(cell) === 'th' ? 'tableHeader' : 'tableCell',
+      content: convertTableCellContent(cell),
+    }))
+  return cells.length > 0 ? { type: 'tableRow', content: cells } : null
+}
+
+/**
+ * `querySelectorAll('tr')` finds rows regardless of whether they sit
+ * directly under <table> or inside <thead>/<tbody>/<tfoot> — the real WP
+ * dump always wraps in <tbody>, so this sidesteps needing to special-case
+ * those wrapper tags the way CONTAINER_TAGS does for div/section/etc.
+ */
+function convertTable(table: ParsedHTMLElement): PMNode | null {
+  const rows = table
+    .querySelectorAll('tr')
+    .map((tr) => convertTableRow(tr))
+    .filter((row): row is PMNode => row !== null)
+  return rows.length > 0 ? { type: 'table', content: rows } : null
+}
+
 function convertListItem(li: ParsedHTMLElement): PMNode {
   const blocks = convertBlocks(li.childNodes)
   // listItem's content model is "paragraph block*" — it must start with a
@@ -295,6 +326,13 @@ function convertBlocks(nodes: ParsedNode[]): PMNode[] {
           attrs: { provider: 'file', src: source },
         })
       }
+      continue
+    }
+
+    if (tag === 'table') {
+      flushBuffer()
+      const converted = convertTable(node)
+      if (converted) result.push(converted)
       continue
     }
 

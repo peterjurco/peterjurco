@@ -2,6 +2,12 @@ import type { Extensions } from '@tiptap/core'
 import { Node } from '@tiptap/core'
 import { Image } from '@tiptap/extension-image'
 import {
+  Table,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from '@tiptap/extension-table'
+import {
   Color,
   FontFamily,
   FontSize,
@@ -72,7 +78,9 @@ export const VideoEmbed = Node.create({
  * StarterKit (v3) covers headings, blockquote, bold/italic/strike, lists and
  * links; list indentation is TipTap's native list nesting
  * (sinkListItem/liftListItem). Color + FontFamily + FontSize ride on the
- * textStyle mark.
+ * textStyle mark. Table/TableRow/TableHeader/TableCell exist so WP-imported
+ * tables render and stay editable cell-by-cell — no toolbar button inserts
+ * a new one (import-only, same as VideoEmbed).
  */
 export function documentExtensions(): Extensions {
   return [
@@ -89,5 +97,11 @@ export function documentExtensions(): Extensions {
     Color,
     FontFamily,
     FontSize,
+    // Import-only for now (WP migration): editable cell-by-cell once a table
+    // exists, but no toolbar button inserts a new one.
+    Table,
+    TableRow,
+    TableHeader,
+    TableCell,
   ]
 }

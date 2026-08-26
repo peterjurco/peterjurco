@@ -220,13 +220,140 @@ describe('htmlToTiptap', () => {
   })
 
   it('degrades unknown/unsupported tags to plain paragraphs instead of crashing', () => {
-    const doc = htmlToTiptap(
-      '<table><tr><td>cell one</td><td>cell two</td></tr></table>',
-    )
+    const doc = htmlToTiptap('<form><p>cell one</p><p>cell two</p></form>')
     expect(doc.content).toEqual([
       { type: 'paragraph', content: [{ type: 'text', text: 'cell one' }] },
       { type: 'paragraph', content: [{ type: 'text', text: 'cell two' }] },
     ])
+  })
+
+  describe('tables', () => {
+    it('converts rows and cells into table/tableRow/tableCell nodes', () => {
+      const doc = htmlToTiptap(
+        '<table><tr><td>A</td><td>B</td></tr><tr><td>C</td><td>D</td></tr></table>',
+      )
+      expect(doc.content).toEqual([
+        {
+          type: 'table',
+          content: [
+            {
+              type: 'tableRow',
+              content: [
+                {
+                  type: 'tableCell',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: 'A' }],
+                    },
+                  ],
+                },
+                {
+                  type: 'tableCell',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: 'B' }],
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              type: 'tableRow',
+              content: [
+                {
+                  type: 'tableCell',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: 'C' }],
+                    },
+                  ],
+                },
+                {
+                  type: 'tableCell',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: 'D' }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ])
+    })
+
+    it('converts <th> cells to tableHeader nodes', () => {
+      const doc = htmlToTiptap(
+        '<table><tr><th>Name</th><th>Score</th></tr><tr><td>Alice</td><td>10</td></tr></table>',
+      )
+      const [table] = doc.content
+      expect(table?.content?.[0]?.content?.map((cell) => cell.type)).toEqual([
+        'tableHeader',
+        'tableHeader',
+      ])
+      expect(table?.content?.[1]?.content?.map((cell) => cell.type)).toEqual([
+        'tableCell',
+        'tableCell',
+      ])
+    })
+
+    it('fills an empty cell with an empty paragraph instead of leaving it contentless', () => {
+      const doc = htmlToTiptap(
+        '<table><tr><td></td><td>value</td></tr></table>',
+      )
+      const [table] = doc.content
+      const [firstCell] = table?.content?.[0]?.content ?? []
+      expect(firstCell?.content).toEqual([{ type: 'paragraph', content: [] }])
+    })
+
+    it('flattens <thead>/<tbody> wrappers, matching the real WP table structure', () => {
+      const doc = htmlToTiptap(
+        '<table><thead><tr><th>H1</th></tr></thead><tbody><tr><td>D1</td></tr></tbody></table>',
+      )
+      const [table] = doc.content
+      expect(table?.content?.map((row) => row.content?.[0]?.type)).toEqual([
+        'tableHeader',
+        'tableCell',
+      ])
+    })
+
+    it('converts the real WP wp-block-table figure wrapper', () => {
+      const doc = htmlToTiptap(
+        '<figure class="wp-block-table is-style-stripes"><table><tbody>' +
+          '<tr><td></td><td>Caterpillar</td><td>VacuumLabs</td></tr>' +
+          '<tr><td>Hrubý mesačne</td><td>4500</td><td>5250</td></tr>' +
+          '</tbody></table></figure>',
+      )
+      expect(doc.content).toHaveLength(1)
+      expect(doc.content[0]?.type).toBe('table')
+      expect(doc.content[0]?.content).toHaveLength(2)
+      expect(doc.content[0]?.content?.[1]?.content?.[0]?.content).toEqual([
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'Hrubý mesačne' }],
+        },
+      ])
+    })
+
+    it('drops a table with no rows rather than emitting an empty table node', () => {
+      expect(htmlToTiptap('<table></table>').content).toEqual([
+        { type: 'paragraph', content: [] },
+      ])
+    })
+
+    it('round-trips a table through renderDoc without being stripped', () => {
+      const doc = htmlToTiptap('<table><tr><td>A</td><td>B</td></tr></table>')
+      const html = renderDoc(doc)
+      expect(html).toContain('<table')
+      expect(html).toContain('<td')
+      expect(html).toContain('A')
+      expect(html).toContain('B')
+    })
   })
 
   it('converts a raw YouTube <iframe> to a videoEmbed', () => {
