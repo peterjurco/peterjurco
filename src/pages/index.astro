@@ -44,16 +44,15 @@ const ogImage = firstPhoto?.imageKeys[0]
   ? absoluteUrl(imageUrl(firstPhoto.imageKeys[0], { width: 1200 }), Astro.url)
   : null
 
-// Footer socials per DESIGN; hrefs stay the mock's placeholders until the
-// owner supplies real profile URLs.
+// Footer socials per DESIGN.
 const socials = [
-  ['Instagram', '#'],
-  ['LinkedIn', '#'],
-  ['Goodreads', '#'],
-  ['Last.fm', '#'],
-  ['Strava', '#'],
-  ['GitHub', '#'],
-  ['Email', '#'],
+  ['Instagram', 'https://www.instagram.com/peter.sochor.jurco/'],
+  ['LinkedIn', 'https://www.linkedin.com/in/peter-jurco/'],
+  ['Goodreads', 'https://www.goodreads.com/user/show/55044712-peter-jur-o'],
+  ['Last.fm', 'https://www.last.fm/user/coumaxmi'],
+  ['Strava', 'https://www.strava.com/athletes/33153949'],
+  ['GitHub', 'https://github.com/peterjurco'],
+  ['Email', 'mailto:petrojurco@gmail.com'],
 ] as const
 ---
 
@@ -82,7 +81,7 @@ const socials = [
     <div class="wrap">
       <header class="masthead">
         <div class="logo">Peter Sochor Jur<span class="logo-accent">čo</span></div>
-        <div class="masthead__meta">Photography<br />Selected frames</div>
+        <div class="masthead__meta">home is ... </div>
       </header>
 
       <main class="canvas">
