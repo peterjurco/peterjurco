@@ -16,6 +16,9 @@
   --cream: #f0e7d3; /* lightbox cream */
   margin: 0;
   padding: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   background: var(--ground);
   color: var(--ink);
   font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -35,9 +38,13 @@
 /* ---------- layout ---------- */
 
 .public-home .wrap {
+  width: 100%;
   max-width: 1200px;
   margin: 0 auto;
   padding: 40px 26px 52px;
+  /* Fills the space above the footer, pushing it to the bottom of the
+     screen on short pages — grows without shrinking below its content. */
+  flex: 1 0 auto;
 }
 
 .public-home .masthead {
