@@ -245,6 +245,32 @@
   border-color: var(--ink);
 }
 
+/*
+ * ---------- narrow-viewport quote overflow ----------
+ * Tile height/width are canvas percentages (tileStyle() in tile-render.ts,
+ * shared with photo tiles) sized for desktop proportions. A long quote at
+ * the same percentage height on a phone-width canvas badly overflows its
+ * card — the font floor barely shrinks while the box shrinks a lot. Below
+ * this width, let quote cards grow to fit their text instead of clipping
+ * past their own box, and shrink the type further than the desktop clamp
+ * floor allows.
+ */
+@media (max-width: 640px) {
+  .public-home .marquee blockquote {
+    font-size: clamp(11px, 3.6vw, 19px);
+  }
+
+  .public-home .quote-ink blockquote {
+    font-size: clamp(10px, 3.2vw, 15px);
+  }
+
+  .public-home .tile.marquee,
+  .public-home .tile.quote-ink {
+    /* biome-ignore lint/complexity/noImportantStyles: overrides tileStyle()'s inline height:%, which normal specificity can't beat. */
+    height: auto !important;
+  }
+}
+
 /* ---------- reduced motion (DESIGN: honored, cycling also stops in JS) ---------- */
 
 @media (prefers-reduced-motion: reduce) {
