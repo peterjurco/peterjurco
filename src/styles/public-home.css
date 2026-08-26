@@ -63,18 +63,32 @@
   letter-spacing: 0.01em;
   text-transform: uppercase;
   line-height: 1;
+  /* Words are separate spans (not text nodes) so they can each get their
+     own line on mobile — flex + gap stands in for the word-space that
+     approach would otherwise lose. */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.25em;
 }
 
 .public-home .logo-accent {
   color: #fff;
 }
 
-.public-home .masthead__meta {
-  font-size: 12px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #5f4f22;
-  text-align: right;
+/* Canvas tiles are laid out as % of a fixed 5:7 poster shape (canvas.ts) —
+   with none yet placed, that reserved height is just dead space pushing
+   the footer off-screen for no reason. */
+.public-home .canvas.canvas--empty {
+  aspect-ratio: unset;
+}
+
+@media (max-width: 640px) {
+  .public-home .logo {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2em 0;
+  }
 }
 
 /* ---------- the freeform canvas ---------- */

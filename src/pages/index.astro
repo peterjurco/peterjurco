@@ -80,10 +80,14 @@ const socials = [
   <body class="public-home">
     <div class="wrap">
       <header class="masthead">
-        <div class="logo">Peter Sochor Jur<span class="logo-accent">čo</span></div>
+        <div class="logo">
+          <span class="logo-word">Peter</span>
+          <span class="logo-word">Sochor</span>
+          <span class="logo-word">Jur<span class="logo-accent">čo</span></span>
+        </div>
       </header>
 
-      <main class="canvas">
+      <main class={`canvas${tiles.length === 0 ? ' canvas--empty' : ''}`}>
         {tiles.map((tile) => <TileRenderer tile={tile} />)}
       </main>
     </div>

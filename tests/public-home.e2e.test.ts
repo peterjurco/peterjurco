@@ -260,7 +260,7 @@ describe('public homepage — canvas render from stored layout', () => {
     // Masthead + ground.
     expect(html).toContain('class="public-home"')
     expect(html).toContain(
-      'Peter Sochor Jur<span class="logo-accent">čo</span>',
+      '<span class="logo-word">Jur<span class="logo-accent">čo</span></span>',
     )
 
     // The photo tile: absolutely positioned, Develop hover, border, no tilt.
@@ -349,6 +349,19 @@ describe('public homepage — canvas render from stored layout', () => {
     expect(html).toContain('class="public-home"')
     expect(html).not.toContain('astro-island')
     expect(html).toContain('content="summary"') // no og:image without photos
+  })
+
+  it('marks the canvas empty when there are no tiles, so it reserves no fixed height', async () => {
+    const response = await request('/')
+    const html = await response.text()
+    expect(html).toContain('<main class="canvas canvas--empty">')
+  })
+
+  it('does not mark the canvas empty once a tile exists', async () => {
+    await createTileViaApi(photoBody())
+    const response = await request('/')
+    const html = await response.text()
+    expect(html).toContain('<main class="canvas">')
   })
 })
 
