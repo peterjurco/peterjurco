@@ -259,7 +259,9 @@ describe('public homepage — canvas render from stored layout', () => {
 
     // Masthead + ground.
     expect(html).toContain('class="public-home"')
-    expect(html).toContain('Peter Jurčo')
+    expect(html).toContain(
+      'Peter Sochor Jur<span class="logo-accent">čo</span>',
+    )
 
     // The photo tile: absolutely positioned, Develop hover, border, no tilt.
     expect(html).toContain('class="tile photo develop"')
@@ -290,7 +292,9 @@ describe('public homepage — canvas render from stored layout', () => {
     }
 
     // OG meta — og:image absolute, derived from the first photo tile.
-    expect(html).toContain('<meta property="og:title" content="Peter Jurčo"')
+    expect(html).toContain(
+      '<meta property="og:title" content="Peter Sochor Jurčo"',
+    )
     expect(html).toContain('<meta property="og:description"')
     expect(html).toContain(`property="og:url" content="${BASE_URL}/"`)
     expect(html).toContain(

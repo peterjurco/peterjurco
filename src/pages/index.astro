@@ -32,7 +32,7 @@ const tiles = (await listOrdered(db)).filter((tile) => {
   return false
 })
 
-const title = 'Peter Jurčo'
+const title = 'Peter Sochor Jurčo'
 const description = 'Photography — selected frames.'
 const canonicalUrl = new URL('/', Astro.url)
 const firstPhoto = tiles.find(
@@ -81,7 +81,7 @@ const socials = [
   <body class="public-home">
     <div class="wrap">
       <header class="masthead">
-        <div class="logo">Peter Jurčo</div>
+        <div class="logo">Peter Sochor Jur<span class="logo-accent">čo</span></div>
         <div class="masthead__meta">Photography<br />Selected frames</div>
       </header>
 

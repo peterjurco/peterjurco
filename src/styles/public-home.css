@@ -58,6 +58,10 @@
   line-height: 1;
 }
 
+.public-home .logo-accent {
+  color: #fff;
+}
+
 .public-home .masthead__meta {
   font-size: 12px;
   letter-spacing: 0.05em;
