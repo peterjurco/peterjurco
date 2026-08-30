@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#17140f"/>
+  <text
+    x="31"
+    y="46"
+    text-anchor="middle"
+    font-family="'Unbounded', system-ui, sans-serif"
+    font-weight="800"
+    font-size="32"
+    letter-spacing="-1"
+    fill="#f0e7d3"
+  >čo</text>
+</svg>
