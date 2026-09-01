@@ -1,3 +1,3 @@
 # TODO
 
-Nothing outstanding right now.
+- Migrácia dokumentov z Google Docs (denník, plány a pod.)
