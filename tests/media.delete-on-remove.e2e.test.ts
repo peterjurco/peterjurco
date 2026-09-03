@@ -59,7 +59,7 @@ async function uploadObject(filename: string): Promise<string> {
   const presign = await request('/api/media/presign', {
     method: 'POST',
     authed: true,
-    body: { contentType: 'image/png', size: 3, filename },
+    body: { contentType: 'image/png', size: 3, prefix: 'covers', filename },
   })
   expect(presign.status).toBe(200)
   const { url, key } = (await presign.json()) as { url: string; key: string }

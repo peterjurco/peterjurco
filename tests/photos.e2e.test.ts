@@ -372,7 +372,12 @@ describe('photo hub — pages and public sharing flow', () => {
     const presign = await request('/api/media/presign', {
       method: 'POST',
       authed: true,
-      body: { contentType: 'image/png', size: 9, filename: 'hub.png' },
+      body: {
+        contentType: 'image/png',
+        size: 9,
+        prefix: 'covers',
+        filename: 'hub.png',
+      },
     })
     expect(presign.status).toBe(200)
     const { url, key } = (await presign.json()) as { url: string; key: string }

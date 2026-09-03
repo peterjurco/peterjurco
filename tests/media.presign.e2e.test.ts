@@ -130,6 +130,7 @@ describe('POST /api/media/presign', () => {
     const atCap = await presign({
       contentType: 'image/jpeg',
       size: MAX_UPLOAD_BYTES,
+      prefix: 'covers',
       filename: 'a.jpg',
     })
     expect(atCap.status).toBe(200)
@@ -139,6 +140,7 @@ describe('POST /api/media/presign', () => {
     const response = await presign({
       contentType: 'image/png',
       size: 9,
+      prefix: 'covers',
       filename: 'Cover Photo.PNG',
     })
     expect(response.status).toBe(200)
@@ -166,6 +168,7 @@ describe('POST /api/media/presign', () => {
     const response = await presign({
       contentType: 'image/png',
       size: 9,
+      prefix: 'covers',
       filename: 'typed.png',
     })
     expect(response.status).toBe(200)
@@ -190,5 +193,27 @@ describe('POST /api/media/presign', () => {
     expect(matching.status).toBe(200)
     const stored = await minio.fetch(`${MINIO_ENDPOINT}/${BUCKET}/${key}`)
     expect(stored.status).toBe(200)
+  })
+
+  it('stores article-body images under the articles/ prefix', async () => {
+    const response = await presign({
+      contentType: 'image/jpeg',
+      size: 1024,
+      prefix: 'articles',
+      filename: 'pasted.jpg',
+    })
+    expect(response.status).toBe(200)
+    const { key } = (await response.json()) as { key: string }
+    expect(key).toMatch(/^articles\/[A-Za-z0-9_-]{21}\.jpg$/)
+  })
+
+  it('rejects a prefix outside the allowlist', async () => {
+    const response = await presign({
+      contentType: 'image/jpeg',
+      size: 1024,
+      prefix: 'covers/../secrets',
+      filename: 'a.jpg',
+    })
+    expect(response.status).toBe(400)
   })
 })
