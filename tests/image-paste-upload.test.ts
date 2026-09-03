@@ -74,6 +74,55 @@ describe('ImagePasteUpload', () => {
     editor.destroy()
   })
 
+  it('keeps the pending upload anchored to its position when the document changes before it resolves', async () => {
+    // A controllable presign response: the upload stays pending until the
+    // test explicitly resolves it, so a document edit can be made in
+    // between the paste and the upload landing.
+    let resolvePresign!: (response: Response) => void
+    const presign = new Promise<Response>((resolve) => {
+      resolvePresign = resolve
+    })
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) =>
+      String(input) === '/api/media/presign'
+        ? presign
+        : new Response(null, { status: 200 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const editor = createEditor()
+
+    firePaste(editor, [file])
+    expect(
+      editor.view.dom.querySelector('.image-paste-placeholder'),
+    ).not.toBeNull()
+
+    // Type before the placeholder's anchored position (1, the start of the
+    // empty paragraph the paste landed in) while the upload is still in
+    // flight. Without tr.mapping remapping in the plugin's apply(), the
+    // stored position would stay stale at 1 and the image would land
+    // *before* this text instead of after it.
+    editor.chain().insertContentAt(1, 'Hello ').run()
+
+    resolvePresign(
+      Response.json({ url: 'http://s3/put', key: 'articles/anchored.png' }),
+    )
+    await vi.waitFor(() => {
+      expect(
+        editor.view.dom.querySelector('.image-paste-placeholder'),
+      ).toBeNull()
+    })
+
+    const content = editor.getJSON().content ?? []
+    const textIndex = content.findIndex((node) =>
+      node.content?.some(
+        (child) => child.type === 'text' && child.text?.includes('Hello'),
+      ),
+    )
+    const imageIndex = content.findIndex((node) => node.type === 'image')
+    expect(textIndex).toBeGreaterThanOrEqual(0)
+    expect(imageIndex).toBeGreaterThan(textIndex)
+    editor.destroy()
+  })
+
   it('shows a dismissable inline error on failure, without touching the document', async () => {
     vi.stubGlobal(
       'fetch',
