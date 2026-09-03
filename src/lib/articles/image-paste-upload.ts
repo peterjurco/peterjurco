@@ -137,6 +137,7 @@ export const ImagePasteUpload = Extension.create({
 
               uploadImage(file, 'articles').then(
                 (key) => {
+                  if (editor.isDestroyed) return
                   const current = pasteUploadKey.getState(editor.state)?.get(id)
                   editor
                     .chain()
@@ -153,6 +154,7 @@ export const ImagePasteUpload = Extension.create({
                   )
                 },
                 (error: unknown) => {
+                  if (editor.isDestroyed) return
                   editor.view.dispatch(
                     editor.view.state.tr.setMeta(pasteUploadKey, {
                       type: 'error',

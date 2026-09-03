@@ -114,7 +114,11 @@ describe('ImagePasteUpload', () => {
     const content = editor.getJSON().content ?? []
     const textIndex = content.findIndex((node) =>
       node.content?.some(
-        (child) => child.type === 'text' && child.text?.includes('Hello'),
+        (child) =>
+          child.type === 'text' &&
+          'text' in child &&
+          typeof child.text === 'string' &&
+          child.text.includes('Hello'),
       ),
     )
     const imageIndex = content.findIndex((node) => node.type === 'image')
@@ -151,9 +155,74 @@ describe('ImagePasteUpload', () => {
 
     firePaste(editor, [])
 
-    expect(
-      editor.view.dom.querySelector('.image-paste-placeholder'),
-    ).toBeNull()
+    expect(editor.view.dom.querySelector('.image-paste-placeholder')).toBeNull()
     editor.destroy()
+  })
+
+  /**
+   * Guards against a real bug: navigating away right after pasting destroys
+   * the editor while the upload is still in flight. TipTap's Editor.destroy()
+   * nulls out internal state, so the pending .then()/.catch() callbacks must
+   * bail out via `editor.isDestroyed` before touching `editor.chain()` /
+   * `editor.view` — otherwise they throw inside a promise callback with
+   * nothing to catch it, surfacing as an unhandled rejection.
+   */
+  async function expectNoUnhandledRejection(
+    trigger: () => void,
+  ): Promise<void> {
+    const rejections: unknown[] = []
+    const onUnhandledRejection = (reason: unknown) => rejections.push(reason)
+    process.on('unhandledRejection', onUnhandledRejection)
+    try {
+      trigger()
+      // Flush the promise chain inside uploadImage() (presign fetch -> PUT
+      // fetch -> the plugin's .then()/.catch()).
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    } finally {
+      process.off('unhandledRejection', onUnhandledRejection)
+    }
+    expect(rejections).toEqual([])
+  }
+
+  it('does not throw when a successful upload resolves after the editor is destroyed', async () => {
+    let resolvePresign!: (response: Response) => void
+    const presign = new Promise<Response>((resolve) => {
+      resolvePresign = resolve
+    })
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) =>
+      String(input) === '/api/media/presign'
+        ? presign
+        : new Response(null, { status: 200 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const editor = createEditor()
+
+    firePaste(editor, [file])
+    editor.destroy()
+
+    await expectNoUnhandledRejection(() => {
+      resolvePresign(
+        Response.json({ url: 'http://s3/put', key: 'articles/late.png' }),
+      )
+    })
+  })
+
+  it('does not throw when a failed upload rejects after the editor is destroyed', async () => {
+    let rejectPresign!: (error: unknown) => void
+    const presign = new Promise<Response>((_resolve, reject) => {
+      rejectPresign = reject
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => presign),
+    )
+    const editor = createEditor()
+
+    firePaste(editor, [file])
+    editor.destroy()
+
+    await expectNoUnhandledRejection(() => {
+      rejectPresign(new Error('boom'))
+    })
   })
 })

@@ -23,7 +23,7 @@ const CONTENT = {
   ],
 }
 
-const fetchMock = vi.fn(
+const fetchMock = vi.fn<typeof fetch>(
   async () => new Response(JSON.stringify({ ok: true }), { status: 200 }),
 )
 
