@@ -1,112 +1,22 @@
 import { useState } from 'react'
+import {
+  ACCEPTED_IMAGE_TYPES,
+  type UploadImageOptions,
+  uploadImage,
+} from '../lib/media/upload-image'
 
 /**
- * Cover-image upload: file input → optional light client downscale (cap the
- * longest edge, per DESIGN/TECH_DECISIONS §5 hybrid note — speeds mobile
- * uploads; display sizes still come from edge transforms) → presigned PUT
- * straight to R2 (POST /api/media/presign) → reports the stored object key.
+ * Cover-image upload: file input → uploadImage('covers') → reports the
+ * stored object key. The downscale/presign/PUT pipeline itself lives in
+ * src/lib/media/upload-image.ts, shared with the article-body paste-upload
+ * flow (src/lib/articles/image-paste-upload.ts).
  */
 
-/** Mirror of the server-side allowlist (src/lib/media/r2.ts). */
-const ACCEPTED_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/avif',
-  'image/gif',
-]
-
-/** Longest-edge cap before upload (DESIGN motion/upload note). */
-export const MAX_EDGE_PX = 2560
-
-/**
- * Target box for the client downscale: null when the image is already within
- * `maxEdge`; otherwise the capped dimensions, aspect ratio kept, rounded to
- * whole pixels.
- */
-export function targetDimensions(
-  width: number,
-  height: number,
-  maxEdge = MAX_EDGE_PX,
-): { width: number; height: number } | null {
-  const longest = Math.max(width, height)
-  if (longest <= maxEdge) return null
-  const scale = maxEdge / longest
-  return {
-    width: Math.round(width * scale),
-    height: Math.round(height * scale),
-  }
-}
-
-/**
- * Default downscale: decode → draw onto a capped canvas → re-encode as WebP.
- * Every failure mode (no createImageBitmap, canvas taint, encoder refusal)
- * falls back to uploading the original bytes — the downscale is an
- * optimization, never a gate. GIFs are passed through (canvas would drop
- * animation frames).
- */
-async function downscaleImage(file: File): Promise<Blob> {
-  if (typeof createImageBitmap !== 'function') return file
-  if (file.type === 'image/gif') return file
-  try {
-    const bitmap = await createImageBitmap(file)
-    const target = targetDimensions(bitmap.width, bitmap.height)
-    if (!target) {
-      bitmap.close()
-      return file
-    }
-    const canvas = document.createElement('canvas')
-    canvas.width = target.width
-    canvas.height = target.height
-    const context = canvas.getContext('2d')
-    if (!context) return file
-    context.drawImage(bitmap, 0, 0, target.width, target.height)
-    bitmap.close()
-    const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, 'image/webp', 0.9)
-    })
-    return blob ?? file
-  } catch {
-    return file
-  }
-}
-
-interface UploadCoverOptions {
-  /** Test hooks — default to the real fetch and canvas downscale. */
-  fetchFn?: typeof fetch
-  downscale?: (file: File) => Promise<Blob>
-}
-
-/**
- * The full upload orchestration: downscale → presign → PUT. Resolves with
- * the stored R2 object key.
- */
 export async function uploadCover(
   file: File,
-  { fetchFn = fetch, downscale = downscaleImage }: UploadCoverOptions = {},
+  options?: UploadImageOptions,
 ): Promise<string> {
-  const blob = await downscale(file)
-  const contentType = blob.type || file.type
-
-  const presign = await fetchFn('/api/media/presign', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contentType,
-      size: blob.size,
-      filename: file.name,
-    }),
-  })
-  if (!presign.ok) throw new Error(`Presign failed (${presign.status})`)
-  const { url, key } = (await presign.json()) as { url: string; key: string }
-
-  const put = await fetchFn(url, {
-    method: 'PUT',
-    headers: { 'Content-Type': contentType },
-    body: blob,
-  })
-  if (!put.ok) throw new Error(`Upload failed (${put.status})`)
-  return key
+  return uploadImage(file, 'covers', options)
 }
 
 type Status = '' | 'Uploading…' | 'Uploaded' | 'Upload failed' | 'Not an image'
@@ -128,7 +38,7 @@ export function CoverUpload({
   const uploading = status === 'Uploading…'
 
   async function handleFile(file: File): Promise<void> {
-    if (!ACCEPTED_TYPES.includes(file.type)) {
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
       setStatus('Not an image')
       return
     }
@@ -150,7 +60,7 @@ export function CoverUpload({
       <input
         type="file"
         aria-label="Cover image"
-        accept={ACCEPTED_TYPES.join(',')}
+        accept={ACCEPTED_IMAGE_TYPES.join(',')}
         disabled={disabled || uploading}
         onChange={(event) => {
           const file = event.target.files?.[0]

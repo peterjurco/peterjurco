@@ -2,44 +2,11 @@
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  CoverUpload,
-  MAX_EDGE_PX,
-  targetDimensions,
-  uploadCover,
-} from '../src/components/CoverUpload'
+import { CoverUpload, uploadCover } from '../src/components/CoverUpload'
 
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
-})
-
-describe('targetDimensions', () => {
-  it('returns null when the longest edge is within the cap', () => {
-    expect(targetDimensions(2560, 1440)).toBeNull()
-    expect(targetDimensions(1440, 2560)).toBeNull()
-    expect(targetDimensions(800, 600)).toBeNull()
-  })
-
-  it('caps the longest edge and keeps the aspect ratio (landscape)', () => {
-    expect(targetDimensions(5120, 2880)).toEqual({ width: 2560, height: 1440 })
-  })
-
-  it('caps the longest edge and keeps the aspect ratio (portrait)', () => {
-    expect(targetDimensions(3000, 6000)).toEqual({ width: 1280, height: 2560 })
-  })
-
-  it('rounds fractional targets to whole pixels', () => {
-    expect(targetDimensions(3001, 2000)).toEqual({ width: 2560, height: 1706 })
-  })
-
-  it('honors a custom max edge', () => {
-    expect(targetDimensions(100, 50, 10)).toEqual({ width: 10, height: 5 })
-  })
-
-  it('exports the DESIGN cap of 2560px', () => {
-    expect(MAX_EDGE_PX).toBe(2560)
-  })
 })
 
 describe('uploadCover', () => {
@@ -73,6 +40,7 @@ describe('uploadCover', () => {
     expect(JSON.parse(String(presignInit.body))).toEqual({
       contentType: 'image/png',
       size: file.size,
+      prefix: 'covers',
       filename: 'photo.png',
     })
 

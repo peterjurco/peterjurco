@@ -31,6 +31,10 @@ describe('targetDimensions', () => {
     expect(targetDimensions(100, 50, 10)).toEqual({ width: 10, height: 5 })
   })
 
+  it('rounds fractional targets to whole pixels', () => {
+    expect(targetDimensions(3001, 2000)).toEqual({ width: 2560, height: 1706 })
+  })
+
   it('exports the DESIGN cap of 2560px', () => {
     expect(MAX_EDGE_PX).toBe(2560)
   })
