@@ -486,3 +486,45 @@ describe('ArticleEditor — link clicks', () => {
     expect(doc.classList.contains('meta-pressed')).toBe(false)
   })
 })
+
+describe('paste-to-upload images', () => {
+  it('uploads a pasted image and inserts it into the document', async () => {
+    // This describe block must stay last in the file: mockClear() in
+    // beforeEach doesn't undo mockImplementation (unlike the
+    // mockImplementationOnce used elsewhere in this file), so this would
+    // leak into any test added after this one.
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/media/presign') {
+        return Response.json({
+          url: 'http://s3/put',
+          key: 'articles/pasted.png',
+        })
+      }
+      if (url === 'http://s3/put') {
+        return new Response(null, { status: 200 })
+      }
+      // Autosave PATCH and anything else.
+      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    })
+
+    const { editor } = await renderEditor(true)
+    const file = new File(['bytes'], 'screenshot.png', { type: 'image/png' })
+    const event = new Event('paste', {
+      bubbles: true,
+      cancelable: true,
+    }) as ClipboardEvent
+    Object.defineProperty(event, 'clipboardData', {
+      value: { files: [file], items: [], types: [], getData: () => '' },
+    })
+
+    act(() => {
+      editor.view.dom.dispatchEvent(event)
+    })
+
+    await waitFor(() => {
+      const json = editor.getJSON()
+      expect(json.content?.some((node) => node.type === 'image')).toBe(true)
+    })
+  })
+})

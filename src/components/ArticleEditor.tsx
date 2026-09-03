@@ -3,6 +3,7 @@ import { EditorContent, useEditor } from '@tiptap/react'
 import type { MouseEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { documentExtensions } from '../lib/articles/extensions'
+import { ImagePasteUpload } from '../lib/articles/image-paste-upload'
 import { setSaveStatus, useSharedSaveLabel } from '../lib/articles/save-status'
 import { EditorToolbar } from './EditorToolbar'
 import './article-editor.css'
@@ -45,7 +46,7 @@ export function ArticleEditor({
   const inFlight = useRef(false)
 
   const editor = useEditor({
-    extensions: documentExtensions(),
+    extensions: [...documentExtensions(), ImagePasteUpload],
     content: initialContent,
     editable,
     // The island is server-rendered by Astro first — create the editor only
