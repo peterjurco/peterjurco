@@ -62,3 +62,29 @@ export function imageUrl(
   params.push(`format=${options.format ?? 'auto'}`)
   return `/cdn-cgi/image/${params.join(',')}/${original}`
 }
+
+/**
+ * Reverses `imageUrl()`: recovers the raw R2 object key from a display URL
+ * it previously built, or null when `src` doesn't match this config's URL
+ * shape — a hand-typed external URL (the toolbar's "Insert Image" prompt
+ * accepts any URL), or one built under a different base than the one
+ * currently configured. Callers treat null as "not one of ours, nothing to
+ * clean up", never as an error.
+ *
+ * Requires a non-empty `config.baseUrl` to recognize anything — without a
+ * known base there's no way to distinguish our own URLs from an arbitrary
+ * relative one, so this intentionally returns null rather than guess.
+ */
+export function keyFromUrl(
+  src: string,
+  config: ImageUrlConfig = envImageUrlConfig(),
+): string | null {
+  const base = config.baseUrl.replace(/\/+$/, '')
+  if (base === '') return null
+
+  const cdnPrefix = /^\/cdn-cgi\/image\/[^/]+\//.exec(src)
+  const original = cdnPrefix ? src.slice(cdnPrefix[0].length) : src
+
+  if (!original.startsWith(`${base}/`)) return null
+  return original.slice(base.length + 1) || null
+}

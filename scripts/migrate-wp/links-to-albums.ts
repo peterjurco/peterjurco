@@ -93,7 +93,10 @@ export async function runLinksToAlbums(options: {
         ? { coverImageKey: article.featuredPhotoKey }
         : {}),
     })
-    await deleteArticle(db, article.id)
+    // No R2 credentials needed here: these WP "Link" posts always have empty
+    // post_content (see docblock above), so there's never a body image to
+    // clean up — deleteArticle's cleanup is a guaranteed no-op.
+    await deleteArticle(db, article.id, {})
     results.push({ ...post, status: 'converted', albumId: album.id })
   }
 

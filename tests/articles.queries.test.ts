@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import { afterAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   articleCategories,
   articles,
@@ -23,9 +23,17 @@ import {
   setVisibility,
   updateArticle,
 } from '../src/lib/articles/repo'
+import { deleteObject } from '../src/lib/media/r2'
 import { createTestDb } from './helpers/test-db'
 
+vi.mock('../src/lib/media/r2', () => ({
+  deleteObject: vi.fn().mockResolvedValue(undefined),
+}))
+
 const { db, close } = createTestDb()
+
+// R2 credentials are irrelevant here — deleteObject is mocked above.
+const R2_ENV = {}
 
 beforeEach(async () => {
   // FK order: join rows → articles → taxonomy.
@@ -33,6 +41,7 @@ beforeEach(async () => {
   await db.delete(articles)
   await db.delete(articleTags)
   await db.delete(articleCategories)
+  vi.mocked(deleteObject).mockReset().mockResolvedValue(undefined)
 })
 
 afterAll(async () => {
@@ -46,7 +55,7 @@ async function tick(): Promise<void> {
 
 async function createTitled(title: string) {
   const article = await createArticle(db)
-  await updateArticle(db, article.id, { title })
+  await updateArticle(db, article.id, { title }, R2_ENV)
   return article
 }
 
@@ -127,7 +136,7 @@ describe('listRecent', () => {
     await tick()
     await createTitled('created later')
     await tick()
-    await updateArticle(db, edited.id, { title: 'edited last' })
+    await updateArticle(db, edited.id, { title: 'edited last' }, R2_ENV)
 
     const [top] = await listRecent(db, 10)
     expect(top?.id).toBe(edited.id)

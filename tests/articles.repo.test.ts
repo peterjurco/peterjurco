@@ -1,5 +1,13 @@
 import { eq } from 'drizzle-orm'
-import { afterAll, beforeEach, describe, expect, it } from 'vitest'
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 import {
   articleCategories,
   articles,
@@ -29,9 +37,21 @@ import {
   updateArticle,
   updateMigratedArticle,
 } from '../src/lib/articles/repo'
+import { imageUrl } from '../src/lib/media/image-url'
+import { deleteObject } from '../src/lib/media/r2'
 import { createTestDb } from './helpers/test-db'
 
+vi.mock('../src/lib/media/r2', () => ({
+  deleteObject: vi.fn().mockResolvedValue(undefined),
+}))
+
 const { db, close } = createTestDb()
+
+// R2 credentials are irrelevant — deleteObject is mocked above, so no real
+// network call is ever made. Orphaned-image cleanup itself is covered in the
+// dedicated describe block below; every other test here just needs a value
+// to satisfy updateArticle/deleteArticle's required env param.
+const R2_ENV = {}
 
 beforeEach(async () => {
   // FK order: join rows → articles → taxonomy.
@@ -39,6 +59,7 @@ beforeEach(async () => {
   await db.delete(articles)
   await db.delete(articleTags)
   await db.delete(articleCategories)
+  vi.mocked(deleteObject).mockReset().mockResolvedValue(undefined)
 })
 
 afterAll(async () => {
@@ -76,10 +97,15 @@ describe('updateArticle', () => {
     }
     // updated_at is millisecond-resolution — make sure the clock moved on.
     await new Promise((resolve) => setTimeout(resolve, 5))
-    const updated = await updateArticle(db, article.id, {
-      title: 'Hello',
-      content,
-    })
+    const updated = await updateArticle(
+      db,
+      article.id,
+      {
+        title: 'Hello',
+        content,
+      },
+      R2_ENV,
+    )
     expect(updated?.title).toBe('Hello')
     expect(updated?.content).toEqual(content)
     expect(updated?.updatedAt.getTime()).toBeGreaterThan(
@@ -89,13 +115,120 @@ describe('updateArticle', () => {
 
   it('updates title alone without touching content', async () => {
     const article = await createArticle(db)
-    const updated = await updateArticle(db, article.id, { title: 'Only title' })
+    const updated = await updateArticle(
+      db,
+      article.id,
+      { title: 'Only title' },
+      R2_ENV,
+    )
     expect(updated?.title).toBe('Only title')
     expect(updated?.content).toEqual(EMPTY_DOC)
   })
 
   it('returns null for an unknown article', async () => {
-    expect(await updateArticle(db, 999_999, { title: 'x' })).toBeNull()
+    expect(await updateArticle(db, 999_999, { title: 'x' }, R2_ENV)).toBeNull()
+  })
+})
+
+describe('updateArticle / deleteArticle — orphaned image cleanup', () => {
+  beforeAll(() => {
+    process.env.PUBLIC_R2_PUBLIC_BASE_URL = 'https://media.test.local'
+    process.env.PUBLIC_IMAGE_TRANSFORMS = 'off'
+  })
+
+  function docWithImages(...keys: string[]) {
+    return {
+      type: 'doc',
+      content: keys.map((key) => ({
+        type: 'image',
+        attrs: { src: imageUrl(key) },
+      })),
+    }
+  }
+
+  it('deletes only the images dropped from an edited article — reordering deletes nothing', async () => {
+    const article = await createArticle(db)
+    await updateArticle(
+      db,
+      article.id,
+      { content: docWithImages('articles/a.png', 'articles/b.png') },
+      R2_ENV,
+    )
+    vi.mocked(deleteObject).mockClear()
+
+    await updateArticle(
+      db,
+      article.id,
+      // Same two keys, reordered — a reorder-only save must delete nothing.
+      { content: docWithImages('articles/b.png', 'articles/a.png') },
+      R2_ENV,
+    )
+    expect(deleteObject).not.toHaveBeenCalled()
+
+    await updateArticle(
+      db,
+      article.id,
+      { content: docWithImages('articles/b.png') },
+      R2_ENV,
+    )
+    expect(deleteObject).toHaveBeenCalledExactlyOnceWith(
+      R2_ENV,
+      'articles/a.png',
+    )
+  })
+
+  it('does not clean up images when the patch never touches content', async () => {
+    const article = await createArticle(db)
+    await updateArticle(
+      db,
+      article.id,
+      { content: docWithImages('articles/kept.png') },
+      R2_ENV,
+    )
+    vi.mocked(deleteObject).mockClear()
+
+    await updateArticle(db, article.id, { title: 'Only title' }, R2_ENV)
+    expect(deleteObject).not.toHaveBeenCalled()
+  })
+
+  it('cleans up every body image when the whole article is deleted', async () => {
+    const article = await createArticle(db)
+    await updateArticle(
+      db,
+      article.id,
+      { content: docWithImages('articles/x.png', 'articles/y.png') },
+      R2_ENV,
+    )
+    vi.mocked(deleteObject).mockClear()
+
+    await deleteArticle(db, article.id, R2_ENV)
+    expect(
+      vi
+        .mocked(deleteObject)
+        .mock.calls.map((call) => call[1])
+        .sort(),
+    ).toEqual(['articles/x.png', 'articles/y.png'])
+  })
+
+  it('skips a hand-typed external image URL — never mistaken for an R2 key', async () => {
+    const article = await createArticle(db)
+    await updateArticle(
+      db,
+      article.id,
+      {
+        content: {
+          type: 'doc',
+          content: [
+            { type: 'image', attrs: { src: 'https://example.com/photo.jpg' } },
+          ],
+        },
+      },
+      R2_ENV,
+    )
+    vi.mocked(deleteObject).mockClear()
+
+    await deleteArticle(db, article.id, R2_ENV)
+    expect(deleteObject).not.toHaveBeenCalled()
   })
 })
 
@@ -122,7 +255,7 @@ describe('setFeatured', () => {
 describe('reorderFeatured', () => {
   async function createTitled(title: string) {
     const article = await createArticle(db)
-    await updateArticle(db, article.id, { title })
+    await updateArticle(db, article.id, { title }, R2_ENV)
     return article
   }
 
@@ -170,7 +303,7 @@ describe('reorderFeatured', () => {
 describe('getByPublicId', () => {
   it('returns public articles', async () => {
     const article = await createArticle(db)
-    await updateArticle(db, article.id, { title: 'Shared' })
+    await updateArticle(db, article.id, { title: 'Shared' }, R2_ENV)
     await setVisibility(db, article.id, 'public')
     const found = await getByPublicId(db, article.publicId)
     expect(found?.title).toBe('Shared')
@@ -224,9 +357,9 @@ describe('listForOwner', () => {
 
   it('search matches the title', async () => {
     const match = await createArticle(db)
-    await updateArticle(db, match.id, { title: 'A trip to Norway' })
+    await updateArticle(db, match.id, { title: 'A trip to Norway' }, R2_ENV)
     const noMatch = await createArticle(db)
-    await updateArticle(db, noMatch.id, { title: 'Weekend recipes' })
+    await updateArticle(db, noMatch.id, { title: 'Weekend recipes' }, R2_ENV)
 
     const list = await listForOwner(db, { search: 'norway' })
     expect(list.map((article) => article.id)).toEqual([match.id])
@@ -234,20 +367,25 @@ describe('listForOwner', () => {
 
   it('search matches body text, not just the title', async () => {
     const match = await createArticle(db)
-    await updateArticle(db, match.id, {
-      title: 'Untitled',
-      content: {
-        type: 'doc',
-        content: [
-          {
-            type: 'paragraph',
-            content: [{ type: 'text', text: 'We hiked through Norway.' }],
-          },
-        ],
+    await updateArticle(
+      db,
+      match.id,
+      {
+        title: 'Untitled',
+        content: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: 'We hiked through Norway.' }],
+            },
+          ],
+        },
       },
-    })
+      R2_ENV,
+    )
     const noMatch = await createArticle(db)
-    await updateArticle(db, noMatch.id, { title: 'Something else' })
+    await updateArticle(db, noMatch.id, { title: 'Something else' }, R2_ENV)
 
     const list = await listForOwner(db, { search: 'norway' })
     expect(list.map((article) => article.id)).toEqual([match.id])
@@ -255,21 +393,26 @@ describe('listForOwner', () => {
 
   it('ranks title matches before body-only matches', async () => {
     const bodyOnly = await createArticle(db)
-    await updateArticle(db, bodyOnly.id, {
-      title: 'Weekend recipes',
-      content: {
-        type: 'doc',
-        content: [
-          {
-            type: 'paragraph',
-            content: [{ type: 'text', text: 'Mentions norway in passing.' }],
-          },
-        ],
+    await updateArticle(
+      db,
+      bodyOnly.id,
+      {
+        title: 'Weekend recipes',
+        content: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: 'Mentions norway in passing.' }],
+            },
+          ],
+        },
       },
-    })
+      R2_ENV,
+    )
     await new Promise((resolve) => setTimeout(resolve, 5))
     const titleMatch = await createArticle(db)
-    await updateArticle(db, titleMatch.id, { title: 'Norway trip' })
+    await updateArticle(db, titleMatch.id, { title: 'Norway trip' }, R2_ENV)
 
     const list = await listForOwner(db, { search: 'norway' })
     // titleMatch ranks first despite being the more recently updated of the
@@ -285,9 +428,14 @@ describe('listForOwner', () => {
     const travel = await createCategory(db, 'Travel')
     const inCategory = await createArticle(db)
     await setCategory(db, inCategory.id, travel.id)
-    await updateArticle(db, inCategory.id, { title: 'Norway trip' })
+    await updateArticle(db, inCategory.id, { title: 'Norway trip' }, R2_ENV)
     const outsideCategory = await createArticle(db)
-    await updateArticle(db, outsideCategory.id, { title: 'Norway diary' })
+    await updateArticle(
+      db,
+      outsideCategory.id,
+      { title: 'Norway diary' },
+      R2_ENV,
+    )
 
     const list = await listForOwner(db, {
       categoryId: travel.id,
@@ -545,7 +693,7 @@ describe('deleteArticle', () => {
   it('removes the article and its tag join rows', async () => {
     const article = await createArticle(db)
     await setTags(db, article.id, ['doomed'])
-    await deleteArticle(db, article.id)
+    await deleteArticle(db, article.id, R2_ENV)
     expect(await getById(db, article.id)).toBeNull()
     // The tag itself survives — only the mapping goes.
     expect((await listTags(db)).map((tag) => tag.name)).toEqual(['doomed'])

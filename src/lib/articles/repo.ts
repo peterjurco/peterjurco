@@ -7,7 +7,10 @@ import {
   articleTags,
   articleTagsMap,
 } from '../../db/schema'
+import { deleteOrphanedImages } from '../media/cleanup'
+import type { R2Env } from '../media/r2'
 import { newPublicId } from '../public-id'
+import { extractImageKeys } from './extract-image-keys'
 
 /**
  * INVARIANT — no interactive transactions. Production runs on the Neon HTTP
@@ -62,18 +65,50 @@ export async function createArticle(db: ArticlesDb): Promise<Article> {
   return article
 }
 
-/** Autosave target: title and/or content. `updated_at` bumps via $onUpdate. */
+/**
+ * Autosave target: title and/or content. `updated_at` bumps via $onUpdate.
+ *
+ * When `content` is part of the patch, images dropped from the body (pasted
+ * in, then later deleted while editing) are cleaned up from R2: the old
+ * content is read BEFORE the write — UPDATE ... RETURNING only ever gives
+ * the NEW row — and only keys no longer referenced by the new content are
+ * deleted (set difference), so an unrelated edit elsewhere in the doc never
+ * touches images that are still there. Cleanup runs only after the write has
+ * already succeeded (see the "no interactive transactions" invariant above).
+ */
 export async function updateArticle(
   db: ArticlesDb,
   id: number,
   patch: { title?: string; content?: ArticleContent },
+  env: R2Env,
 ): Promise<Article | null> {
+  const previousContent =
+    patch.content !== undefined
+      ? (
+          await db
+            .select({ content: articles.content })
+            .from(articles)
+            .where(eq(articles.id, id))
+            .limit(1)
+        )[0]?.content
+      : undefined
+
   const [article] = await db
     .update(articles)
     .set(patch)
     .where(eq(articles.id, id))
     .returning()
-  return article ?? null
+  if (!article) return null
+
+  if (previousContent !== undefined) {
+    const kept = new Set(extractImageKeys(patch.content))
+    const dropped = extractImageKeys(previousContent).filter(
+      (key) => !kept.has(key),
+    )
+    await deleteOrphanedImages(env, dropped)
+  }
+
+  return article
 }
 
 export async function setVisibility(
@@ -282,9 +317,28 @@ export async function updateMigratedArticle(
   return article ?? null
 }
 
-export async function deleteArticle(db: ArticlesDb, id: number): Promise<void> {
+/**
+ * Deletes the article and best-effort cleans up every R2 image its body
+ * referenced (see updateArticle's docblock — same set-difference cleanup
+ * helper, run only after the delete below has already succeeded). Does NOT
+ * touch `featuredPhotoKey`: it's WP-migration-only data with no update path
+ * in the app today, and one caller (scripts/migrate-wp/links-to-albums.ts)
+ * deliberately reuses a deleted article's featuredPhotoKey as a new album's
+ * cover — deleting it here would break that reuse.
+ */
+export async function deleteArticle(
+  db: ArticlesDb,
+  id: number,
+  env: R2Env,
+): Promise<void> {
   await db.delete(articleTagsMap).where(eq(articleTagsMap.articleId, id))
-  await db.delete(articles).where(eq(articles.id, id))
+  const deleted = await db
+    .delete(articles)
+    .where(eq(articles.id, id))
+    .returning({ content: articles.content })
+
+  const row = deleted[0]
+  if (row) await deleteOrphanedImages(env, extractImageKeys(row.content))
 }
 
 /** Cheap existence probe (no tags join) for handlers that must 404. */

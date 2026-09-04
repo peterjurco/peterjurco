@@ -1,3 +1,4 @@
+import { env } from 'cloudflare:workers'
 import type { APIRoute } from 'astro'
 import { getAppDb } from '../../../db'
 import { jsonError, parseId, unauthorized } from '../../../lib/api'
@@ -90,10 +91,15 @@ async function applyPatch(
 ): Promise<boolean> {
   if (patch.title !== undefined || patch.content !== undefined) {
     // updateArticle's returning() doubles as the existence check.
-    const updated = await updateArticle(db, id, {
-      ...(patch.title !== undefined ? { title: patch.title } : {}),
-      ...(patch.content !== undefined ? { content: patch.content } : {}),
-    })
+    const updated = await updateArticle(
+      db,
+      id,
+      {
+        ...(patch.title !== undefined ? { title: patch.title } : {}),
+        ...(patch.content !== undefined ? { content: patch.content } : {}),
+      },
+      env,
+    )
     if (updated === null) return false
   } else if (!(await articleExists(db, id))) {
     return false
@@ -152,7 +158,7 @@ export const DELETE: APIRoute = async ({ locals, params }) => {
     if (!(await articleExists(db, id))) {
       return jsonError(404, 'Article not found')
     }
-    await deleteArticle(db, id)
+    await deleteArticle(db, id, env)
     return Response.json({ ok: true })
   } catch (error) {
     console.error('Article delete failed:', error)
