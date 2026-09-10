@@ -56,13 +56,69 @@
   color: var(--admin-accent);
 }
 
-.editor-toolbar-color input[type="color"] {
+.color-swatch-picker {
+  position: relative;
+}
+
+.color-swatch {
+  padding: 0;
+}
+
+.color-swatch-popover {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 9px;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--admin-text) 12%, transparent);
+}
+
+.color-swatch-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  /* Fixed, not max — the popover shrink-wraps to content (absolute
+     positioning), so a max-width alone never gives flex-wrap anything to
+     wrap against and every swatch ends up one-per-row. */
+  width: 13.5rem;
+}
+
+.color-swatch-row-recent {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--admin-border-light);
+}
+
+.color-swatch-custom {
+  position: relative;
   width: 2.4rem;
   height: 2.4rem;
-  padding: 0.15rem;
-  border: 1px solid var(--admin-border);
-  border-radius: 7px;
-  background: var(--admin-surface);
+  overflow: hidden;
+  background: conic-gradient(
+    from 90deg,
+    #ff0000,
+    #ffff00,
+    #00ff00,
+    #00ffff,
+    #0000ff,
+    #ff00ff,
+    #ff0000
+  );
+}
+
+.color-swatch-custom input[type="color"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  opacity: 0;
   cursor: pointer;
 }
 

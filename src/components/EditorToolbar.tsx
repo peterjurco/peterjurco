@@ -1,5 +1,6 @@
 import type { Editor } from '@tiptap/core'
 import { useEditorState } from '@tiptap/react'
+import { ColorSwatchPicker } from './ColorSwatchPicker'
 
 interface EditorToolbarProps {
   editor: Editor
@@ -70,9 +71,6 @@ export function EditorToolbar({ editor, saveLabel }: EditorToolbarProps) {
       bulletList: editor.isActive('bulletList'),
       orderedList: editor.isActive('orderedList'),
       link: editor.isActive('link'),
-      color:
-        (editor.getAttributes('textStyle').color as string | undefined) ??
-        '#000000',
       fontFamily:
         (editor.getAttributes('textStyle').fontFamily as string | undefined) ??
         '',
@@ -155,16 +153,7 @@ export function EditorToolbar({ editor, saveLabel }: EditorToolbarProps) {
         active={state.strike}
         onClick={() => editor.chain().focus().toggleStrike().run()}
       />
-      <label className="editor-toolbar-color" title="Text color">
-        <input
-          type="color"
-          aria-label="Text color"
-          value={state.color}
-          onChange={(event) =>
-            editor.chain().focus().setColor(event.target.value).run()
-          }
-        />
-      </label>
+      <ColorSwatchPicker editor={editor} />
       <select
         title="Font family"
         aria-label="Font family"

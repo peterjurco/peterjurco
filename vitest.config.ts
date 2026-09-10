@@ -20,5 +20,10 @@ export default defineConfig({
     // Dev-server tests (health, auth e2e) share the single .dev.vars file
     // and Astro's dev lock — never run test files concurrently.
     fileParallelism: false,
+    // Node's own (default-on since Node 22+) global localStorage stub
+    // pre-empts jsdom's real Storage implementation — @vitest-environment
+    // jsdom's window.localStorage silently becomes a non-functional plain
+    // object otherwise (no setItem/getItem/clear).
+    execArgv: ['--no-experimental-webstorage'],
   },
 })
