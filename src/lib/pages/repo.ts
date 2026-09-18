@@ -91,3 +91,93 @@ export async function listForOwner(db: PagesDb): Promise<Page[]> {
 export async function deletePage(db: PagesDb, id: number): Promise<void> {
   await db.delete(pages).where(eq(pages.id, id))
 }
+
+/**
+ * Updates slug and/or title. Same "throw SlugTakenError on unique conflict"
+ * handling as createPage.
+ */
+export async function updatePage(
+  db: PagesDb,
+  id: number,
+  patch: { slug?: string; title?: string },
+): Promise<Page | null> {
+  try {
+    const [page] = await db
+      .update(pages)
+      .set(patch)
+      .where(eq(pages.id, id))
+      .returning()
+    return page ?? null
+  } catch (error) {
+    if (isUniqueViolation(error) && patch.slug !== undefined) {
+      throw new SlugTakenError(patch.slug)
+    }
+    throw error
+  }
+}
+
+export async function setVisibility(
+  db: PagesDb,
+  id: number,
+  visibility: PageVisibility,
+): Promise<void> {
+  await db.update(pages).set({ visibility }).where(eq(pages.id, id))
+}
+
+export async function setMode(
+  db: PagesDb,
+  id: number,
+  mode: PageMode,
+): Promise<void> {
+  await db.update(pages).set({ mode }).where(eq(pages.id, id))
+}
+
+export async function setSortKey(
+  db: PagesDb,
+  id: number,
+  sortKey: PageSortKey,
+): Promise<void> {
+  await db.update(pages).set({ sortKey }).where(eq(pages.id, id))
+}
+
+/** Replaces the manual-mode ordered article list wholesale. */
+export async function setArticleIds(
+  db: PagesDb,
+  id: number,
+  articleIds: number[],
+): Promise<void> {
+  await db.update(pages).set({ articleIds }).where(eq(pages.id, id))
+}
+
+export type AutoFilter =
+  | { categoryId: number }
+  | { tagId: number }
+  | { categoryId: null; tagId: null }
+
+/**
+ * Sets the auto-mode filter. Always writes BOTH columns explicitly — setting
+ * one clears the other — so "exactly one of categoryId/tagId" holds even if
+ * the caller only meant to change one of them.
+ */
+export async function setAutoFilter(
+  db: PagesDb,
+  id: number,
+  filter: AutoFilter,
+): Promise<void> {
+  if ('categoryId' in filter && filter.categoryId !== null) {
+    await db
+      .update(pages)
+      .set({ categoryId: filter.categoryId, tagId: null })
+      .where(eq(pages.id, id))
+  } else if ('tagId' in filter && filter.tagId !== null) {
+    await db
+      .update(pages)
+      .set({ categoryId: null, tagId: filter.tagId })
+      .where(eq(pages.id, id))
+  } else {
+    await db
+      .update(pages)
+      .set({ categoryId: null, tagId: null })
+      .where(eq(pages.id, id))
+  }
+}
