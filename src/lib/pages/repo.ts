@@ -1,7 +1,8 @@
-import { and, desc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import type * as schema from '../../db/schema'
-import { pages } from '../../db/schema'
+import { articles, articleTagsMap, pages } from '../../db/schema'
+import { extractImageKeys } from '../articles/extract-image-keys'
 
 /**
  * INVARIANT — no interactive transactions (same as articles/home-tiles
@@ -180,4 +181,89 @@ export async function setAutoFilter(
       .set({ categoryId: null, tagId: null })
       .where(eq(pages.id, id))
   }
+}
+
+export interface PageTile {
+  publicId: string
+  title: string
+  /** R2 object key, or null for a text-only tile. Not a display URL — the caller resolves that via imageUrl(). */
+  imageKey: string | null
+}
+
+function resolveTileImageKey(article: {
+  featuredPhotoKey: string | null
+  content: unknown
+}): string | null {
+  if (article.featuredPhotoKey) return article.featuredPhotoKey
+  return extractImageKeys(article.content)[0] ?? null
+}
+
+const SORT_ORDER = {
+  created_desc: [desc(articles.createdAt), desc(articles.id)],
+  created_asc: [asc(articles.createdAt), asc(articles.id)],
+  title_asc: [asc(articles.title), asc(articles.id)],
+  title_desc: [desc(articles.title), desc(articles.id)],
+} as const
+
+/**
+ * Resolves the tiles a page should render: manual mode returns its
+ * articleIds in stored order (silently skipping any id whose article was
+ * deleted since); auto mode queries by categoryId/tagId (public articles
+ * only — a page never leaks a private article's existence), sorted by
+ * sortKey. Neither branch throws on an incomplete/edge-case page (empty
+ * articleIds, auto mode with no filter set yet) — both just return [].
+ */
+export async function resolveArticlesForPage(db: PagesDb, page: Page): Promise<PageTile[]> {
+  if (page.mode === 'manual') {
+    if (page.articleIds.length === 0) return []
+    const rows = await db
+      .select({
+        id: articles.id,
+        publicId: articles.publicId,
+        title: articles.title,
+        featuredPhotoKey: articles.featuredPhotoKey,
+        content: articles.content,
+      })
+      .from(articles)
+      .where(inArray(articles.id, page.articleIds))
+    const byId = new Map(rows.map((row) => [row.id, row]))
+    return page.articleIds
+      .map((id) => byId.get(id))
+      .filter((row): row is (typeof rows)[number] => row !== undefined)
+      .map((row) => ({
+        publicId: row.publicId,
+        title: row.title,
+        imageKey: resolveTileImageKey(row),
+      }))
+  }
+
+  const condition =
+    page.categoryId !== null
+      ? eq(articles.categoryId, page.categoryId)
+      : page.tagId !== null
+        ? inArray(
+            articles.id,
+            db
+              .select({ id: articleTagsMap.articleId })
+              .from(articleTagsMap)
+              .where(eq(articleTagsMap.tagId, page.tagId)),
+          )
+        : undefined
+  if (condition === undefined) return []
+
+  const rows = await db
+    .select({
+      publicId: articles.publicId,
+      title: articles.title,
+      featuredPhotoKey: articles.featuredPhotoKey,
+      content: articles.content,
+    })
+    .from(articles)
+    .where(and(condition, eq(articles.visibility, 'public')))
+    .orderBy(...SORT_ORDER[page.sortKey])
+  return rows.map((row) => ({
+    publicId: row.publicId,
+    title: row.title,
+    imageKey: resolveTileImageKey(row),
+  }))
 }

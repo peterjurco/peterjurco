@@ -1,6 +1,20 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
-import { articleCategories, articleTags, pages } from '../src/db/schema'
+import {
+  articleCategories,
+  articleTags,
+  articleTagsMap,
+  articles,
+  pages,
+} from '../src/db/schema'
+import {
+  createArticle,
+  createCategory,
+  EMPTY_DOC,
+  setCategory,
+  setTags,
+  setVisibility as setArticleVisibility,
+} from '../src/lib/articles/repo'
 import {
   createPage,
   deletePage,
@@ -8,6 +22,7 @@ import {
   getBySlug,
   listForOwner,
   pageExists,
+  resolveArticlesForPage,
   SlugTakenError,
   setArticleIds,
   setAutoFilter,
@@ -168,5 +183,125 @@ describe('setAutoFilter', () => {
     updated = await getById(db, page.id)
     expect(updated?.categoryId).toBeNull()
     expect(updated?.tagId).toBeNull()
+  })
+})
+
+describe('resolveArticlesForPage', () => {
+  beforeEach(async () => {
+    await db.delete(articleTagsMap)
+    await db.delete(articles)
+    await db.delete(articleTags)
+    await db.delete(articleCategories)
+  })
+
+  async function makeArticle(overrides: {
+    title: string
+    featuredPhotoKey?: string | null
+    content?: Record<string, unknown>
+  }) {
+    const article = await createArticle(db)
+    await db
+      .update(articles)
+      .set({
+        title: overrides.title,
+        featuredPhotoKey: overrides.featuredPhotoKey ?? null,
+        content: overrides.content ?? EMPTY_DOC,
+      })
+      .where(eq(articles.id, article.id))
+    return article.id
+  }
+
+  it('manual mode: returns articles in stored order, skipping a stale id', async () => {
+    const a = await makeArticle({ title: 'A' })
+    const b = await makeArticle({ title: 'B' })
+    const page = await createPage(db, { slug: 'p', title: 'x' })
+    await setArticleIds(db, page.id, [b, 999999, a])
+
+    const tiles = await resolveArticlesForPage(db, (await getById(db, page.id))!)
+    expect(tiles.map((tile) => tile.title)).toEqual(['B', 'A'])
+  })
+
+  it('manual mode: resolves image from featuredPhotoKey first', async () => {
+    const a = await makeArticle({ title: 'A', featuredPhotoKey: 'covers/a.jpg' })
+    const page = await createPage(db, { slug: 'p', title: 'x' })
+    await setArticleIds(db, page.id, [a])
+
+    const tiles = await resolveArticlesForPage(db, (await getById(db, page.id))!)
+    expect(tiles[0]?.imageKey).toBe('covers/a.jpg')
+  })
+
+  it('manual mode: falls back to the first body image, then null', async () => {
+    const withBodyImage = await makeArticle({
+      title: 'Body image',
+      content: {
+        type: 'doc',
+        content: [
+          { type: 'image', attrs: { src: 'https://media.test.local/articles/one.png' } },
+        ],
+      },
+    })
+    const withNoImage = await makeArticle({ title: 'No image' })
+    const page = await createPage(db, { slug: 'p', title: 'x' })
+    await setArticleIds(db, page.id, [withBodyImage, withNoImage])
+
+    process.env.PUBLIC_R2_PUBLIC_BASE_URL = 'https://media.test.local'
+    process.env.PUBLIC_IMAGE_TRANSFORMS = 'off'
+    const tiles = await resolveArticlesForPage(db, (await getById(db, page.id))!)
+    expect(tiles[0]?.imageKey).toBe('articles/one.png')
+    expect(tiles[1]?.imageKey).toBeNull()
+  })
+
+  it('auto mode by category: only public articles in that category, sorted', async () => {
+    const category = await createCategory(db, 'Travel')
+    const pub1 = await makeArticle({ title: 'Older' })
+    await setCategory(db, pub1, category.id)
+    await setArticleVisibility(db, pub1, 'public')
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    const pub2 = await makeArticle({ title: 'Newer' })
+    await setCategory(db, pub2, category.id)
+    await setArticleVisibility(db, pub2, 'public')
+    const privateInCategory = await makeArticle({ title: 'Private' })
+    await setCategory(db, privateInCategory, category.id)
+    const otherCategoryArticle = await makeArticle({ title: 'Other' })
+    await setArticleVisibility(db, otherCategoryArticle, 'public')
+
+    const page = await createPage(db, { slug: 'p', title: 'x' })
+    await setMode(db, page.id, 'auto')
+    await setAutoFilter(db, page.id, { categoryId: category.id })
+
+    const tiles = await resolveArticlesForPage(db, (await getById(db, page.id))!)
+    expect(tiles.map((tile) => tile.title)).toEqual(['Newer', 'Older'])
+  })
+
+  it('auto mode by tag, sorted title_asc', async () => {
+    const tagged1 = await makeArticle({ title: 'Zebra' })
+    await setTags(db, tagged1, ['japan'])
+    await setArticleVisibility(db, tagged1, 'public')
+    const tagged2 = await makeArticle({ title: 'Alpha' })
+    await setTags(db, tagged2, ['japan'])
+    await setArticleVisibility(db, tagged2, 'public')
+    const untagged = await makeArticle({ title: 'Untagged' })
+    await setArticleVisibility(db, untagged, 'public')
+
+    const [japanTag] = await db
+      .select()
+      .from(articleTags)
+      .where(eq(articleTags.name, 'japan'))
+    if (!japanTag) throw new Error('tag not found')
+
+    const page = await createPage(db, { slug: 'p', title: 'x' })
+    await setMode(db, page.id, 'auto')
+    await setAutoFilter(db, page.id, { tagId: japanTag.id })
+    await setSortKey(db, page.id, 'title_asc')
+
+    const tiles = await resolveArticlesForPage(db, (await getById(db, page.id))!)
+    expect(tiles.map((tile) => tile.title)).toEqual(['Alpha', 'Zebra'])
+  })
+
+  it('auto mode with neither categoryId nor tagId set returns an empty list', async () => {
+    const page = await createPage(db, { slug: 'p', title: 'x' })
+    await setMode(db, page.id, 'auto')
+    const tiles = await resolveArticlesForPage(db, (await getById(db, page.id))!)
+    expect(tiles).toEqual([])
   })
 })
