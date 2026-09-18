@@ -34,6 +34,42 @@ describe('PageAutoFilter', () => {
     expect(screen.getByRole('option', { name: 'japan' })).toBeTruthy()
   })
 
+  it('displays the selected category as the select value', () => {
+    render(
+      <PageAutoFilter
+        categories={CATEGORIES}
+        tags={TAGS}
+        categoryId={1}
+        tagId={null}
+        sortKey="created_desc"
+        onChangeFilter={vi.fn()}
+        onChangeSortKey={vi.fn()}
+      />,
+    )
+    expect(
+      (screen.getByLabelText('Category or tag filter') as HTMLSelectElement)
+        .value,
+    ).toBe('category:1')
+  })
+
+  it('displays the selected tag as the select value', () => {
+    render(
+      <PageAutoFilter
+        categories={CATEGORIES}
+        tags={TAGS}
+        categoryId={null}
+        tagId={10}
+        sortKey="created_desc"
+        onChangeFilter={vi.fn()}
+        onChangeSortKey={vi.fn()}
+      />,
+    )
+    expect(
+      (screen.getByLabelText('Category or tag filter') as HTMLSelectElement)
+        .value,
+    ).toBe('tag:10')
+  })
+
   it('selecting a category calls onChangeFilter with categoryId set and tagId null', () => {
     const onChangeFilter = vi.fn()
     render(
@@ -70,6 +106,28 @@ describe('PageAutoFilter', () => {
       target: { value: 'tag:10' },
     })
     expect(onChangeFilter).toHaveBeenCalledWith({ categoryId: null, tagId: 10 })
+  })
+
+  it('clearing the selection calls onChangeFilter with both ids null', () => {
+    const onChangeFilter = vi.fn()
+    render(
+      <PageAutoFilter
+        categories={CATEGORIES}
+        tags={TAGS}
+        categoryId={1}
+        tagId={null}
+        sortKey="created_desc"
+        onChangeFilter={onChangeFilter}
+        onChangeSortKey={vi.fn()}
+      />,
+    )
+    fireEvent.change(screen.getByLabelText('Category or tag filter'), {
+      target: { value: '' },
+    })
+    expect(onChangeFilter).toHaveBeenCalledWith({
+      categoryId: null,
+      tagId: null,
+    })
   })
 
   it('changing the sort dropdown calls onChangeSortKey', () => {

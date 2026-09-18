@@ -1,3 +1,5 @@
+import type { PageSortKey } from '../lib/pages/repo'
+
 export interface CategoryOption {
   id: number
   name: string
@@ -8,9 +10,7 @@ export interface TagOption {
   name: string
 }
 
-type SortKey = 'created_desc' | 'created_asc' | 'title_asc' | 'title_desc'
-
-const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+const SORT_OPTIONS: { value: PageSortKey; label: string }[] = [
   { value: 'created_desc', label: 'Newest first' },
   { value: 'created_asc', label: 'Oldest first' },
   { value: 'title_asc', label: 'Title A→Z' },
@@ -22,12 +22,12 @@ interface PageAutoFilterProps {
   tags: TagOption[]
   categoryId: number | null
   tagId: number | null
-  sortKey: SortKey
+  sortKey: PageSortKey
   onChangeFilter: (filter: {
     categoryId: number | null
     tagId: number | null
   }) => void
-  onChangeSortKey: (sortKey: SortKey) => void
+  onChangeSortKey: (sortKey: PageSortKey) => void
 }
 
 /**
@@ -97,7 +97,9 @@ export function PageAutoFilter({
         <select
           aria-label="Sort order"
           value={sortKey}
-          onChange={(event) => onChangeSortKey(event.target.value as SortKey)}
+          onChange={(event) =>
+            onChangeSortKey(event.target.value as PageSortKey)
+          }
         >
           {SORT_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
