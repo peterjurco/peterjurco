@@ -56,11 +56,18 @@ if (!Astro.locals.user) {
   form.addEventListener('submit', async (event) => {
     event.preventDefault()
     errorEl.hidden = true
-    const response = await fetch('/api/pages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slug: slugInput.value, title: titleInput.value }),
-    })
+    let response: Response
+    try {
+      response = await fetch('/api/pages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: slugInput.value, title: titleInput.value }),
+      })
+    } catch {
+      errorEl.textContent = 'Something went wrong — check your connection and try again.'
+      errorEl.hidden = false
+      return
+    }
     if (response.ok) {
       const { id } = (await response.json()) as { id: number }
       window.location.href = `/app/pages/${id}`
