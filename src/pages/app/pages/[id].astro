@@ -1,0 +1,55 @@
+---
+import AppNav from '../../../components/AppNav.astro'
+import { PageEditor } from '../../../components/PageEditor'
+import { getAppDb } from '../../../db'
+import BaseLayout from '../../../layouts/BaseLayout.astro'
+import { parseId } from '../../../lib/api'
+import {
+  listForOwner as listArticles,
+  listCategories,
+  listTags,
+} from '../../../lib/articles/repo'
+import { getById } from '../../../lib/pages/repo'
+
+// Defense in depth: the middleware already gates /app/*.
+if (!Astro.locals.user) {
+  return Astro.redirect('/api/auth/login', 302)
+}
+
+const id = parseId(Astro.params.id)
+if (id === null) {
+  return new Response('Not found', { status: 404 })
+}
+
+const db = getAppDb()
+const [page, categories, tags, articles] = await Promise.all([
+  getById(db, id),
+  listCategories(db),
+  listTags(db),
+  listArticles(db),
+])
+if (!page) {
+  return new Response('Not found', { status: 404 })
+}
+---
+
+<BaseLayout title={`${page.title || 'Untitled'} — peterjur.co`}>
+  <AppNav />
+  <main class="admin-shell page-editor-page">
+    <PageEditor
+      client:load
+      pageId={page.id}
+      initialSlug={page.slug}
+      initialTitle={page.title}
+      initialVisibility={page.visibility}
+      initialMode={page.mode}
+      initialArticleIds={page.articleIds}
+      initialCategoryId={page.categoryId}
+      initialTagId={page.tagId}
+      initialSortKey={page.sortKey}
+      categories={categories.map(({ id, name }) => ({ id, name }))}
+      tags={tags.map(({ id, name }) => ({ id, name }))}
+      articles={articles.map(({ id, title }) => ({ id, title }))}
+    />
+  </main>
+</BaseLayout>

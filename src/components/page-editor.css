@@ -1,0 +1,162 @@
+/* Page editor island — mirrors article-editor.css / featured-reorder.css conventions. */
+
+.page-editor {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 1rem 0;
+}
+
+.page-editor-title {
+  width: 100%;
+  padding: 0.4rem 0;
+  font-family: var(--admin-font-display);
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--admin-text);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--admin-border-light);
+  outline: none;
+}
+
+.page-editor-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.page-editor-slug {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-family: var(--admin-font-mono);
+  font-size: 0.85rem;
+  color: var(--admin-muted);
+}
+
+.page-editor-slug input {
+  min-height: 2.4rem;
+  padding: 0.4rem 0.6rem;
+  font-family: var(--admin-font-mono);
+  font-size: 0.85rem;
+  color: var(--admin-text);
+  background: var(--admin-surface-sunken);
+  border: 1px solid var(--admin-border);
+  border-radius: 7px;
+}
+
+.page-editor-row button,
+.page-editor-row a {
+  min-height: 2.4rem;
+  padding: 0.55rem 1.05rem;
+  font-family: var(--admin-font-body);
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--admin-text);
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.page-editor-delete {
+  color: var(--admin-danger);
+  border-color: var(--admin-danger);
+}
+
+.page-editor-mode {
+  gap: 1.25rem;
+  font-size: 0.9rem;
+}
+
+.page-editor-error {
+  margin: 0.5rem 0 0;
+  color: var(--admin-danger);
+  font-size: 0.85rem;
+}
+
+.page-editor-status {
+  display: block;
+  min-height: 1.2rem;
+  margin-top: 0.25rem;
+  color: var(--admin-muted);
+  font-size: 0.8rem;
+}
+
+.page-editor-status.is-success {
+  color: var(--admin-success);
+  font-weight: 600;
+}
+
+.page-editor-status.is-error {
+  color: var(--admin-danger);
+  font-weight: 600;
+}
+
+.page-auto-filter,
+.page-manual-articles {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--admin-border-light);
+}
+
+.page-auto-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.page-auto-filter select,
+.page-manual-articles select {
+  display: block;
+  min-height: 2.4rem;
+  margin-top: 0.25rem;
+  padding: 0.4rem 0.6rem;
+  font-family: var(--admin-font-body);
+  font-size: 0.85rem;
+  background: var(--admin-surface-sunken);
+  border: 1px solid var(--admin-border);
+  border-radius: 7px;
+}
+
+.page-manual-articles ol {
+  padding: 0;
+  margin: 1rem 0 0;
+  list-style: none;
+}
+
+.page-manual-articles li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--admin-border-light);
+}
+
+.page-manual-grip {
+  color: var(--admin-muted);
+  cursor: grab;
+}
+
+.page-manual-controls {
+  display: flex;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.page-manual-controls button {
+  min-width: 2rem;
+  min-height: 2rem;
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.page-manual-empty {
+  margin-top: 1rem;
+  color: var(--admin-muted);
+}
