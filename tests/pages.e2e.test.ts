@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { articleCategories, articleTags, users } from '../src/db/schema'
+import { createCategory } from '../src/lib/articles/repo'
 import { signValue } from '../src/lib/auth/cookie'
 import { createSession } from '../src/lib/auth/session'
 import { getById } from '../src/lib/pages/repo'
@@ -341,5 +342,102 @@ describe('pages admin list page', () => {
     const html = await fetchPagesListHtml()
     expect(liForSlug(html, manualSlug)).toContain('Manual')
     expect(liForSlug(html, autoSlug)).toContain('Auto')
+  })
+})
+
+describe('public page route', () => {
+  it('404s an unknown slug and a private page', async () => {
+    const unknown = await request('/no-such-slug')
+    expect(unknown.status).toBe(404)
+
+    const privateSlug = `still-private-${Date.now()}`
+    await createPageViaApi(privateSlug)
+    const privatePage = await request(`/${privateSlug}`)
+    expect(privatePage.status).toBe(404)
+  })
+
+  it('renders a manual-mode page: tiles in order, correct links, text-only fallback', async () => {
+    const article1 = await request('/api/articles', {
+      method: 'POST',
+      authed: true,
+    })
+    const { id: articleId1 } = (await article1.json()) as { id: number }
+    await request(`/api/articles/${articleId1}`, {
+      method: 'PATCH',
+      authed: true,
+      body: { title: 'Tokyo trip', visibility: 'public' },
+    })
+
+    const article2 = await request('/api/articles', {
+      method: 'POST',
+      authed: true,
+    })
+    const { id: articleId2 } = (await article2.json()) as { id: number }
+    await request(`/api/articles/${articleId2}`, {
+      method: 'PATCH',
+      authed: true,
+      body: { title: 'Kyoto notes', visibility: 'public' },
+    })
+
+    const slug = `japan-manual-${Date.now()}`
+    const pageId = await createPageViaApi(slug)
+    await request(`/api/pages/${pageId}`, {
+      method: 'PATCH',
+      authed: true,
+      body: { articleIds: [articleId2, articleId1], visibility: 'public' },
+    })
+
+    const response = await request(`/${slug}`)
+    expect(response.status).toBe(200)
+    const html = await response.text()
+    expect(html).toContain('Kyoto notes')
+    expect(html).toContain('Tokyo trip')
+    // Order: Kyoto (articleId2) appears before Tokyo (articleId1).
+    expect(html.indexOf('Kyoto notes')).toBeLessThan(html.indexOf('Tokyo trip'))
+    expect(html).toContain('text-only')
+  })
+
+  it('renders an auto-mode page filtered by category, sorted title_asc', async () => {
+    const category = await createCategory(db, `films-${Date.now()}`)
+    const a = await request('/api/articles', { method: 'POST', authed: true })
+    const { id: idA } = (await a.json()) as { id: number }
+    await request(`/api/articles/${idA}`, {
+      method: 'PATCH',
+      authed: true,
+      body: {
+        title: 'Zebra film',
+        categoryId: category.id,
+        visibility: 'public',
+      },
+    })
+    const b = await request('/api/articles', { method: 'POST', authed: true })
+    const { id: idB } = (await b.json()) as { id: number }
+    await request(`/api/articles/${idB}`, {
+      method: 'PATCH',
+      authed: true,
+      body: {
+        title: 'Alpha film',
+        categoryId: category.id,
+        visibility: 'public',
+      },
+    })
+
+    const slug = `films-auto-${Date.now()}`
+    const pageId = await createPageViaApi(slug)
+    await request(`/api/pages/${pageId}`, {
+      method: 'PATCH',
+      authed: true,
+      body: {
+        mode: 'auto',
+        categoryId: category.id,
+        sortKey: 'title_asc',
+        visibility: 'public',
+      },
+    })
+
+    const response = await request(`/${slug}`)
+    expect(response.status).toBe(200)
+    const html = await response.text()
+    expect(html.indexOf('Alpha film')).toBeLessThan(html.indexOf('Zebra film'))
   })
 })
