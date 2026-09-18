@@ -149,16 +149,21 @@ describe('setAutoFilter', () => {
     if (!category || !tag) throw new Error('fixture insert returned no row')
 
     const page = await createPage(db, { slug: 'p', title: 'x' })
-    await setAutoFilter(db, page.id, { categoryId: category.id })
+
+    // 1. Set tagId first, so the next step has something to clear.
+    await setAutoFilter(db, page.id, { tagId: tag.id })
     let updated = await getById(db, page.id)
+    expect(updated?.tagId).toBe(tag.id)
+    expect(updated?.categoryId).toBeNull()
+
+    // 2. Setting categoryId must clear the tagId that's actually there —
+    // this is the direction a dropped `tagId: null` in that branch would miss.
+    await setAutoFilter(db, page.id, { categoryId: category.id })
+    updated = await getById(db, page.id)
     expect(updated?.categoryId).toBe(category.id)
     expect(updated?.tagId).toBeNull()
 
-    await setAutoFilter(db, page.id, { tagId: tag.id })
-    updated = await getById(db, page.id)
-    expect(updated?.categoryId).toBeNull()
-    expect(updated?.tagId).toBe(tag.id)
-
+    // 3. Clearing both explicitly.
     await setAutoFilter(db, page.id, { categoryId: null, tagId: null })
     updated = await getById(db, page.id)
     expect(updated?.categoryId).toBeNull()
