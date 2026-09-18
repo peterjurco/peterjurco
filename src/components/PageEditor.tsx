@@ -94,6 +94,7 @@ export function PageEditor({
       return response.ok
     } catch {
       if (!hasPendingEdits()) setStatus('Save failed')
+      setError('Network error — please check your connection and try again.')
       return false
     }
   }
@@ -144,7 +145,9 @@ export function PageEditor({
   async function changeArticleIds(next: number[]): Promise<void> {
     const previous = articleIds
     setArticleIds(next)
-    if (!(await flushPatch({ articleIds: next }))) setArticleIds(previous)
+    if (!(await flushPatch({ articleIds: next }))) {
+      setArticleIds((current) => (current === next ? previous : current))
+    }
   }
 
   async function remove(): Promise<void> {

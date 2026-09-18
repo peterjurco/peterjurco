@@ -19,6 +19,16 @@
   outline: none;
 }
 
+.page-editor-title:hover {
+  border-color: var(--admin-faint);
+}
+
+.page-editor-title:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent) 30%, transparent);
+  border-color: var(--admin-accent);
+}
+
 .page-editor-row {
   display: flex;
   flex-wrap: wrap;
@@ -47,6 +57,16 @@
   border-radius: 7px;
 }
 
+.page-editor-slug input:hover {
+  border-color: var(--admin-faint);
+}
+
+.page-editor-slug input:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent) 30%, transparent);
+  border-color: var(--admin-accent);
+}
+
 .page-editor-row button,
 .page-editor-row a {
   min-height: 2.4rem;
@@ -59,6 +79,19 @@
   border: 1px solid var(--admin-border);
   border-radius: 7px;
   cursor: pointer;
+}
+
+.page-editor-row button:hover,
+.page-editor-row a:hover {
+  background: var(--admin-surface-sunken);
+  border-color: var(--admin-faint);
+}
+
+.page-editor-row button:focus-visible,
+.page-editor-row a:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent) 30%, transparent);
+  border-color: var(--admin-accent);
 }
 
 .page-editor-delete {
@@ -121,6 +154,18 @@
   border-radius: 7px;
 }
 
+.page-auto-filter select:hover,
+.page-manual-articles select:hover {
+  border-color: var(--admin-faint);
+}
+
+.page-auto-filter select:focus-visible,
+.page-manual-articles select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent) 30%, transparent);
+  border-color: var(--admin-accent);
+}
+
 .page-manual-articles ol {
   padding: 0;
   margin: 1rem 0 0;
@@ -154,6 +199,17 @@
   border: 1px solid var(--admin-border);
   border-radius: 4px;
   cursor: pointer;
+}
+
+.page-manual-controls button:hover {
+  background: var(--admin-surface-sunken);
+  border-color: var(--admin-faint);
+}
+
+.page-manual-controls button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent) 30%, transparent);
+  border-color: var(--admin-accent);
 }
 
 .page-manual-empty {

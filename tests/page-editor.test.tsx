@@ -16,6 +16,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
 })
 
 const BASE_PROPS = {
@@ -61,6 +62,7 @@ describe('PageEditor', () => {
     render(<PageEditor {...BASE_PROPS} />)
     fireEvent.click(screen.getByText('Make public'))
     await screen.findByText('Make private')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect(JSON.parse(String(init.body))).toEqual({ visibility: 'public' })
   })
@@ -118,6 +120,37 @@ describe('PageEditor', () => {
     // the "Add article" dropdown — correctly, since it's available again —
     // so a page-wide text query would find it there too.)
     expect(screen.getByRole('list').textContent).not.toContain('Second post')
+  })
+
+  it('shows the server error message when a PATCH responds with an error body', async () => {
+    fetchMock.mockImplementationOnce(
+      async () =>
+        new Response(JSON.stringify({ error: 'slug taken' }), {
+          status: 500,
+        }),
+    )
+    render(<PageEditor {...BASE_PROPS} />)
+    fireEvent.change(screen.getByLabelText('Title'), {
+      target: { value: 'New title' },
+    })
+    await screen.findByText('Save failed')
+    expect(document.querySelector('.page-editor-error')?.textContent).toBe(
+      'slug taken',
+    )
+  })
+
+  it('shows an error message when the PATCH fetch itself throws', async () => {
+    fetchMock.mockImplementationOnce(async () => {
+      throw new Error('network down')
+    })
+    render(<PageEditor {...BASE_PROPS} />)
+    fireEvent.change(screen.getByLabelText('Title'), {
+      target: { value: 'New title' },
+    })
+    await screen.findByText('Save failed')
+    expect(
+      document.querySelector('.page-editor-error')?.textContent,
+    ).toBeTruthy()
   })
 
   it('deleting confirms, then DELETEs and navigates away', async () => {
