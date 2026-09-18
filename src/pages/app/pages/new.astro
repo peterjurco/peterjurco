@@ -1,0 +1,88 @@
+---
+import AppNav from '../../../components/AppNav.astro'
+import BaseLayout from '../../../layouts/BaseLayout.astro'
+
+// Defense in depth: the middleware already gates /app/*.
+if (!Astro.locals.user) {
+  return Astro.redirect('/api/auth/login', 302)
+}
+---
+
+<BaseLayout title="New page — peterjur.co">
+  <AppNav />
+  <main class="admin-shell new-page-form">
+    <h1>New page</h1>
+    <form id="new-page-form">
+      <div class="admin-field">
+        <label for="slug">Slug</label>
+        <input
+          id="slug"
+          name="slug"
+          class="admin-input"
+          required
+          pattern="[a-z0-9]+(-[a-z0-9]+)*"
+          placeholder="travel"
+        />
+        <p class="field-hint">peterjur.co/<span id="slug-preview">your-slug</span></p>
+      </div>
+      <div class="admin-field">
+        <label for="title">Title</label>
+        <input
+          id="title"
+          name="title"
+          class="admin-input"
+          required
+          placeholder="Travel"
+        />
+      </div>
+      <p class="form-error" id="form-error" hidden></p>
+      <button type="submit" class="admin-btn admin-btn--primary">Create page</button>
+    </form>
+    <p><a href="/app/pages">← Back</a></p>
+  </main>
+</BaseLayout>
+
+<script>
+  const form = document.getElementById('new-page-form') as HTMLFormElement
+  const slugInput = document.getElementById('slug') as HTMLInputElement
+  const titleInput = document.getElementById('title') as HTMLInputElement
+  const slugPreview = document.getElementById('slug-preview') as HTMLSpanElement
+  const errorEl = document.getElementById('form-error') as HTMLParagraphElement
+
+  slugInput.addEventListener('input', () => {
+    slugPreview.textContent = slugInput.value || 'your-slug'
+  })
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault()
+    errorEl.hidden = true
+    const response = await fetch('/api/pages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug: slugInput.value, title: titleInput.value }),
+    })
+    if (response.ok) {
+      const { id } = (await response.json()) as { id: number }
+      window.location.href = `/app/pages/${id}`
+      return
+    }
+    const { error } = (await response.json()) as { error: string }
+    errorEl.textContent = error
+    errorEl.hidden = false
+  })
+</script>
+
+<style>
+  .new-page-form {
+    max-width: 30rem;
+  }
+  .field-hint {
+    margin: 0.25rem 0 0;
+    font-size: 0.8rem;
+    color: var(--admin-muted);
+  }
+  .form-error {
+    color: var(--admin-danger);
+    font-size: 0.9rem;
+  }
+</style>
