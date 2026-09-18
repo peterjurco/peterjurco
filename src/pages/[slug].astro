@@ -97,6 +97,14 @@ const tiles = await resolveArticlesForPage(db, page)
     text-decoration: none;
   }
 
+  /* Both tile variants sit on a dark background, so the ring needs to be
+     --cream for contrast — same "outline color contrasts with this tile's
+     own background" convention as public-home.css's tile focus states. */
+  .page-tile-grid a:focus-visible {
+    outline: 2px solid var(--cream);
+    outline-offset: 3px;
+  }
+
   .page-tile-grid a.has-image img {
     position: absolute;
     inset: 0;
