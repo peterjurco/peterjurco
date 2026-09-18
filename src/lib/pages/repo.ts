@@ -213,7 +213,10 @@ const SORT_ORDER = {
  * sortKey. Neither branch throws on an incomplete/edge-case page (empty
  * articleIds, auto mode with no filter set yet) — both just return [].
  */
-export async function resolveArticlesForPage(db: PagesDb, page: Page): Promise<PageTile[]> {
+export async function resolveArticlesForPage(
+  db: PagesDb,
+  page: Page,
+): Promise<PageTile[]> {
   if (page.mode === 'manual') {
     if (page.articleIds.length === 0) return []
     const rows = await db

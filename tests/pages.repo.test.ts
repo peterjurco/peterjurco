@@ -2,18 +2,18 @@ import { and, eq } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import {
   articleCategories,
+  articles,
   articleTags,
   articleTagsMap,
-  articles,
   pages,
 } from '../src/db/schema'
 import {
   createArticle,
   createCategory,
   EMPTY_DOC,
+  setVisibility as setArticleVisibility,
   setCategory,
   setTags,
-  setVisibility as setArticleVisibility,
 } from '../src/lib/articles/repo'
 import {
   createPage,
@@ -217,16 +217,25 @@ describe('resolveArticlesForPage', () => {
     const page = await createPage(db, { slug: 'p', title: 'x' })
     await setArticleIds(db, page.id, [b, 999999, a])
 
-    const tiles = await resolveArticlesForPage(db, (await getById(db, page.id))!)
+    const tiles = await resolveArticlesForPage(
+      db,
+      (await getById(db, page.id))!,
+    )
     expect(tiles.map((tile) => tile.title)).toEqual(['B', 'A'])
   })
 
   it('manual mode: resolves image from featuredPhotoKey first', async () => {
-    const a = await makeArticle({ title: 'A', featuredPhotoKey: 'covers/a.jpg' })
+    const a = await makeArticle({
+      title: 'A',
+      featuredPhotoKey: 'covers/a.jpg',
+    })
     const page = await createPage(db, { slug: 'p', title: 'x' })
     await setArticleIds(db, page.id, [a])
 
-    const tiles = await resolveArticlesForPage(db, (await getById(db, page.id))!)
+    const tiles = await resolveArticlesForPage(
+      db,
+      (await getById(db, page.id))!,
+    )
     expect(tiles[0]?.imageKey).toBe('covers/a.jpg')
   })
 
@@ -236,7 +245,10 @@ describe('resolveArticlesForPage', () => {
       content: {
         type: 'doc',
         content: [
-          { type: 'image', attrs: { src: 'https://media.test.local/articles/one.png' } },
+          {
+            type: 'image',
+            attrs: { src: 'https://media.test.local/articles/one.png' },
+          },
         ],
       },
     })
@@ -246,7 +258,10 @@ describe('resolveArticlesForPage', () => {
 
     process.env.PUBLIC_R2_PUBLIC_BASE_URL = 'https://media.test.local'
     process.env.PUBLIC_IMAGE_TRANSFORMS = 'off'
-    const tiles = await resolveArticlesForPage(db, (await getById(db, page.id))!)
+    const tiles = await resolveArticlesForPage(
+      db,
+      (await getById(db, page.id))!,
+    )
     expect(tiles[0]?.imageKey).toBe('articles/one.png')
     expect(tiles[1]?.imageKey).toBeNull()
   })
@@ -269,7 +284,10 @@ describe('resolveArticlesForPage', () => {
     await setMode(db, page.id, 'auto')
     await setAutoFilter(db, page.id, { categoryId: category.id })
 
-    const tiles = await resolveArticlesForPage(db, (await getById(db, page.id))!)
+    const tiles = await resolveArticlesForPage(
+      db,
+      (await getById(db, page.id))!,
+    )
     expect(tiles.map((tile) => tile.title)).toEqual(['Newer', 'Older'])
   })
 
@@ -294,14 +312,20 @@ describe('resolveArticlesForPage', () => {
     await setAutoFilter(db, page.id, { tagId: japanTag.id })
     await setSortKey(db, page.id, 'title_asc')
 
-    const tiles = await resolveArticlesForPage(db, (await getById(db, page.id))!)
+    const tiles = await resolveArticlesForPage(
+      db,
+      (await getById(db, page.id))!,
+    )
     expect(tiles.map((tile) => tile.title)).toEqual(['Alpha', 'Zebra'])
   })
 
   it('auto mode with neither categoryId nor tagId set returns an empty list', async () => {
     const page = await createPage(db, { slug: 'p', title: 'x' })
     await setMode(db, page.id, 'auto')
-    const tiles = await resolveArticlesForPage(db, (await getById(db, page.id))!)
+    const tiles = await resolveArticlesForPage(
+      db,
+      (await getById(db, page.id))!,
+    )
     expect(tiles).toEqual([])
   })
 })
