@@ -92,9 +92,10 @@ describe('pages API — auth is enforced', () => {
 
 describe('pages API — create', () => {
   it('creates a page and returns its id', async () => {
-    const id = await createPageViaApi('create-test')
+    const slug = `create-test-${Date.now()}`
+    const id = await createPageViaApi(slug)
     expect(id).toBeGreaterThan(0)
-    expect((await getById(db, id))?.slug).toBe('create-test')
+    expect((await getById(db, id))?.slug).toBe(slug)
   })
 
   it('rejects an invalid or reserved slug with 400', async () => {
@@ -109,11 +110,12 @@ describe('pages API — create', () => {
   })
 
   it('rejects a duplicate slug with 409', async () => {
-    await createPageViaApi('dup-test')
+    const slug = `dup-test-${Date.now()}`
+    await createPageViaApi(slug)
     const response = await request('/api/pages', {
       method: 'POST',
       authed: true,
-      body: { slug: 'dup-test', title: 'Again' },
+      body: { slug, title: 'Again' },
     })
     expect(response.status).toBe(409)
   })
@@ -121,12 +123,14 @@ describe('pages API — create', () => {
 
 describe('pages API — update', () => {
   it('patches slug, title, visibility, mode, sortKey', async () => {
-    const id = await createPageViaApi('patch-test')
+    const suffix = Date.now()
+    const id = await createPageViaApi(`patch-test-${suffix}`)
+    const renamedSlug = `patch-test-renamed-${suffix}`
     const response = await request(`/api/pages/${id}`, {
       method: 'PATCH',
       authed: true,
       body: {
-        slug: 'patch-test-renamed',
+        slug: renamedSlug,
         title: 'Renamed',
         visibility: 'public',
         mode: 'auto',
@@ -135,7 +139,7 @@ describe('pages API — update', () => {
     })
     expect(response.status).toBe(200)
     const stored = await getById(db, id)
-    expect(stored?.slug).toBe('patch-test-renamed')
+    expect(stored?.slug).toBe(renamedSlug)
     expect(stored?.title).toBe('Renamed')
     expect(stored?.visibility).toBe('public')
     expect(stored?.mode).toBe('auto')
@@ -143,7 +147,7 @@ describe('pages API — update', () => {
   })
 
   it('patches articleIds', async () => {
-    const id = await createPageViaApi('articles-test')
+    const id = await createPageViaApi(`articles-test-${Date.now()}`)
     const response = await request(`/api/pages/${id}`, {
       method: 'PATCH',
       authed: true,
@@ -169,7 +173,7 @@ describe('pages API — update', () => {
       .returning()
     if (!category || !tag) throw new Error('fixture insert returned no row')
 
-    const id = await createPageViaApi('filter-test')
+    const id = await createPageViaApi(`filter-test-${Date.now()}`)
     await request(`/api/pages/${id}`, {
       method: 'PATCH',
       authed: true,
@@ -188,7 +192,7 @@ describe('pages API — update', () => {
   })
 
   it('rejects setting both categoryId and tagId in one PATCH', async () => {
-    const id = await createPageViaApi('both-test')
+    const id = await createPageViaApi(`both-test-${Date.now()}`)
     const response = await request(`/api/pages/${id}`, {
       method: 'PATCH',
       authed: true,
@@ -198,7 +202,7 @@ describe('pages API — update', () => {
   })
 
   it('rejects malformed PATCH bodies with 400', async () => {
-    const id = await createPageViaApi('malformed-test')
+    const id = await createPageViaApi(`malformed-test-${Date.now()}`)
     for (const body of [
       {},
       { slug: 'Bad Slug' },
@@ -238,12 +242,14 @@ describe('pages API — update', () => {
   })
 
   it("renaming into another page's slug returns 409", async () => {
-    await createPageViaApi('owned-slug')
-    const id = await createPageViaApi('renamable')
+    const suffix = Date.now()
+    const ownedSlug = `owned-slug-${suffix}`
+    await createPageViaApi(ownedSlug)
+    const id = await createPageViaApi(`renamable-${suffix}`)
     const response = await request(`/api/pages/${id}`, {
       method: 'PATCH',
       authed: true,
-      body: { slug: 'owned-slug' },
+      body: { slug: ownedSlug },
     })
     expect(response.status).toBe(409)
   })
@@ -251,7 +257,7 @@ describe('pages API — update', () => {
 
 describe('pages API — delete', () => {
   it('deletes a page', async () => {
-    const id = await createPageViaApi('delete-test')
+    const id = await createPageViaApi(`delete-test-${Date.now()}`)
     const del = await request(`/api/pages/${id}`, {
       method: 'DELETE',
       authed: true,
