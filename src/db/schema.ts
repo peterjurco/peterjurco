@@ -265,7 +265,9 @@ export const homeTiles = pgTable('home_tiles', {
 export const pages = pgTable(
   'pages',
   {
-    id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+    id: bigint('id', { mode: 'number' })
+      .primaryKey()
+      .generatedAlwaysAsIdentity(),
     // The public URL path (peterjur.co/<slug>) — the slug IS the public
     // identifier, unlike articles/photo tags which have a separate opaque
     // publicId. Format + reserved-word validated at the app layer
@@ -284,7 +286,9 @@ export const pages = pgTable(
     categoryId: bigint('category_id', { mode: 'number' }).references(
       () => articleCategories.id,
     ),
-    tagId: bigint('tag_id', { mode: 'number' }).references(() => articleTags.id),
+    tagId: bigint('tag_id', { mode: 'number' }).references(
+      () => articleTags.id,
+    ),
     sortKey: pageSortKey('sort_key').notNull().default('created_desc'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
