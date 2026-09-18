@@ -24,6 +24,14 @@ export const photoTagVisibility = pgEnum('photo_tag_visibility', [
   'public',
 ])
 export const homeTileKind = pgEnum('home_tile_kind', ['photo', 'quote'])
+export const pageVisibility = pgEnum('page_visibility', ['private', 'public'])
+export const pageMode = pgEnum('page_mode', ['manual', 'auto'])
+export const pageSortKey = pgEnum('page_sort_key', [
+  'created_desc',
+  'created_asc',
+  'title_asc',
+  'title_desc',
+])
 
 // 1. Auth & sessions -------------------------------------------------------
 
@@ -251,3 +259,40 @@ export const homeTiles = pgTable('home_tiles', {
     .defaultNow()
     .$onUpdate(() => new Date()),
 })
+
+// 6. Custom pages ------------------------------------------------------------
+
+export const pages = pgTable(
+  'pages',
+  {
+    id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+    // The public URL path (peterjur.co/<slug>) — the slug IS the public
+    // identifier, unlike articles/photo tags which have a separate opaque
+    // publicId. Format + reserved-word validated at the app layer
+    // (src/lib/pages/slug.ts); this index is the final uniqueness authority.
+    slug: text('slug').notNull(),
+    title: text('title').notNull(),
+    visibility: pageVisibility('visibility').notNull().default('private'),
+    mode: pageMode('mode').notNull().default('manual'),
+    // Ordered article ids — meaningful only when mode = 'manual'.
+    articleIds: bigint('article_ids', { mode: 'number' })
+      .array()
+      .notNull()
+      .default([]),
+    // Exactly one of categoryId/tagId is set — meaningful only when
+    // mode = 'auto' (enforced at the app layer, see setAutoFilter).
+    categoryId: bigint('category_id', { mode: 'number' }).references(
+      () => articleCategories.id,
+    ),
+    tagId: bigint('tag_id', { mode: 'number' }).references(() => articleTags.id),
+    sortKey: pageSortKey('sort_key').notNull().default('created_desc'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [uniqueIndex('pages_slug_unique').on(table.slug)],
+)
