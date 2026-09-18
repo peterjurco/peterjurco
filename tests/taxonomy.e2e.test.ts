@@ -5,6 +5,7 @@ import {
   articles,
   articleTags,
   articleTagsMap,
+  pages,
   photoAlbums,
   photoAlbumsTagsMap,
   photoTags,
@@ -51,6 +52,7 @@ beforeAll(async () => {
   // FK order: join rows → articles/albums → categories/tags.
   await db.delete(articleTagsMap)
   await db.delete(articles)
+  await db.delete(pages)
   await db.delete(articleTags)
   await db.delete(articleCategories)
   await db.delete(photoAlbumsTagsMap)

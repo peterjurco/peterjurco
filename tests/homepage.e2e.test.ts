@@ -5,6 +5,7 @@ import {
   articles,
   articleTags,
   articleTagsMap,
+  pages,
   photoAlbums,
   photoAlbumsTagsMap,
   photoTags,
@@ -88,6 +89,7 @@ beforeAll(async () => {
   // photo tables (FK order).
   await db.delete(articleTagsMap)
   await db.delete(articles)
+  await db.delete(pages)
   await db.delete(articleTags)
   await db.delete(articleCategories)
   await db.delete(photoAlbumsTagsMap)

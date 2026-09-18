@@ -8,6 +8,7 @@ import {
   articles,
   articleTags,
   articleTagsMap,
+  pages,
 } from '../../src/db/schema'
 import { createCategory, getByLegacyWpId } from '../../src/lib/articles/repo'
 import type { R2Env } from '../../src/lib/media/r2'
@@ -79,6 +80,7 @@ function fakeWpFetch(): typeof fetch {
 async function resetPostgres(): Promise<void> {
   await db.delete(articleTagsMap)
   await db.delete(articles)
+  await db.delete(pages)
   await db.delete(articleTags)
   await db.delete(articleCategories)
 }

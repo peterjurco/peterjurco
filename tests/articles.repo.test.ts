@@ -13,6 +13,7 @@ import {
   articles,
   articleTags,
   articleTagsMap,
+  pages,
 } from '../src/db/schema'
 import { listFeatured } from '../src/lib/articles/queries'
 import {
@@ -57,6 +58,7 @@ beforeEach(async () => {
   // FK order: join rows → articles → taxonomy.
   await db.delete(articleTagsMap)
   await db.delete(articles)
+  await db.delete(pages)
   await db.delete(articleTags)
   await db.delete(articleCategories)
   vi.mocked(deleteObject).mockReset().mockResolvedValue(undefined)

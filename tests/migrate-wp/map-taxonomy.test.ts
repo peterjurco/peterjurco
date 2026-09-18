@@ -6,6 +6,7 @@ import {
   articles,
   articleTags,
   articleTagsMap,
+  pages,
 } from '../../src/db/schema'
 import { createTestDb } from '../helpers/test-db'
 
@@ -15,6 +16,7 @@ beforeEach(async () => {
   // FK order: join rows → articles → categories/tags.
   await db.delete(articleTagsMap)
   await db.delete(articles)
+  await db.delete(pages)
   await db.delete(articleTags)
   await db.delete(articleCategories)
 })

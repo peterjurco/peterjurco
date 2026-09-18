@@ -8,6 +8,7 @@ import {
   articles,
   articleTags,
   articleTagsMap,
+  pages,
   photoAlbums,
   photoAlbumsTagsMap,
 } from '../../src/db/schema'
@@ -36,6 +37,7 @@ async function resetPostgres(): Promise<void> {
   await db.delete(photoAlbums)
   await db.delete(articleTagsMap)
   await db.delete(articles)
+  await db.delete(pages)
   await db.delete(articleTags)
   await db.delete(articleCategories)
 }

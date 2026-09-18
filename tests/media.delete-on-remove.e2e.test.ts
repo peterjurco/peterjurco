@@ -1,6 +1,12 @@
 import { AwsClient } from 'aws4fetch'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { apps, homeTiles, photoAlbums, users } from '../src/db/schema'
+import {
+  apps,
+  homeTiles,
+  photoAlbums,
+  photoAlbumsTagsMap,
+  users,
+} from '../src/db/schema'
 import { signValue } from '../src/lib/auth/cookie'
 import { createSession } from '../src/lib/auth/session'
 import { type DevServerHandle, startDevServer } from './helpers/dev-server'
@@ -148,7 +154,9 @@ afterAll(async () => {
 beforeEach(async () => {
   // Each test's home-tiles cases exercise PUT (full-canvas replace), so
   // tiles must not leak across tests within this file.
+  // FK order: join rows → albums.
   await db.delete(homeTiles)
+  await db.delete(photoAlbumsTagsMap)
   await db.delete(photoAlbums)
   await db.delete(apps)
 })
