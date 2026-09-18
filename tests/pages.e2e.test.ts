@@ -46,6 +46,31 @@ async function createPageViaApi(slug: string): Promise<number> {
   return id
 }
 
+async function fetchPagesListHtml(): Promise<string> {
+  const response = await request('/app/pages', { authed: true })
+  expect(response.status).toBe(200)
+  return response.text()
+}
+
+/**
+ * Extracts the `<li>...</li>` chunk rendering the given slug's row, so
+ * assertions about its badges don't get confused by other pages the
+ * shared-DB test run has created (this DB isn't reset between runs, and
+ * other tests in this file create pages too).
+ */
+function liForSlug(html: string, slug: string): string {
+  const marker = `/${slug}</span>`
+  const markerIndex = html.indexOf(marker)
+  if (markerIndex === -1) {
+    throw new Error(`slug "${slug}" not found in /app/pages HTML`)
+  }
+  // `<li` (not `<li>`) — Astro injects a `data-astro-cid-*` scoping
+  // attribute onto the tag, so it never renders as a bare `<li>`.
+  const liStart = html.lastIndexOf('<li', markerIndex)
+  const liEnd = html.indexOf('</li>', markerIndex)
+  return html.slice(liStart, liEnd)
+}
+
 beforeAll(async () => {
   const [user] = await db
     .insert(users)
@@ -272,5 +297,49 @@ describe('pages API — delete', () => {
       authed: true,
     })
     expect(response.status).toBe(404)
+  })
+})
+
+describe('pages admin list page', () => {
+  it('renders the title and Public badge for a public page', async () => {
+    const slug = `list-public-${Date.now()}`
+    const id = await createPageViaApi(slug)
+    const patchResponse = await request(`/api/pages/${id}`, {
+      method: 'PATCH',
+      authed: true,
+      body: { visibility: 'public' },
+    })
+    expect(patchResponse.status).toBe(200)
+
+    const li = liForSlug(await fetchPagesListHtml(), slug)
+    expect(li).toContain('Test page')
+    expect(li).toContain('Public')
+  })
+
+  it('renders Manual for manual-mode pages and Auto for auto-mode pages', async () => {
+    const suffix = Date.now()
+    const manualSlug = `list-manual-${suffix}`
+    const autoSlug = `list-auto-${suffix}`
+    const manualId = await createPageViaApi(manualSlug)
+    const autoId = await createPageViaApi(autoSlug)
+
+    // 'manual' is already the schema default, but set both explicitly so
+    // this doesn't silently depend on that default.
+    const manualPatch = await request(`/api/pages/${manualId}`, {
+      method: 'PATCH',
+      authed: true,
+      body: { mode: 'manual' },
+    })
+    const autoPatch = await request(`/api/pages/${autoId}`, {
+      method: 'PATCH',
+      authed: true,
+      body: { mode: 'auto' },
+    })
+    expect(manualPatch.status).toBe(200)
+    expect(autoPatch.status).toBe(200)
+
+    const html = await fetchPagesListHtml()
+    expect(liForSlug(html, manualSlug)).toContain('Manual')
+    expect(liForSlug(html, autoSlug)).toContain('Auto')
   })
 })
