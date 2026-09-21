@@ -123,8 +123,26 @@ export function PageEditor({
     if (await flushPatch({ visibility: next })) setVisibility(next)
   }
 
+  /**
+   * Switching modes clears the OTHER mode's fields (design spec: "Switching
+   * modes in the UI clears the other mode's fields") — otherwise a stale
+   * articleIds list or category/tag filter from a prior stint in the other
+   * mode would silently resurface if the admin switches back later.
+   */
   async function changeMode(next: PageMode): Promise<void> {
-    if (await flushPatch({ mode: next })) setMode(next)
+    const clearFields =
+      next === 'auto'
+        ? { articleIds: [] as number[] }
+        : { categoryId: null, tagId: null }
+    if (await flushPatch({ mode: next, ...clearFields })) {
+      setMode(next)
+      if (next === 'auto') {
+        setArticleIds([])
+      } else {
+        setCategoryId(null)
+        setTagId(null)
+      }
+    }
   }
 
   async function changeFilter(filter: {

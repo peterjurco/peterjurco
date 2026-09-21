@@ -208,8 +208,9 @@ const SORT_ORDER = {
 /**
  * Resolves the tiles a page should render: manual mode returns its
  * articleIds in stored order (silently skipping any id whose article was
- * deleted since); auto mode queries by categoryId/tagId (public articles
- * only — a page never leaks a private article's existence), sorted by
+ * deleted since, OR whose article has since been made private — a page
+ * never leaks a private article's existence, same as auto mode below);
+ * auto mode queries by categoryId/tagId (public articles only), sorted by
  * sortKey. Neither branch throws on an incomplete/edge-case page (empty
  * articleIds, auto mode with no filter set yet) — both just return [].
  */
@@ -228,7 +229,12 @@ export async function resolveArticlesForPage(
         content: articles.content,
       })
       .from(articles)
-      .where(inArray(articles.id, page.articleIds))
+      .where(
+        and(
+          inArray(articles.id, page.articleIds),
+          eq(articles.visibility, 'public'),
+        ),
+      )
     const byId = new Map(rows.map((row) => [row.id, row]))
     return page.articleIds
       .map((id) => byId.get(id))

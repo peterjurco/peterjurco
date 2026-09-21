@@ -67,13 +67,30 @@ describe('PageEditor', () => {
     expect(JSON.parse(String(init.body))).toEqual({ visibility: 'public' })
   })
 
-  it('switching mode swaps the sub-panel and PATCHes the new mode', async () => {
-    render(<PageEditor {...BASE_PROPS} />)
+  it("switching mode swaps the sub-panel and PATCHes the new mode, clearing the other mode's fields", async () => {
+    render(<PageEditor {...BASE_PROPS} initialArticleIds={[1]} />)
     fireEvent.click(screen.getByLabelText('Auto by category/tag'))
     await screen.findByLabelText('Category or tag filter')
     expect(screen.queryByLabelText('Add article')).toBeNull()
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
-    expect(JSON.parse(String(init.body))).toEqual({ mode: 'auto' })
+    expect(JSON.parse(String(init.body))).toEqual({
+      mode: 'auto',
+      articleIds: [],
+    })
+  })
+
+  it('switching back to manual mode clears the auto-mode filter', async () => {
+    render(
+      <PageEditor {...BASE_PROPS} initialMode="auto" initialCategoryId={1} />,
+    )
+    fireEvent.click(screen.getByLabelText('Manually curated'))
+    await screen.findByLabelText('Add article')
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(JSON.parse(String(init.body))).toEqual({
+      mode: 'manual',
+      categoryId: null,
+      tagId: null,
+    })
   })
 
   it('picking a category in auto mode PATCHes categoryId/tagId', async () => {

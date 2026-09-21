@@ -198,6 +198,9 @@ describe('resolveArticlesForPage', () => {
     title: string
     featuredPhotoKey?: string | null
     content?: Record<string, unknown>
+    /** Defaults to 'private' (matching createArticle's own default) —
+     * callers that need a tile to actually render must opt in explicitly. */
+    visibility?: 'private' | 'public'
   }) {
     const article = await createArticle(db)
     await db
@@ -208,12 +211,15 @@ describe('resolveArticlesForPage', () => {
         content: overrides.content ?? EMPTY_DOC,
       })
       .where(eq(articles.id, article.id))
+    if (overrides.visibility === 'public') {
+      await setArticleVisibility(db, article.id, 'public')
+    }
     return article.id
   }
 
   it('manual mode: returns articles in stored order, skipping a stale id', async () => {
-    const a = await makeArticle({ title: 'A' })
-    const b = await makeArticle({ title: 'B' })
+    const a = await makeArticle({ title: 'A', visibility: 'public' })
+    const b = await makeArticle({ title: 'B', visibility: 'public' })
     const page = await createPage(db, { slug: 'p', title: 'x' })
     await setArticleIds(db, page.id, [b, 999999, a])
 
@@ -224,10 +230,29 @@ describe('resolveArticlesForPage', () => {
     expect(tiles.map((tile) => tile.title)).toEqual(['B', 'A'])
   })
 
+  it('manual mode: skips an article that has since been made private', async () => {
+    const publicOne = await makeArticle({
+      title: 'Public',
+      visibility: 'public',
+    })
+    // Private is makeArticle's default — matches createArticle's own default
+    // and what an article looks like if it's since been un-published.
+    const privateOne = await makeArticle({ title: 'Private' })
+    const page = await createPage(db, { slug: 'p', title: 'x' })
+    await setArticleIds(db, page.id, [privateOne, publicOne])
+
+    const tiles = await resolveArticlesForPage(
+      db,
+      (await getById(db, page.id))!,
+    )
+    expect(tiles.map((tile) => tile.title)).toEqual(['Public'])
+  })
+
   it('manual mode: resolves image from featuredPhotoKey first', async () => {
     const a = await makeArticle({
       title: 'A',
       featuredPhotoKey: 'covers/a.jpg',
+      visibility: 'public',
     })
     const page = await createPage(db, { slug: 'p', title: 'x' })
     await setArticleIds(db, page.id, [a])
@@ -242,6 +267,7 @@ describe('resolveArticlesForPage', () => {
   it('manual mode: falls back to the first body image, then null', async () => {
     const withBodyImage = await makeArticle({
       title: 'Body image',
+      visibility: 'public',
       content: {
         type: 'doc',
         content: [
@@ -252,7 +278,10 @@ describe('resolveArticlesForPage', () => {
         ],
       },
     })
-    const withNoImage = await makeArticle({ title: 'No image' })
+    const withNoImage = await makeArticle({
+      title: 'No image',
+      visibility: 'public',
+    })
     const page = await createPage(db, { slug: 'p', title: 'x' })
     await setArticleIds(db, page.id, [withBodyImage, withNoImage])
 
