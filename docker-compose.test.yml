@@ -18,7 +18,9 @@ services:
   # tests (tests/media.presign.e2e.test.ts) — the presigner points here via
   # R2_ENDPOINT. The test bucket is created by the test setup over the S3 API.
   minio:
-    image: minio/minio
+    # quay.io, not Docker Hub — minio/minio there now requires a login (pull
+    # access denied), since MinIO moved public distribution off Docker Hub.
+    image: quay.io/minio/minio
     command: server /data
     environment:
       MINIO_ROOT_USER: minioadmin
