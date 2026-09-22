@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { articleCategories, articleTags, users } from '../src/db/schema'
 import { createCategory } from '../src/lib/articles/repo'
 import { signValue } from '../src/lib/auth/cookie'
@@ -6,6 +6,10 @@ import { createSession } from '../src/lib/auth/session'
 import { getById } from '../src/lib/pages/repo'
 import { type DevServerHandle, startDevServer } from './helpers/dev-server'
 import { createTestDb, DEFAULT_DEV_DATABASE_URL } from './helpers/test-db'
+
+// Dev-server round-trips share one compile-on-demand server — generous
+// per-test budget so full-suite load never flakes a passing test.
+vi.setConfig({ testTimeout: 30_000 })
 
 const PORT = 43118
 const BASE_URL = `http://localhost:${PORT}`
