@@ -373,6 +373,54 @@ describe('public page route', () => {
     expect(asVisitor.status).toBe(404)
   })
 
+  it('a public page previewed by the owner also shows its draft articles, badged; a visitor never sees them', async () => {
+    const draft = await request('/api/articles', {
+      method: 'POST',
+      authed: true,
+    })
+    const { id: draftId } = (await draft.json()) as { id: number }
+    await request(`/api/articles/${draftId}`, {
+      method: 'PATCH',
+      authed: true,
+      body: { title: 'Unfinished draft' },
+    })
+
+    const published = await request('/api/articles', {
+      method: 'POST',
+      authed: true,
+    })
+    const { id: publishedId } = (await published.json()) as { id: number }
+    await request(`/api/articles/${publishedId}`, {
+      method: 'PATCH',
+      authed: true,
+      body: { title: 'Finished post', visibility: 'public' },
+    })
+
+    const slug = `draft-preview-${Date.now()}`
+    const pageId = await createPageViaApi(slug)
+    await request(`/api/pages/${pageId}`, {
+      method: 'PATCH',
+      authed: true,
+      body: {
+        articleIds: [draftId, publishedId],
+        visibility: 'public',
+      },
+    })
+
+    const asOwner = await request(`/${slug}`, { authed: true })
+    expect(asOwner.status).toBe(200)
+    const ownerHtml = await asOwner.text()
+    expect(ownerHtml).toContain('Unfinished draft')
+    expect(ownerHtml).toContain('Finished post')
+    expect(ownerHtml).toContain('Draft')
+
+    const asVisitor = await request(`/${slug}`)
+    expect(asVisitor.status).toBe(200)
+    const visitorHtml = await asVisitor.text()
+    expect(visitorHtml).not.toContain('Unfinished draft')
+    expect(visitorHtml).toContain('Finished post')
+  })
+
   it('renders a manual-mode page: tiles in order, correct links, text-only fallback', async () => {
     const article1 = await request('/api/articles', {
       method: 'POST',

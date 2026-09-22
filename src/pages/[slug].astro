@@ -13,15 +13,21 @@ import {
 // signed-in owner can additionally preview a still-private page here (not
 // yet true of articles/photo tags — deliberately scoped to pages only, see
 // user feedback that prompted this) via getBySlugForOwner, which skips the
-// visibility filter; everyone else still 404s on a private slug.
+// visibility filter; everyone else still 404s on a private slug. The same
+// owner-preview also includes draft (private) articles in the tile
+// resolution, so previewing a page shows what it'll look like once its
+// articles are published too — not just once the page itself is public.
+const isOwnerPreview = Astro.locals.user !== null
 const db = getAppDb()
-const page = Astro.locals.user
+const page = isOwnerPreview
   ? await getBySlugForOwner(db, Astro.params.slug ?? '')
   : await getBySlug(db, Astro.params.slug ?? '')
 if (!page) {
   return new Response('Not found', { status: 404 })
 }
-const tiles = await resolveArticlesForPage(db, page)
+const tiles = await resolveArticlesForPage(db, page, {
+  includePrivate: isOwnerPreview,
+})
 ---
 
 <BaseLayout title={`${page.title} — peterjur.co`}>
@@ -39,6 +45,9 @@ const tiles = await resolveArticlesForPage(db, page)
               href={`/a/${tile.publicId}`}
               class={tile.imageKey ? 'has-image' : 'text-only'}
             >
+              {tile.visibility === 'private' && (
+                <span class="draft-badge">Draft</span>
+              )}
               {tile.imageKey ? (
                 <>
                   <img
@@ -88,6 +97,21 @@ const tiles = await resolveArticlesForPage(db, page)
 
   .empty {
     color: color-mix(in srgb, var(--cream) 65%, transparent);
+  }
+
+  .draft-badge {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    z-index: 1;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--ink);
+    background: var(--cream);
+    border-radius: 3px;
   }
 
   .preview-banner {

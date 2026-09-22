@@ -256,6 +256,25 @@ describe('resolveArticlesForPage', () => {
     expect(tiles.map((tile) => tile.title)).toEqual(['Public'])
   })
 
+  it('manual mode: includePrivate includes a private article too, flagged on the tile', async () => {
+    const publicOne = await makeArticle({
+      title: 'Public',
+      visibility: 'public',
+    })
+    const privateOne = await makeArticle({ title: 'Private' })
+    const page = await createPage(db, { slug: 'p', title: 'x' })
+    await setArticleIds(db, page.id, [privateOne, publicOne])
+
+    const tiles = await resolveArticlesForPage(
+      db,
+      (await getById(db, page.id))!,
+      { includePrivate: true },
+    )
+    expect(tiles.map((tile) => tile.title)).toEqual(['Private', 'Public'])
+    expect(tiles[0]?.visibility).toBe('private')
+    expect(tiles[1]?.visibility).toBe('public')
+  })
+
   it('manual mode: resolves image from featuredPhotoKey first', async () => {
     const a = await makeArticle({
       title: 'A',
@@ -326,6 +345,18 @@ describe('resolveArticlesForPage', () => {
       (await getById(db, page.id))!,
     )
     expect(tiles.map((tile) => tile.title)).toEqual(['Newer', 'Older'])
+
+    const previewTiles = await resolveArticlesForPage(
+      db,
+      (await getById(db, page.id))!,
+      { includePrivate: true },
+    )
+    expect(previewTiles.map((tile) => tile.title)).toEqual(
+      expect.arrayContaining(['Newer', 'Older', 'Private']),
+    )
+    expect(
+      previewTiles.find((tile) => tile.title === 'Private')?.visibility,
+    ).toBe('private')
   })
 
   it('auto mode by tag, sorted title_asc', async () => {

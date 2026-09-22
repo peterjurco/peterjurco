@@ -3,6 +3,7 @@ import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import type * as schema from '../../db/schema'
 import { articles, articleTagsMap, pages } from '../../db/schema'
 import { extractImageKeys } from '../articles/extract-image-keys'
+import type { ArticleVisibility } from '../articles/repo'
 
 /**
  * INVARIANT — no interactive transactions (same as articles/home-tiles
@@ -201,6 +202,8 @@ export interface PageTile {
   title: string
   /** R2 object key, or null for a text-only tile. Not a display URL — the caller resolves that via imageUrl(). */
   imageKey: string | null
+  /** The underlying article's own visibility — only ever 'private' when resolveArticlesForPage was called with includePrivate, so callers can flag draft tiles (they link to /a/:publicId, which itself 404s until the article is published). */
+  visibility: ArticleVisibility
 }
 
 function resolveTileImageKey(article: {
@@ -218,21 +221,39 @@ const SORT_ORDER = {
   title_desc: [desc(articles.title), desc(articles.id)],
 } as const
 
+export interface ResolveArticlesForPageOptions {
+  /**
+   * Owner-preview escape hatch: when true, includes private articles too
+   * (matching getBySlugForOwner's page-level preview) so an owner can see
+   * what a page will look like once its draft articles are published.
+   * Defaults to false — the normal, public-visitor path.
+   */
+  includePrivate?: boolean
+}
+
 /**
  * Resolves the tiles a page should render: manual mode returns its
  * articleIds in stored order (silently skipping any id whose article was
  * deleted since, OR whose article has since been made private — a page
- * never leaks a private article's existence, same as auto mode below);
- * auto mode queries by categoryId/tagId (public articles only), sorted by
- * sortKey. Neither branch throws on an incomplete/edge-case page (empty
+ * never leaks a private article's existence to a non-owner, same as auto
+ * mode below); auto mode queries by categoryId/tagId, sorted by sortKey.
+ * Both branches only include public articles unless `includePrivate` is
+ * set. Neither branch throws on an incomplete/edge-case page (empty
  * articleIds, auto mode with no filter set yet) — both just return [].
  */
 export async function resolveArticlesForPage(
   db: PagesDb,
   page: Page,
+  options: ResolveArticlesForPageOptions = {},
 ): Promise<PageTile[]> {
+  const { includePrivate = false } = options
+  const visibilityFilter = includePrivate
+    ? undefined
+    : eq(articles.visibility, 'public')
+
   if (page.mode === 'manual') {
     if (page.articleIds.length === 0) return []
+    const idFilter = inArray(articles.id, page.articleIds)
     const rows = await db
       .select({
         id: articles.id,
@@ -240,13 +261,13 @@ export async function resolveArticlesForPage(
         title: articles.title,
         featuredPhotoKey: articles.featuredPhotoKey,
         content: articles.content,
+        visibility: articles.visibility,
       })
       .from(articles)
       .where(
-        and(
-          inArray(articles.id, page.articleIds),
-          eq(articles.visibility, 'public'),
-        ),
+        visibilityFilter === undefined
+          ? idFilter
+          : and(idFilter, visibilityFilter),
       )
     const byId = new Map(rows.map((row) => [row.id, row]))
     return page.articleIds
@@ -256,10 +277,11 @@ export async function resolveArticlesForPage(
         publicId: row.publicId,
         title: row.title,
         imageKey: resolveTileImageKey(row),
+        visibility: row.visibility,
       }))
   }
 
-  const condition =
+  const filterCondition =
     page.categoryId !== null
       ? eq(articles.categoryId, page.categoryId)
       : page.tagId !== null
@@ -271,7 +293,7 @@ export async function resolveArticlesForPage(
               .where(eq(articleTagsMap.tagId, page.tagId)),
           )
         : undefined
-  if (condition === undefined) return []
+  if (filterCondition === undefined) return []
 
   const rows = await db
     .select({
@@ -279,13 +301,19 @@ export async function resolveArticlesForPage(
       title: articles.title,
       featuredPhotoKey: articles.featuredPhotoKey,
       content: articles.content,
+      visibility: articles.visibility,
     })
     .from(articles)
-    .where(and(condition, eq(articles.visibility, 'public')))
+    .where(
+      visibilityFilter === undefined
+        ? filterCondition
+        : and(filterCondition, visibilityFilter),
+    )
     .orderBy(...SORT_ORDER[page.sortKey])
   return rows.map((row) => ({
     publicId: row.publicId,
     title: row.title,
     imageKey: resolveTileImageKey(row),
+    visibility: row.visibility,
   }))
 }
