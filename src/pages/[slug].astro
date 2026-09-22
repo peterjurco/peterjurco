@@ -2,14 +2,22 @@
 import { getAppDb } from '../db'
 import BaseLayout from '../layouts/BaseLayout.astro'
 import { imageUrl } from '../lib/media/image-url'
-import { getBySlug, resolveArticlesForPage } from '../lib/pages/repo'
+import {
+  getBySlug,
+  getBySlugForOwner,
+  resolveArticlesForPage,
+} from '../lib/pages/repo'
 
 // Public page route (docs/superpowers/specs/2026-09-18-pages-design.md):
-// reachable only by its chosen slug, no auth. getBySlug is SQL-filtered to
-// visibility='public', so a private page 404s here by construction — same
-// as private articles/photo tags, no preview-while-private mode.
+// reachable at its chosen slug, no auth required for a PUBLIC page. A
+// signed-in owner can additionally preview a still-private page here (not
+// yet true of articles/photo tags — deliberately scoped to pages only, see
+// user feedback that prompted this) via getBySlugForOwner, which skips the
+// visibility filter; everyone else still 404s on a private slug.
 const db = getAppDb()
-const page = await getBySlug(db, Astro.params.slug ?? '')
+const page = Astro.locals.user
+  ? await getBySlugForOwner(db, Astro.params.slug ?? '')
+  : await getBySlug(db, Astro.params.slug ?? '')
 if (!page) {
   return new Response('Not found', { status: 404 })
 }
@@ -18,6 +26,9 @@ const tiles = await resolveArticlesForPage(db, page)
 
 <BaseLayout title={`${page.title} — peterjur.co`}>
   <main class="page-view">
+    {page.visibility === 'private' && (
+      <p class="preview-banner">Private — only visible to you, signed in.</p>
+    )}
     <h1>{page.title}</h1>
     {tiles.length === 0 && <p class="empty">Nothing here yet.</p>}
     <ul class="page-tile-grid">
@@ -77,6 +88,19 @@ const tiles = await resolveArticlesForPage(db, page)
 
   .empty {
     color: color-mix(in srgb, var(--cream) 65%, transparent);
+  }
+
+  .preview-banner {
+    display: inline-block;
+    margin: 0 0 1.25rem;
+    padding: 0.35rem 0.7rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--ink);
+    background: var(--cream);
+    border-radius: 4px;
   }
 
   .page-tile-grid {

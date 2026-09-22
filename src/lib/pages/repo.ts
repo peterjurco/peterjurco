@@ -74,6 +74,19 @@ export async function getBySlug(
   return page ?? null
 }
 
+/** Owner-preview accessor for `/<slug>` — same lookup as getBySlug but without the visibility filter, so a signed-in admin can preview a page before making it public. */
+export async function getBySlugForOwner(
+  db: PagesDb,
+  slug: string,
+): Promise<Page | null> {
+  const [page] = await db
+    .select()
+    .from(pages)
+    .where(eq(pages.slug, slug))
+    .limit(1)
+  return page ?? null
+}
+
 /** Cheap existence probe for handlers that must 404. */
 export async function pageExists(db: PagesDb, id: number): Promise<boolean> {
   const [row] = await db

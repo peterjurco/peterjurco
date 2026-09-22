@@ -20,6 +20,7 @@ import {
   deletePage,
   getById,
   getBySlug,
+  getBySlugForOwner,
   listForOwner,
   pageExists,
   resolveArticlesForPage,
@@ -80,6 +81,13 @@ describe('getById / getBySlug / pageExists', () => {
   it('returns null / false for an unknown id', async () => {
     expect(await getById(db, 999999)).toBeNull()
     expect(await pageExists(db, 999999)).toBe(false)
+  })
+
+  it('getBySlugForOwner finds any visibility, unlike getBySlug', async () => {
+    const page = await createPage(db, { slug: 'owner-preview', title: 'x' })
+    expect((await getBySlugForOwner(db, 'owner-preview'))?.id).toBe(page.id)
+    expect(await getBySlug(db, 'owner-preview')).toBeNull()
+    expect(await getBySlugForOwner(db, 'no-such-slug')).toBeNull()
   })
 })
 

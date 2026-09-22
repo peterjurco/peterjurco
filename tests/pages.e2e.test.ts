@@ -360,6 +360,19 @@ describe('public page route', () => {
     expect(privatePage.status).toBe(404)
   })
 
+  it('lets a signed-in owner preview a private page, with a banner; a signed-out visitor still 404s', async () => {
+    const slug = `owner-preview-${Date.now()}`
+    await createPageViaApi(slug)
+
+    const asOwner = await request(`/${slug}`, { authed: true })
+    expect(asOwner.status).toBe(200)
+    const html = await asOwner.text()
+    expect(html).toContain('Private')
+
+    const asVisitor = await request(`/${slug}`)
+    expect(asVisitor.status).toBe(404)
+  })
+
   it('renders a manual-mode page: tiles in order, correct links, text-only fallback', async () => {
     const article1 = await request('/api/articles', {
       method: 'POST',
