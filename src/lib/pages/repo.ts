@@ -3,7 +3,6 @@ import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import type * as schema from '../../db/schema'
 import { articles, articleTagsMap, pages } from '../../db/schema'
 import { extractImageKeys } from '../articles/extract-image-keys'
-import type { ArticleVisibility } from '../articles/repo'
 
 /**
  * INVARIANT — no interactive transactions (same as articles/home-tiles
@@ -202,8 +201,6 @@ export interface PageTile {
   title: string
   /** R2 object key, or null for a text-only tile. Not a display URL — the caller resolves that via imageUrl(). */
   imageKey: string | null
-  /** The underlying article's own visibility — only ever 'private' when resolveArticlesForPage was called with includePrivate, so callers can flag draft tiles (they link to /a/:publicId, which itself 404s until the article is published). */
-  visibility: ArticleVisibility
 }
 
 function resolveTileImageKey(article: {
@@ -261,7 +258,6 @@ export async function resolveArticlesForPage(
         title: articles.title,
         featuredPhotoKey: articles.featuredPhotoKey,
         content: articles.content,
-        visibility: articles.visibility,
       })
       .from(articles)
       .where(
@@ -277,7 +273,6 @@ export async function resolveArticlesForPage(
         publicId: row.publicId,
         title: row.title,
         imageKey: resolveTileImageKey(row),
-        visibility: row.visibility,
       }))
   }
 
@@ -301,7 +296,6 @@ export async function resolveArticlesForPage(
       title: articles.title,
       featuredPhotoKey: articles.featuredPhotoKey,
       content: articles.content,
-      visibility: articles.visibility,
     })
     .from(articles)
     .where(
@@ -314,6 +308,5 @@ export async function resolveArticlesForPage(
     publicId: row.publicId,
     title: row.title,
     imageKey: resolveTileImageKey(row),
-    visibility: row.visibility,
   }))
 }

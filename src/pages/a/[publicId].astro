@@ -9,14 +9,19 @@ import BaseLayout from '../../layouts/BaseLayout.astro'
 import { absoluteUrl } from '../../lib/absolute-url'
 import { deriveExcerpt } from '../../lib/articles/excerpt'
 import { renderDoc } from '../../lib/articles/render-doc'
-import { getByPublicId } from '../../lib/articles/repo'
+import { getByPublicId, getByPublicIdForOwner } from '../../lib/articles/repo'
 import { imageUrl } from '../../lib/media/image-url'
 import '../../styles/article-body.css'
 
 // Public read view (TECH_DECISIONS §9): pure SSR — no editor JS is shipped.
-// getByPublicId returns only public articles, so private ids 404 here.
+// getByPublicId returns only public articles, so private ids 404 here; a
+// signed-in owner instead gets getByPublicIdForOwner (no visibility
+// filter), matching the same preview allowance already built for pages.
+const isOwnerPreview = Astro.locals.user !== null
 const db = getAppDb()
-const article = await getByPublicId(db, Astro.params.publicId ?? '')
+const article = isOwnerPreview
+  ? await getByPublicIdForOwner(db, Astro.params.publicId ?? '')
+  : await getByPublicId(db, Astro.params.publicId ?? '')
 if (!article) {
   return new Response('Not found', { status: 404 })
 }
@@ -50,7 +55,20 @@ const ogImage = article.featuredPhotoKey
     {ogImage && <meta name="twitter:image" content={ogImage} />}
   </Fragment>
   <main class="public-article">
+    {isOwnerPreview && (
+      <a class="public-article-edit" href={`/app/articles/${article.id}`}>
+        Edit
+      </a>
+    )}
     <article>
+      {article.featuredPhotoKey && (
+        <img
+          class="public-article-cover"
+          src={imageUrl(article.featuredPhotoKey, { width: 1200 })}
+          alt=""
+          loading="eager"
+        />
+      )}
       <h1>{title}</h1>
       <div class="article-body" set:html={html} />
     </article>
@@ -59,6 +77,7 @@ const ogImage = article.featuredPhotoKey
 
 <style is:global>
   .public-article {
+    position: relative;
     max-width: 42rem;
     margin: 0 auto;
     padding: 1.5rem 1rem 4rem;
@@ -67,5 +86,26 @@ const ogImage = article.featuredPhotoKey
   }
   .public-article h1 {
     line-height: 1.2;
+  }
+  .public-article-edit {
+    position: absolute;
+    top: 1.5rem;
+    right: 1rem;
+    padding: 0.4rem 0.85rem;
+    font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #17140f;
+    background: #f0e7d3;
+    border-radius: 6px;
+    text-decoration: none;
+  }
+  .public-article-cover {
+    display: block;
+    width: 100%;
+    max-height: 26rem;
+    margin: 0 0 1.5rem;
+    object-fit: cover;
+    border-radius: 6px;
   }
 </style>

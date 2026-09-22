@@ -360,20 +360,18 @@ describe('public page route', () => {
     expect(privatePage.status).toBe(404)
   })
 
-  it('lets a signed-in owner preview a private page, with a banner; a signed-out visitor still 404s', async () => {
+  it('lets a signed-in owner preview a private page; a signed-out visitor still 404s', async () => {
     const slug = `owner-preview-${Date.now()}`
     await createPageViaApi(slug)
 
     const asOwner = await request(`/${slug}`, { authed: true })
     expect(asOwner.status).toBe(200)
-    const html = await asOwner.text()
-    expect(html).toContain('Private')
 
     const asVisitor = await request(`/${slug}`)
     expect(asVisitor.status).toBe(404)
   })
 
-  it('a public page previewed by the owner also shows its draft articles, badged; a visitor never sees them', async () => {
+  it('a public page previewed by the owner also shows its draft articles; a visitor never sees them', async () => {
     const draft = await request('/api/articles', {
       method: 'POST',
       authed: true,
@@ -412,7 +410,6 @@ describe('public page route', () => {
     const ownerHtml = await asOwner.text()
     expect(ownerHtml).toContain('Unfinished draft')
     expect(ownerHtml).toContain('Finished post')
-    expect(ownerHtml).toContain('Draft')
 
     const asVisitor = await request(`/${slug}`)
     expect(asVisitor.status).toBe(200)
@@ -421,7 +418,7 @@ describe('public page route', () => {
     expect(visitorHtml).toContain('Finished post')
   })
 
-  it('renders a manual-mode page: tiles in order, correct links, text-only fallback', async () => {
+  it('renders a manual-mode page: tiles in order, correct links, imageless fallback', async () => {
     const article1 = await request('/api/articles', {
       method: 'POST',
       authed: true,
@@ -459,7 +456,7 @@ describe('public page route', () => {
     expect(html).toContain('Tokyo trip')
     // Order: Kyoto (articleId2) appears before Tokyo (articleId1).
     expect(html.indexOf('Kyoto notes')).toBeLessThan(html.indexOf('Tokyo trip'))
-    expect(html).toContain('text-only')
+    expect(html).toContain('cover-placeholder')
   })
 
   it('renders an auto-mode page filtered by category, sorted title_asc', async () => {

@@ -256,7 +256,7 @@ describe('resolveArticlesForPage', () => {
     expect(tiles.map((tile) => tile.title)).toEqual(['Public'])
   })
 
-  it('manual mode: includePrivate includes a private article too, flagged on the tile', async () => {
+  it('manual mode: includePrivate includes a private article too', async () => {
     const publicOne = await makeArticle({
       title: 'Public',
       visibility: 'public',
@@ -271,8 +271,6 @@ describe('resolveArticlesForPage', () => {
       { includePrivate: true },
     )
     expect(tiles.map((tile) => tile.title)).toEqual(['Private', 'Public'])
-    expect(tiles[0]?.visibility).toBe('private')
-    expect(tiles[1]?.visibility).toBe('public')
   })
 
   it('manual mode: resolves image from featuredPhotoKey first', async () => {
@@ -354,9 +352,6 @@ describe('resolveArticlesForPage', () => {
     expect(previewTiles.map((tile) => tile.title)).toEqual(
       expect.arrayContaining(['Newer', 'Older', 'Private']),
     )
-    expect(
-      previewTiles.find((tile) => tile.title === 'Private')?.visibility,
-    ).toBe('private')
   })
 
   it('auto mode by tag, sorted title_asc', async () => {

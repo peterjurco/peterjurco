@@ -32,35 +32,25 @@ const tiles = await resolveArticlesForPage(db, page, {
 
 <BaseLayout title={`${page.title} — peterjur.co`}>
   <main class="page-view">
-    {page.visibility === 'private' && (
-      <p class="preview-banner">Private — only visible to you, signed in.</p>
-    )}
     <h1>{page.title}</h1>
     {tiles.length === 0 && <p class="empty">Nothing here yet.</p>}
     <ul class="page-tile-grid">
       {
         tiles.map((tile) => (
           <li>
-            <a
-              href={`/a/${tile.publicId}`}
-              class={tile.imageKey ? 'has-image' : 'text-only'}
-            >
-              {tile.visibility === 'private' && (
-                <span class="draft-badge">Draft</span>
-              )}
-              {tile.imageKey ? (
-                <>
+            <a href={`/a/${tile.publicId}`}>
+              <span class="cover">
+                {tile.imageKey ? (
                   <img
                     src={imageUrl(tile.imageKey, { width: 640 })}
                     alt={tile.title}
                     loading="lazy"
                   />
-                  <span class="scrim" />
-                  <h4>{tile.title}</h4>
-                </>
-              ) : (
-                <h4>{tile.title}</h4>
-              )}
+                ) : (
+                  <span class="cover-placeholder" aria-hidden="true" />
+                )}
+              </span>
+              <span class="caption">{tile.title}</span>
             </a>
           </li>
         ))
@@ -99,108 +89,67 @@ const tiles = await resolveArticlesForPage(db, page, {
     color: color-mix(in srgb, var(--cream) 65%, transparent);
   }
 
-  .draft-badge {
-    position: absolute;
-    top: 0.5rem;
-    left: 0.5rem;
-    z-index: 1;
-    padding: 0.2rem 0.5rem;
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-    color: var(--ink);
-    background: var(--cream);
-    border-radius: 3px;
-  }
-
-  .preview-banner {
-    display: inline-block;
-    margin: 0 0 1.25rem;
-    padding: 0.35rem 0.7rem;
-    font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-    color: var(--ink);
-    background: var(--cream);
-    border-radius: 4px;
-  }
-
+  /* Mirrors the photo hub's album grid (src/pages/t/[publicId].astro):
+     portrait cover, caption below (not overlaid), same "develop" hover. */
   .page-tile-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
-    gap: 1.25rem;
+    gap: 1.75rem 1.25rem;
     padding: 0;
     list-style: none;
   }
 
   .page-tile-grid a {
-    position: relative;
     display: block;
-    aspect-ratio: 4 / 3;
-    overflow: hidden;
-    border-radius: 4px;
     color: inherit;
     text-decoration: none;
   }
 
-  /* Both tile variants sit on a dark background, so the ring needs to be
-     --cream for contrast — same "outline color contrasts with this tile's
-     own background" convention as public-home.css's tile focus states. */
-  .page-tile-grid a:focus-visible {
-    outline: 2px solid var(--cream);
-    outline-offset: 3px;
+  .page-tile-grid .cover {
+    display: block;
+    aspect-ratio: 4 / 5;
+    overflow: hidden;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--cream) 8%, transparent);
   }
 
-  .page-tile-grid a.has-image img {
-    position: absolute;
-    inset: 0;
+  .page-tile-grid .cover img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    display: block;
+    /* "Develop": muted at rest, blooms into full color on hover/focus —
+       same recipe as public-home.css's photo tiles. */
     filter: saturate(0.74) contrast(0.94) brightness(0.98);
     transition: filter 1s ease;
   }
 
-  .page-tile-grid a.has-image:hover img,
-  .page-tile-grid a.has-image:focus-visible img {
+  .page-tile-grid a:hover .cover img,
+  .page-tile-grid a:focus-visible .cover img {
     filter: saturate(1.08) contrast(1.04) brightness(1.03);
   }
 
-  .page-tile-grid .scrim {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(to top, rgba(23, 20, 15, 0.85), transparent 55%);
+  .page-tile-grid .cover-placeholder {
+    display: block;
+    width: 100%;
+    height: 100%;
   }
 
-  .page-tile-grid a.has-image h4 {
-    position: absolute;
-    left: 0.7rem;
-    right: 0.7rem;
-    bottom: 0.6rem;
-    margin: 0;
-    font-size: 0.95rem;
-    font-weight: 600;
+  .page-tile-grid .caption {
+    display: block;
+    margin-top: 0.6rem;
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+    color: color-mix(in srgb, var(--cream) 80%, transparent);
   }
 
-  .page-tile-grid a.text-only {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 0.8rem;
-    background: color-mix(in srgb, var(--cream) 8%, transparent);
-  }
-
-  .page-tile-grid a.text-only h4 {
-    margin: 0;
-    font-size: 0.95rem;
-    font-weight: 600;
+  .page-tile-grid a:hover .caption,
+  .page-tile-grid a:focus-visible .caption {
+    color: var(--cream);
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .page-tile-grid a.has-image img {
+    .page-tile-grid .cover img {
       transition-duration: 0.001ms;
     }
   }

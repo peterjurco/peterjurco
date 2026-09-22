@@ -393,6 +393,19 @@ export async function getByPublicId(
   return article ?? null
 }
 
+/** Owner-preview accessor for `/a/<publicId>` — same lookup as getByPublicId but without the visibility filter, so a signed-in admin can preview a private article. */
+export async function getByPublicIdForOwner(
+  db: ArticlesDb,
+  publicId: string,
+): Promise<Article | null> {
+  const [article] = await db
+    .select()
+    .from(articles)
+    .where(eq(articles.publicId, publicId))
+    .limit(1)
+  return article ?? null
+}
+
 export type ArticleListItem = Article & { categoryName: string | null }
 
 export interface ListForOwnerFilters {

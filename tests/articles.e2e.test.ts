@@ -277,6 +277,10 @@ describe('articles API — owner CRUD', () => {
     expect(publicHtml).not.toContain('contenteditable')
     expect(publicHtml).not.toContain('role="toolbar"')
 
+    // No Edit link for an anonymous visitor (the class name alone isn't a
+    // safe check — it's also present in the page's own <style> block).
+    expect(publicHtml).not.toContain(`href="/app/articles/${id}"`)
+
     // 6. Back to private — the public URL 404s again.
     const unpublish = await request(`/api/articles/${id}`, {
       method: 'PATCH',
@@ -319,6 +323,35 @@ describe('articles API — owner CRUD', () => {
       `<meta name="twitter:image" content="${expectedUrl}"`,
     )
     expect(html).toContain('content="summary_large_image"')
+
+    // The featured image is also visibly rendered on the page itself (an
+    // actual <img>, not just referenced by the og:image/twitter:image meta
+    // tags) — the class name alone isn't a safe check since it's also
+    // present in the page's own <style> block regardless.
+    expect(html).toContain(
+      `<img class="public-article-cover" src="${IMG_BASE}/covers/test-cover.jpg`,
+    )
+  })
+
+  it('lets a signed-in owner preview a private article, with an Edit link; a visitor still 404s', async () => {
+    const id = await createArticleViaApi()
+    await request(`/api/articles/${id}`, {
+      method: 'PATCH',
+      authed: true,
+      body: { title: 'Still drafting' },
+    })
+    const stored = await getById(db, id)
+    const publicId = stored?.publicId
+    if (!publicId) throw new Error('article has no public id')
+
+    const asOwner = await request(`/a/${publicId}`, { authed: true })
+    expect(asOwner.status).toBe(200)
+    const ownerHtml = await asOwner.text()
+    expect(ownerHtml).toContain('Still drafting')
+    expect(ownerHtml).toContain(`href="/app/articles/${id}"`)
+
+    const asVisitor = await request(`/a/${publicId}`)
+    expect(asVisitor.status).toBe(404)
   })
 
   it('serves the editor page only to the owner', async () => {
