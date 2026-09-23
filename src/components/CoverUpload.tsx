@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   ACCEPTED_IMAGE_TYPES,
   type UploadImageOptions,
@@ -27,15 +27,27 @@ interface CoverUploadProps {
   /** Reports in-flight upload state so the parent can block submits. */
   onUploadingChange?: (uploading: boolean) => void
   disabled?: boolean
+  /** Swaps the trigger button's label from "Add image" to "Edit image" — pass true once a cover is already set. */
+  hasExisting?: boolean
 }
 
+/**
+ * The native file input renders as plain unstyled text ("Choose file / No
+ * file chosen") in every browser, so it's kept in the DOM but visually
+ * hidden and driven by a real, styled trigger button instead — the
+ * standard "hidden input + button click()" pattern. The input keeps its
+ * aria-label and stays a normal DOM node (not `display: none` via the
+ * `hidden` attribute) so it's still reachable by keyboard/AT and by tests.
+ */
 export function CoverUpload({
   onUploaded,
   onUploadingChange,
   disabled,
+  hasExisting = false,
 }: CoverUploadProps) {
   const [status, setStatus] = useState<Status>('')
   const uploading = status === 'Uploading…'
+  const inputRef = useRef<HTMLInputElement>(null)
 
   async function handleFile(file: File): Promise<void> {
     if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
@@ -58,8 +70,11 @@ export function CoverUpload({
   return (
     <div className="cover-upload">
       <input
+        ref={inputRef}
+        className="cover-upload-input"
         type="file"
         aria-label="Cover image"
+        tabIndex={-1}
         accept={ACCEPTED_IMAGE_TYPES.join(',')}
         disabled={disabled || uploading}
         onChange={(event) => {
@@ -70,6 +85,14 @@ export function CoverUpload({
           if (file) void handleFile(file)
         }}
       />
+      <button
+        type="button"
+        className="admin-btn"
+        disabled={disabled || uploading}
+        onClick={() => inputRef.current?.click()}
+      >
+        {hasExisting ? 'Edit image' : 'Add image'}
+      </button>
       <span
         className={
           status === 'Uploaded'

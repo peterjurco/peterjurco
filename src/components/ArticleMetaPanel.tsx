@@ -313,6 +313,7 @@ export function ArticleMetaPanel({
             onUploaded={(key) => void changeFeaturedPhotoKey(key)}
             onUploadingChange={setCoverUploading}
             disabled={coverUploading}
+            hasExisting={featuredPhotoKey !== null}
           />
           {featuredPhotoKey && (
             <button

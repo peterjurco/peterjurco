@@ -165,6 +165,7 @@ export function AlbumForm({
           onUploaded={(key) => setCoverImageKey(key)}
           onUploadingChange={setUploading}
           disabled={busy && !uploading}
+          hasExisting={coverImageKey !== null}
         />
         <span className="eyebrow">
           {coverImageKey ? '(uploaded)' : '(none)'}

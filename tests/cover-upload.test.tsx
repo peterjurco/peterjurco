@@ -225,4 +225,39 @@ describe('CoverUpload component', () => {
     await screen.findByText('Uploaded')
     expect(onUploadingChange.mock.calls).toEqual([[true], [false]])
   })
+
+  it('shows a real button, not the raw file input, and labels it by hasExisting', () => {
+    const { rerender } = render(<CoverUpload onUploaded={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Add image' })).toBeTruthy()
+
+    rerender(<CoverUpload onUploaded={vi.fn()} hasExisting />)
+    expect(screen.getByRole('button', { name: 'Edit image' })).toBeTruthy()
+  })
+
+  it('clicking the trigger button opens the (visually hidden) file picker', () => {
+    render(<CoverUpload onUploaded={vi.fn()} />)
+    const input = screen.getByLabelText('Cover image') as HTMLInputElement
+    const clickSpy = vi.spyOn(input, 'click')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add image' }))
+    expect(clickSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('disables the trigger button, not just the input, while an upload is in flight', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise<Response>(() => {})),
+    )
+
+    render(<CoverUpload onUploaded={vi.fn()} />)
+    const input = screen.getByLabelText('Cover image') as HTMLInputElement
+    const file = new File(['bytes'], 'cover.png', { type: 'image/png' })
+    fireEvent.change(input, { target: { files: [file] } })
+
+    await screen.findByText('Uploading…')
+    expect(
+      (screen.getByRole('button', { name: 'Add image' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true)
+  })
 })

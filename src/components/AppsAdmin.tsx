@@ -230,6 +230,7 @@ export function AppsAdmin({ initialApps }: AppsAdminProps) {
             onUploaded={(key) => setIconKey(key)}
             onUploadingChange={setUploading}
             disabled={busy && !uploading}
+            hasExisting={iconKey !== null}
           />
         </div>
         {validationError && <p role="alert">{validationError}</p>}

@@ -171,9 +171,9 @@ body {
   font-weight: 600;
 }
 
-/* CoverUpload island — shared by AlbumForm, AppsAdmin (icon) and
-   TileInspector (tile images), so it lives here once rather than being
-   copy-pasted into three component stylesheets. */
+/* CoverUpload island — shared by AlbumForm, AppsAdmin (icon),
+   TileInspector (tile images) and ArticleMetaPanel (featured image), so it
+   lives here once rather than being copy-pasted into component stylesheets. */
 .cover-upload {
   display: flex;
   flex-wrap: wrap;
@@ -181,9 +181,20 @@ body {
   gap: 0.5rem;
 }
 
-.cover-upload input[type="file"] {
-  font-size: 0.85rem;
-  font-family: var(--admin-font-body);
+/* The native file input renders as unstyled "Choose file / No file chosen"
+   text in every browser — kept in the DOM (not `display: none`, so it stays
+   a real, focusable-by-script form control) but visually hidden; a real
+   .admin-btn drives it via ref.click() instead (see CoverUpload.tsx). */
+.cover-upload-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .cover-upload span {
