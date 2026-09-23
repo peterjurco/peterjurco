@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { setSaveStatus } from '../lib/articles/save-status'
+import { CoverUpload } from './CoverUpload'
 import './article-editor.css'
+import { envImageUrlConfig, imageUrl } from '../lib/media/image-url'
 
 interface CategoryOption {
   id: number
@@ -15,6 +17,7 @@ interface ArticleMetaPanelProps {
   initialCategoryId: number | null
   initialTags: string[]
   initialIsFeatured: boolean
+  initialFeaturedPhotoKey: string | null
   categories: CategoryOption[]
   /** Every existing tag name, for the type-ahead dropdown. */
   allTagNames: string[]
@@ -34,8 +37,8 @@ type MetaState = '' | 'Saving…' | 'Saved' | 'Save failed'
 
 /**
  * Minimal metadata panel for the editor page: title, category, tags,
- * visibility toggle, featured flag, delete. Featured-photo upload arrives
- * with the media layer (Plan 5); taxonomy admin with Plan 7.
+ * visibility toggle, featured flag, featured image, delete. Taxonomy admin
+ * arrives with Plan 7.
  */
 export function ArticleMetaPanel({
   articleId,
@@ -45,6 +48,7 @@ export function ArticleMetaPanel({
   initialCategoryId,
   initialTags,
   initialIsFeatured,
+  initialFeaturedPhotoKey,
   categories,
   allTagNames,
   topTagsByCategory,
@@ -59,6 +63,10 @@ export function ArticleMetaPanel({
   const [categoryId, setCategoryId] = useState(initialCategoryId)
   const [tagsText, setTagsText] = useState(initialTags.join(', '))
   const [isFeatured, setIsFeatured] = useState(initialIsFeatured)
+  const [featuredPhotoKey, setFeaturedPhotoKey] = useState(
+    initialFeaturedPhotoKey,
+  )
+  const [coverUploading, setCoverUploading] = useState(false)
   const [status, setStatusRaw] = useState<MetaState>('')
   const [tagsFocused, setTagsFocused] = useState(false)
   /**
@@ -217,6 +225,11 @@ export function ArticleMetaPanel({
     if (await flushPatch({ isFeatured: next })) setIsFeatured(next)
   }
 
+  /** A discrete pick, not an in-progress edit — commits immediately, same as category/visibility. */
+  async function changeFeaturedPhotoKey(next: string | null): Promise<void> {
+    if (await flushPatch({ featuredPhotoKey: next })) setFeaturedPhotoKey(next)
+  }
+
   async function remove(): Promise<void> {
     if (!window.confirm('Delete this article? This cannot be undone.')) return
     const response = await fetch(`/api/articles/${articleId}`, {
@@ -282,6 +295,37 @@ export function ArticleMetaPanel({
           patchDebounced({ title: event.target.value })
         }}
       />
+      <div className="article-meta-cover">
+        {featuredPhotoKey && (
+          <img
+            className="article-meta-cover-preview"
+            src={imageUrl(
+              featuredPhotoKey,
+              { width: 320 },
+              envImageUrlConfig(),
+            )}
+            alt=""
+          />
+        )}
+        <div className="article-meta-cover-controls">
+          <span className="eyebrow">Featured image</span>
+          <CoverUpload
+            onUploaded={(key) => void changeFeaturedPhotoKey(key)}
+            onUploadingChange={setCoverUploading}
+            disabled={coverUploading}
+          />
+          {featuredPhotoKey && (
+            <button
+              type="button"
+              className="admin-btn"
+              onClick={() => void changeFeaturedPhotoKey(null)}
+              disabled={coverUploading}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      </div>
       <div className="article-meta-row">
         <select
           aria-label="Category"

@@ -10,6 +10,7 @@ import {
   deleteArticle,
   setCategory,
   setFeatured,
+  setFeaturedPhotoKey,
   setTags,
   setVisibility,
   updateArticle,
@@ -17,7 +18,8 @@ import {
 
 /**
  * PATCH /api/articles/:id — partial update. Carries either the autosave
- * payload (content/title) or metadata (visibility/categoryId/tags/isFeatured).
+ * payload (content/title) or metadata
+ * (visibility/categoryId/tags/isFeatured/featuredPhotoKey).
  * DELETE /api/articles/:id — removes the article.
  *
  * Owner-only (defense in depth beyond the middleware) — public reads happen
@@ -31,6 +33,7 @@ interface ParsedPatch {
   categoryId?: number | null
   tags?: string[]
   isFeatured?: boolean
+  featuredPhotoKey?: string | null
 }
 
 /** Returns the validated patch, or an error string naming the bad field. */
@@ -79,6 +82,15 @@ function parsePatch(body: Record<string, unknown>): ParsedPatch | string {
     }
     patch.isFeatured = body.isFeatured
   }
+  if ('featuredPhotoKey' in body) {
+    if (
+      body.featuredPhotoKey !== null &&
+      typeof body.featuredPhotoKey !== 'string'
+    ) {
+      return 'featuredPhotoKey must be a string or null'
+    }
+    patch.featuredPhotoKey = body.featuredPhotoKey as string | null
+  }
   if (Object.keys(patch).length === 0) return 'no updatable fields'
   return patch
 }
@@ -113,6 +125,9 @@ async function applyPatch(
   if (patch.tags !== undefined) await setTags(db, id, patch.tags)
   if (patch.isFeatured !== undefined) {
     await setFeatured(db, id, patch.isFeatured)
+  }
+  if (patch.featuredPhotoKey !== undefined) {
+    await setFeaturedPhotoKey(db, id, patch.featuredPhotoKey, env)
   }
   return true
 }

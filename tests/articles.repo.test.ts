@@ -33,6 +33,7 @@ import {
   reorderFeatured,
   setCategory,
   setFeatured,
+  setFeaturedPhotoKey,
   setTags,
   setVisibility,
   updateArticle,
@@ -251,6 +252,48 @@ describe('setFeatured', () => {
     expect((await getById(db, article.id))?.isFeatured).toBe(true)
     await setFeatured(db, article.id, false)
     expect((await getById(db, article.id))?.isFeatured).toBe(false)
+  })
+})
+
+describe('setFeaturedPhotoKey', () => {
+  it('sets the key and cleans up nothing the first time (no previous key)', async () => {
+    const article = await createArticle(db)
+    await setFeaturedPhotoKey(db, article.id, 'covers/a.jpg', R2_ENV)
+    expect((await getById(db, article.id))?.featuredPhotoKey).toBe(
+      'covers/a.jpg',
+    )
+    expect(deleteObject).not.toHaveBeenCalled()
+  })
+
+  it('replacing the key deletes the OLD one, keeps the new one', async () => {
+    const article = await createArticle(db)
+    await setFeaturedPhotoKey(db, article.id, 'covers/a.jpg', R2_ENV)
+    vi.mocked(deleteObject).mockClear()
+
+    await setFeaturedPhotoKey(db, article.id, 'covers/b.jpg', R2_ENV)
+    expect((await getById(db, article.id))?.featuredPhotoKey).toBe(
+      'covers/b.jpg',
+    )
+    expect(deleteObject).toHaveBeenCalledExactlyOnceWith(R2_ENV, 'covers/a.jpg')
+  })
+
+  it('clearing the key to null deletes the old one', async () => {
+    const article = await createArticle(db)
+    await setFeaturedPhotoKey(db, article.id, 'covers/a.jpg', R2_ENV)
+    vi.mocked(deleteObject).mockClear()
+
+    await setFeaturedPhotoKey(db, article.id, null, R2_ENV)
+    expect((await getById(db, article.id))?.featuredPhotoKey).toBeNull()
+    expect(deleteObject).toHaveBeenCalledExactlyOnceWith(R2_ENV, 'covers/a.jpg')
+  })
+
+  it('setting the same key again is a no-op cleanup-wise', async () => {
+    const article = await createArticle(db)
+    await setFeaturedPhotoKey(db, article.id, 'covers/a.jpg', R2_ENV)
+    vi.mocked(deleteObject).mockClear()
+
+    await setFeaturedPhotoKey(db, article.id, 'covers/a.jpg', R2_ENV)
+    expect(deleteObject).not.toHaveBeenCalled()
   })
 })
 

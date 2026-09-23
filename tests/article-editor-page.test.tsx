@@ -48,6 +48,7 @@ async function renderPage() {
         initialCategoryId={null}
         initialTags={[]}
         initialIsFeatured={false}
+        initialFeaturedPhotoKey={null}
         categories={[]}
         allTagNames={[]}
         topTagsByCategory={{}}

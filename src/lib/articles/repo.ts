@@ -128,6 +128,34 @@ export async function setFeatured(
 }
 
 /**
+ * Sets (or clears, with `null`) the featured image and cleans up the old R2
+ * object it replaces — safe unconditionally, unlike deleteArticle's
+ * deliberate hands-off (see its docblock): a key set here always comes from
+ * a fresh CoverUpload ('covers/' prefix), never reused elsewhere, so the
+ * previous key is never at risk of still being referenced once replaced.
+ */
+export async function setFeaturedPhotoKey(
+  db: ArticlesDb,
+  id: number,
+  key: string | null,
+  env: R2Env,
+): Promise<void> {
+  const [previous] = await db
+    .select({ featuredPhotoKey: articles.featuredPhotoKey })
+    .from(articles)
+    .where(eq(articles.id, id))
+    .limit(1)
+  await db
+    .update(articles)
+    .set({ featuredPhotoKey: key })
+    .where(eq(articles.id, id))
+  const oldKey = previous?.featuredPhotoKey
+  if (oldKey && oldKey !== key) {
+    await deleteOrphanedImages(env, [oldKey])
+  }
+}
+
+/**
  * Persists a drag order: each article's `featured_position` becomes its index
  * in `orderedIds`. Non-featured or unknown ids are ignored (the position is
  * meaningful only while `is_featured`). Sequential UPDATEs — see the
@@ -321,8 +349,8 @@ export async function updateMigratedArticle(
  * Deletes the article and best-effort cleans up every R2 image its body
  * referenced (see updateArticle's docblock — same set-difference cleanup
  * helper, run only after the delete below has already succeeded). Does NOT
- * touch `featuredPhotoKey`: it's WP-migration-only data with no update path
- * in the app today, and one caller (scripts/migrate-wp/links-to-albums.ts)
+ * touch `featuredPhotoKey`, even though setFeaturedPhotoKey now gives it a
+ * real update path: one caller (scripts/migrate-wp/links-to-albums.ts)
  * deliberately reuses a deleted article's featuredPhotoKey as a new album's
  * cover — deleting it here would break that reuse.
  */

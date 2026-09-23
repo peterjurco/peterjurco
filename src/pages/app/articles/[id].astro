@@ -56,6 +56,7 @@ const createdToday =
       initialCategoryId={article.categoryId}
       initialTags={article.tags.map((tag) => tag.name)}
       initialIsFeatured={article.isFeatured}
+      initialFeaturedPhotoKey={article.featuredPhotoKey}
       categories={categories.map(({ id, name }) => ({ id, name }))}
       allTagNames={allTags.map((tag) => tag.name)}
       topTagsByCategory={topTagsByCategory}

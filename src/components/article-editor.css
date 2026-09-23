@@ -218,6 +218,29 @@
   outline: none;
 }
 
+.article-meta-cover {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.article-meta-cover-preview {
+  width: 5rem;
+  height: 5rem;
+  object-fit: cover;
+  border: 1px solid var(--admin-border-light);
+  border-radius: 7px;
+}
+
+.article-meta-cover-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .article-meta-row {
   display: flex;
   flex-wrap: wrap;

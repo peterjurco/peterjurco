@@ -151,6 +151,7 @@ describe('articles API — owner CRUD', () => {
       { tags: 'not-an-array' },
       { categoryId: 'one' },
       { isFeatured: 'yes' },
+      { featuredPhotoKey: 42 },
     ]) {
       const response = await request(`/api/articles/${id}`, {
         method: 'PATCH',

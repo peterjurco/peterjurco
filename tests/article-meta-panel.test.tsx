@@ -32,6 +32,7 @@ afterEach(() => {
 interface PanelOverrides {
   initialTags?: string[]
   initialCategoryId?: number | null
+  initialFeaturedPhotoKey?: string | null
   categories?: { id: number; name: string }[]
   allTagNames?: string[]
   topTagsByCategory?: Record<number, string[]>
@@ -42,6 +43,7 @@ interface PanelOverrides {
 function renderPanel({
   initialTags = [],
   initialCategoryId = null,
+  initialFeaturedPhotoKey = null,
   categories = [{ id: 1, name: 'Essays' }],
   allTagNames = [],
   topTagsByCategory = {},
@@ -57,6 +59,7 @@ function renderPanel({
       initialCategoryId={initialCategoryId}
       initialTags={initialTags}
       initialIsFeatured={false}
+      initialFeaturedPhotoKey={initialFeaturedPhotoKey}
       categories={categories}
       allTagNames={allTagNames}
       topTagsByCategory={topTagsByCategory}
@@ -177,6 +180,58 @@ describe('ArticleMetaPanel — immediate actions', () => {
       title: 'Both fields',
       visibility: 'public',
     })
+  })
+})
+
+describe('ArticleMetaPanel — featured image', () => {
+  /** The thumbnail is decorative (alt="", redundant with the "Featured
+   * image" label next to it) — no accessible "img" role, so queried by
+   * class instead of screen.getByRole. */
+  function coverPreview(): HTMLImageElement | null {
+    return document.querySelector('.article-meta-cover-preview')
+  }
+
+  it('shows no thumbnail or Remove button when none is set', () => {
+    renderPanel()
+    expect(coverPreview()).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull()
+  })
+
+  it('shows the current thumbnail and a Remove button when one is set', () => {
+    renderPanel({ initialFeaturedPhotoKey: 'covers/existing.jpg' })
+    expect(coverPreview()?.src).toContain('covers/existing.jpg')
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeTruthy()
+  })
+
+  it('uploading a cover image PATCHes featuredPhotoKey and shows the thumbnail', async () => {
+    fetchMock
+      .mockImplementationOnce(async () =>
+        Response.json({ url: 'http://s3/put', key: 'covers/new.jpg' }),
+      )
+      .mockImplementationOnce(async () => new Response(null, { status: 200 }))
+      .mockImplementationOnce(
+        async () => new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      )
+    renderPanel()
+
+    const input = screen.getByLabelText('Cover image') as HTMLInputElement
+    const file = new File(['bytes'], 'new.jpg', { type: 'image/jpeg' })
+    fireEvent.change(input, { target: { files: [file] } })
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3))
+    const patchBody = patchCalls()[0]?.body
+    expect(patchBody).toEqual({ featuredPhotoKey: 'covers/new.jpg' })
+    await waitFor(() => expect(coverPreview()?.src).toContain('covers/new.jpg'))
+  })
+
+  it('clicking Remove PATCHes featuredPhotoKey: null and hides the thumbnail', async () => {
+    renderPanel({ initialFeaturedPhotoKey: 'covers/existing.jpg' })
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    expect(patchCalls()[0]?.body).toEqual({ featuredPhotoKey: null })
+    await waitFor(() => expect(coverPreview()).toBeNull())
+    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull()
   })
 })
 

@@ -305,3 +305,54 @@ describe('app icons — R2 cleanup', () => {
     expect(await existsInMinio(key)).toBe(false)
   })
 })
+
+describe('articles — featuredPhotoKey R2 cleanup', () => {
+  async function createArticleViaApi(): Promise<number> {
+    const response = await request('/api/articles', {
+      method: 'POST',
+      authed: true,
+    })
+    expect(response.status).toBe(201)
+    const { id } = (await response.json()) as { id: number }
+    return id
+  }
+
+  it('PATCH replacing featuredPhotoKey deletes the OLD one and keeps the new one', async () => {
+    const oldKey = await uploadObject('old-cover.jpg')
+    const newKey = await uploadObject('new-cover.jpg')
+    const id = await createArticleViaApi()
+    await request(`/api/articles/${id}`, {
+      method: 'PATCH',
+      authed: true,
+      body: { featuredPhotoKey: oldKey },
+    })
+
+    const patch = await request(`/api/articles/${id}`, {
+      method: 'PATCH',
+      authed: true,
+      body: { featuredPhotoKey: newKey },
+    })
+    expect(patch.status).toBe(200)
+
+    expect(await existsInMinio(oldKey)).toBe(false)
+    expect(await existsInMinio(newKey)).toBe(true)
+  })
+
+  it('PATCH clearing featuredPhotoKey to null deletes the old one', async () => {
+    const key = await uploadObject('cover.jpg')
+    const id = await createArticleViaApi()
+    await request(`/api/articles/${id}`, {
+      method: 'PATCH',
+      authed: true,
+      body: { featuredPhotoKey: key },
+    })
+
+    const patch = await request(`/api/articles/${id}`, {
+      method: 'PATCH',
+      authed: true,
+      body: { featuredPhotoKey: null },
+    })
+    expect(patch.status).toBe(200)
+    expect(await existsInMinio(key)).toBe(false)
+  })
+})
