@@ -1,6 +1,7 @@
 ---
 import { getAppDb } from '../db'
 import BaseLayout from '../layouts/BaseLayout.astro'
+import { formatFullDate } from '../lib/format-date'
 import { imageUrl } from '../lib/media/image-url'
 import {
   getBySlug,
@@ -51,6 +52,27 @@ const tiles = await resolveArticlesForPage(db, page, {
                 )}
               </span>
               <span class="caption">{tile.title}</span>
+              {page.showTags && tile.tags.length > 0 && (
+                <span class="tags">
+                  {tile.tags.map((tag) => (
+                    <span class="tag">{tag}</span>
+                  ))}
+                </span>
+              )}
+              {(page.showCreatedDate || page.showUpdatedDate) && (
+                <span class="dates">
+                  {page.showCreatedDate && (
+                    <time datetime={tile.createdAt.toISOString()}>
+                      {formatFullDate(tile.createdAt)}
+                    </time>
+                  )}
+                  {page.showUpdatedDate && (
+                    <time datetime={tile.updatedAt.toISOString()}>
+                      Updated {formatFullDate(tile.updatedAt)}
+                    </time>
+                  )}
+                </span>
+              )}
             </a>
           </li>
         ))
@@ -89,12 +111,14 @@ const tiles = await resolveArticlesForPage(db, page, {
     color: color-mix(in srgb, var(--cream) 65%, transparent);
   }
 
-  /* Mirrors the photo hub's album grid (src/pages/t/[publicId].astro):
-     portrait cover, caption below (not overlaid), same "develop" hover. */
+  /* Loosely mirrors the photo hub's album grid (src/pages/t/[publicId].astro)
+     — caption below, not overlaid, same muted-to-vivid "develop" hover
+     recipe — but narrower/taller (a phone-camera-photo ratio, not the
+     photo hub's own), a bigger caption, and a snappier hover per feedback. */
   .page-tile-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
-    gap: 1.75rem 1.25rem;
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+    gap: 1.75rem 1rem;
     padding: 0;
     list-style: none;
   }
@@ -107,7 +131,7 @@ const tiles = await resolveArticlesForPage(db, page, {
 
   .page-tile-grid .cover {
     display: block;
-    aspect-ratio: 4 / 5;
+    aspect-ratio: 3 / 4;
     overflow: hidden;
     border-radius: 3px;
     background: color-mix(in srgb, var(--cream) 8%, transparent);
@@ -119,9 +143,9 @@ const tiles = await resolveArticlesForPage(db, page, {
     object-fit: cover;
     display: block;
     /* "Develop": muted at rest, blooms into full color on hover/focus —
-       same recipe as public-home.css's photo tiles. */
+       same recipe as public-home.css's photo tiles, tuned faster. */
     filter: saturate(0.74) contrast(0.94) brightness(0.98);
-    transition: filter 1s ease;
+    transition: filter 0.3s ease;
   }
 
   .page-tile-grid a:hover .cover img,
@@ -138,14 +162,40 @@ const tiles = await resolveArticlesForPage(db, page, {
   .page-tile-grid .caption {
     display: block;
     margin-top: 0.6rem;
-    font-size: 0.8rem;
-    letter-spacing: 0.02em;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
     color: color-mix(in srgb, var(--cream) 80%, transparent);
   }
 
   .page-tile-grid a:hover .caption,
   .page-tile-grid a:focus-visible .caption {
     color: var(--cream);
+  }
+
+  .page-tile-grid .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 0.4rem;
+  }
+
+  .page-tile-grid .tag {
+    padding: 0.1rem 0.45rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.02em;
+    color: color-mix(in srgb, var(--cream) 75%, transparent);
+    background: color-mix(in srgb, var(--cream) 10%, transparent);
+    border-radius: 3px;
+  }
+
+  .page-tile-grid .dates {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 0.5rem;
+    margin-top: 0.3rem;
+    font-size: 0.7rem;
+    color: color-mix(in srgb, var(--cream) 55%, transparent);
   }
 
   @media (prefers-reduced-motion: reduce) {

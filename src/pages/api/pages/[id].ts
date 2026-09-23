@@ -41,6 +41,9 @@ interface ParsedPatch {
   categoryId?: number | null
   tagId?: number | null
   sortKey?: PageSortKey
+  showTags?: boolean
+  showCreatedDate?: boolean
+  showUpdatedDate?: boolean
 }
 
 /** Returns the validated patch, or an error string naming the bad field. */
@@ -106,6 +109,24 @@ function parsePatch(body: Record<string, unknown>): ParsedPatch | string {
     }
     patch.sortKey = body.sortKey as PageSortKey
   }
+  if ('showTags' in body) {
+    if (typeof body.showTags !== 'boolean') {
+      return 'showTags must be a boolean'
+    }
+    patch.showTags = body.showTags
+  }
+  if ('showCreatedDate' in body) {
+    if (typeof body.showCreatedDate !== 'boolean') {
+      return 'showCreatedDate must be a boolean'
+    }
+    patch.showCreatedDate = body.showCreatedDate
+  }
+  if ('showUpdatedDate' in body) {
+    if (typeof body.showUpdatedDate !== 'boolean') {
+      return 'showUpdatedDate must be a boolean'
+    }
+    patch.showUpdatedDate = body.showUpdatedDate
+  }
   if (Object.keys(patch).length === 0) return 'no updatable fields'
   return patch
 }
@@ -128,10 +149,23 @@ async function applyPatch(
   id: number,
   patch: ParsedPatch,
 ): Promise<boolean> {
-  if (patch.slug !== undefined || patch.title !== undefined) {
+  const hasUpdatePageFields =
+    patch.slug !== undefined ||
+    patch.title !== undefined ||
+    patch.showTags !== undefined ||
+    patch.showCreatedDate !== undefined ||
+    patch.showUpdatedDate !== undefined
+  if (hasUpdatePageFields) {
     const updated = await updatePage(db, id, {
       ...(patch.slug !== undefined ? { slug: patch.slug } : {}),
       ...(patch.title !== undefined ? { title: patch.title } : {}),
+      ...(patch.showTags !== undefined ? { showTags: patch.showTags } : {}),
+      ...(patch.showCreatedDate !== undefined
+        ? { showCreatedDate: patch.showCreatedDate }
+        : {}),
+      ...(patch.showUpdatedDate !== undefined
+        ? { showUpdatedDate: patch.showUpdatedDate }
+        : {}),
     })
     if (updated === null) return false
   } else if (!(await pageExists(db, id))) {

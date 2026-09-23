@@ -47,6 +47,9 @@ if (!page) {
       initialCategoryId={page.categoryId}
       initialTagId={page.tagId}
       initialSortKey={page.sortKey}
+      initialShowTags={page.showTags}
+      initialShowCreatedDate={page.showCreatedDate}
+      initialShowUpdatedDate={page.showUpdatedDate}
       categories={categories.map(({ id, name }) => ({ id, name }))}
       tags={tags.map(({ id, name }) => ({ id, name }))}
       articles={articles.map(({ id, title }) => ({ id, title }))}

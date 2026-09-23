@@ -29,6 +29,9 @@ const BASE_PROPS = {
   initialCategoryId: null,
   initialTagId: null,
   initialSortKey: 'created_desc' as const,
+  initialShowTags: false,
+  initialShowCreatedDate: false,
+  initialShowUpdatedDate: false,
   categories: [{ id: 1, name: 'Travel' }],
   tags: [{ id: 10, name: 'japan' }],
   articles: [
@@ -176,5 +179,78 @@ describe('PageEditor', () => {
     render(<PageEditor {...BASE_PROPS} navigate={navigate} />)
     fireEvent.click(screen.getByText('Delete'))
     await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith('/app/pages'))
+  })
+})
+
+describe('PageEditor — tile display options', () => {
+  it('renders the three display checkboxes, unchecked by default', () => {
+    render(<PageEditor {...BASE_PROPS} />)
+    for (const label of [
+      'Show tags',
+      'Show date created',
+      'Show date modified',
+    ]) {
+      const checkbox = screen.getByLabelText(label) as HTMLInputElement
+      expect(checkbox.checked).toBe(false)
+    }
+  })
+
+  it('reflects the initial values when already on', () => {
+    render(
+      <PageEditor
+        {...BASE_PROPS}
+        initialShowTags={true}
+        initialShowCreatedDate={true}
+      />,
+    )
+    expect(
+      (screen.getByLabelText('Show tags') as HTMLInputElement).checked,
+    ).toBe(true)
+    expect(
+      (screen.getByLabelText('Show date created') as HTMLInputElement).checked,
+    ).toBe(true)
+    expect(
+      (screen.getByLabelText('Show date modified') as HTMLInputElement).checked,
+    ).toBe(false)
+  })
+
+  it('toggling "Show tags" PATCHes immediately and flips the checkbox', async () => {
+    render(<PageEditor {...BASE_PROPS} />)
+    const checkbox = screen.getByLabelText('Show tags') as HTMLInputElement
+    fireEvent.click(checkbox)
+
+    await vi.waitFor(() => expect(checkbox.checked).toBe(true))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(JSON.parse(String(init.body))).toEqual({ showTags: true })
+  })
+
+  it('toggling "Show date created" and "Show date modified" PATCH independently', async () => {
+    render(<PageEditor {...BASE_PROPS} />)
+    const created = screen.getByLabelText(
+      'Show date created',
+    ) as HTMLInputElement
+    fireEvent.click(created)
+    await vi.waitFor(() => expect(created.checked).toBe(true))
+    const [, firstInit] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ]
+    expect(JSON.parse(String(firstInit.body))).toEqual({
+      showCreatedDate: true,
+    })
+
+    const updated = screen.getByLabelText(
+      'Show date modified',
+    ) as HTMLInputElement
+    fireEvent.click(updated)
+    await vi.waitFor(() => expect(updated.checked).toBe(true))
+    const [, secondInit] = fetchMock.mock.calls[1] as unknown as [
+      string,
+      RequestInit,
+    ]
+    expect(JSON.parse(String(secondInit.body))).toEqual({
+      showUpdatedDate: true,
+    })
   })
 })

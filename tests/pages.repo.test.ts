@@ -131,6 +131,25 @@ describe('updatePage', () => {
       SlugTakenError,
     )
   })
+
+  it('updates the tile display flags independently, defaulting to false', async () => {
+    const page = await createPage(db, { slug: 'display', title: 'x' })
+    expect(page.showTags).toBe(false)
+    expect(page.showCreatedDate).toBe(false)
+    expect(page.showUpdatedDate).toBe(false)
+
+    const withTags = await updatePage(db, page.id, { showTags: true })
+    expect(withTags?.showTags).toBe(true)
+    expect(withTags?.showCreatedDate).toBe(false)
+
+    const withDates = await updatePage(db, page.id, {
+      showCreatedDate: true,
+      showUpdatedDate: true,
+    })
+    expect(withDates?.showTags).toBe(true)
+    expect(withDates?.showCreatedDate).toBe(true)
+    expect(withDates?.showUpdatedDate).toBe(true)
+  })
 })
 
 describe('setVisibility / setMode / setSortKey', () => {
@@ -390,5 +409,55 @@ describe('resolveArticlesForPage', () => {
       (await getById(db, page.id))!,
     )
     expect(tiles).toEqual([])
+  })
+
+  it('always includes createdAt/updatedAt on every tile, regardless of showTags/showCreatedDate/showUpdatedDate', async () => {
+    const a = await makeArticle({ title: 'A', visibility: 'public' })
+    const page = await createPage(db, { slug: 'p', title: 'x' })
+    await setArticleIds(db, page.id, [a])
+
+    const tiles = await resolveArticlesForPage(
+      db,
+      (await getById(db, page.id))!,
+    )
+    expect(tiles[0]?.createdAt).toBeInstanceOf(Date)
+    expect(tiles[0]?.updatedAt).toBeInstanceOf(Date)
+  })
+
+  it('manual mode: includes tags only when showTags is on', async () => {
+    const a = await makeArticle({ title: 'A', visibility: 'public' })
+    await setTags(db, a, ['travel', 'japan'])
+    const page = await createPage(db, { slug: 'p', title: 'x' })
+    await setArticleIds(db, page.id, [a])
+
+    const withoutTags = await resolveArticlesForPage(
+      db,
+      (await getById(db, page.id))!,
+    )
+    expect(withoutTags[0]?.tags).toEqual([])
+
+    await updatePage(db, page.id, { showTags: true })
+    const withTags = await resolveArticlesForPage(
+      db,
+      (await getById(db, page.id))!,
+    )
+    expect(withTags[0]?.tags.sort()).toEqual(['japan', 'travel'])
+  })
+
+  it('auto mode: includes tags only when showTags is on', async () => {
+    const category = await createCategory(db, 'Films')
+    const a = await makeArticle({ title: 'A', visibility: 'public' })
+    await setCategory(db, a, category.id)
+    await setTags(db, a, ['scifi'])
+    const page = await createPage(db, { slug: 'p', title: 'x' })
+    await setMode(db, page.id, 'auto')
+    await setAutoFilter(db, page.id, { categoryId: category.id })
+    await updatePage(db, page.id, { showTags: true })
+
+    const tiles = await resolveArticlesForPage(
+      db,
+      (await getById(db, page.id))!,
+    )
+    expect(tiles[0]?.tags).toEqual(['scifi'])
   })
 })

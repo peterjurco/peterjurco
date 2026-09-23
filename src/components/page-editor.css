@@ -104,6 +104,12 @@
   font-size: 0.9rem;
 }
 
+.page-editor-display {
+  gap: 1.25rem;
+  font-size: 0.85rem;
+  color: var(--admin-muted);
+}
+
 .page-editor-error {
   margin: 0.5rem 0 0;
   color: var(--admin-danger);

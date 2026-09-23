@@ -243,6 +243,9 @@ describe('pages API — update', () => {
       { articleIds: [1.5] },
       { categoryId: 'one' },
       { sortKey: 'random' },
+      { showTags: 'yes' },
+      { showCreatedDate: 'yes' },
+      { showUpdatedDate: 'yes' },
     ]) {
       const response = await request(`/api/pages/${id}`, {
         method: 'PATCH',
@@ -457,6 +460,48 @@ describe('public page route', () => {
     // Order: Kyoto (articleId2) appears before Tokyo (articleId1).
     expect(html.indexOf('Kyoto notes')).toBeLessThan(html.indexOf('Tokyo trip'))
     expect(html).toContain('cover-placeholder')
+  })
+
+  it('shows tags and dates only when their display flags are on', async () => {
+    const article = await request('/api/articles', {
+      method: 'POST',
+      authed: true,
+    })
+    const { id: articleId } = (await article.json()) as { id: number }
+    await request(`/api/articles/${articleId}`, {
+      method: 'PATCH',
+      authed: true,
+      body: {
+        title: 'Tagged article',
+        visibility: 'public',
+        tags: ['adventure', 'solo'],
+      },
+    })
+
+    const slug = `display-flags-${Date.now()}`
+    const pageId = await createPageViaApi(slug)
+    await request(`/api/pages/${pageId}`, {
+      method: 'PATCH',
+      authed: true,
+      body: { articleIds: [articleId], visibility: 'public' },
+    })
+
+    const withoutFlags = await request(`/${slug}`)
+    const htmlWithoutFlags = await withoutFlags.text()
+    expect(htmlWithoutFlags).not.toContain('adventure')
+    expect(htmlWithoutFlags).not.toContain('class="dates"')
+
+    await request(`/api/pages/${pageId}`, {
+      method: 'PATCH',
+      authed: true,
+      body: { showTags: true, showCreatedDate: true, showUpdatedDate: true },
+    })
+    const withFlags = await request(`/${slug}`)
+    const htmlWithFlags = await withFlags.text()
+    expect(htmlWithFlags).toContain('adventure')
+    expect(htmlWithFlags).toContain('solo')
+    expect(htmlWithFlags).toContain('class="dates"')
+    expect(htmlWithFlags).toContain('Updated')
   })
 
   it('renders an auto-mode page filtered by category, sorted title_asc', async () => {

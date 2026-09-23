@@ -18,6 +18,9 @@ interface PageEditorProps {
   initialCategoryId: number | null
   initialTagId: number | null
   initialSortKey: PageSortKey
+  initialShowTags: boolean
+  initialShowCreatedDate: boolean
+  initialShowUpdatedDate: boolean
   categories: CategoryOption[]
   tags: TagOption[]
   articles: ArticleOption[]
@@ -47,6 +50,9 @@ export function PageEditor({
   initialCategoryId,
   initialTagId,
   initialSortKey,
+  initialShowTags,
+  initialShowCreatedDate,
+  initialShowUpdatedDate,
   categories,
   tags,
   articles,
@@ -63,6 +69,9 @@ export function PageEditor({
   const [categoryId, setCategoryId] = useState(initialCategoryId)
   const [tagId, setTagId] = useState(initialTagId)
   const [sortKey, setSortKey] = useState(initialSortKey)
+  const [showTags, setShowTags] = useState(initialShowTags)
+  const [showCreatedDate, setShowCreatedDate] = useState(initialShowCreatedDate)
+  const [showUpdatedDate, setShowUpdatedDate] = useState(initialShowUpdatedDate)
   const [status, setStatus] = useState<Status>('')
   const [error, setError] = useState('')
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -157,6 +166,21 @@ export function PageEditor({
 
   async function changeSortKey(next: PageSortKey): Promise<void> {
     if (await flushPatch({ sortKey: next })) setSortKey(next)
+  }
+
+  async function toggleShowTags(): Promise<void> {
+    const next = !showTags
+    if (await flushPatch({ showTags: next })) setShowTags(next)
+  }
+
+  async function toggleShowCreatedDate(): Promise<void> {
+    const next = !showCreatedDate
+    if (await flushPatch({ showCreatedDate: next })) setShowCreatedDate(next)
+  }
+
+  async function toggleShowUpdatedDate(): Promise<void> {
+    const next = !showUpdatedDate
+    if (await flushPatch({ showUpdatedDate: next })) setShowUpdatedDate(next)
   }
 
   /** Optimistic — the list should feel instant while dragging/picking. */
@@ -270,6 +294,32 @@ export function PageEditor({
             onChange={() => void changeMode('auto')}
           />
           Auto by category/tag
+        </label>
+      </div>
+      <div className="page-editor-row page-editor-display">
+        <label>
+          <input
+            type="checkbox"
+            checked={showTags}
+            onChange={() => void toggleShowTags()}
+          />
+          Show tags
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={showCreatedDate}
+            onChange={() => void toggleShowCreatedDate()}
+          />
+          Show date created
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={showUpdatedDate}
+            onChange={() => void toggleShowUpdatedDate()}
+          />
+          Show date modified
         </label>
       </div>
       {error && <p className="page-editor-error">{error}</p>}

@@ -50,6 +50,13 @@
       "when": 1789730584868,
       "tag": "0006_smart_spectrum",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790168921902,
+      "tag": "0007_ambitious_iron_monger",
+      "breakpoints": true
     }
   ]
 }

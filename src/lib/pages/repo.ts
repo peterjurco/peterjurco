@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import type * as schema from '../../db/schema'
-import { articles, articleTagsMap, pages } from '../../db/schema'
+import { articles, articleTags, articleTagsMap, pages } from '../../db/schema'
 import { extractImageKeys } from '../articles/extract-image-keys'
 
 /**
@@ -107,13 +107,20 @@ export async function deletePage(db: PagesDb, id: number): Promise<void> {
 }
 
 /**
- * Updates slug and/or title. Same "throw SlugTakenError on unique conflict"
- * handling as createPage.
+ * Updates slug/title and/or the tile display options. Same "throw
+ * SlugTakenError on unique conflict" handling as createPage — only slug can
+ * trigger it, the display flags are plain independent booleans.
  */
 export async function updatePage(
   db: PagesDb,
   id: number,
-  patch: { slug?: string; title?: string },
+  patch: {
+    slug?: string
+    title?: string
+    showTags?: boolean
+    showCreatedDate?: boolean
+    showUpdatedDate?: boolean
+  },
 ): Promise<Page | null> {
   try {
     const [page] = await db
@@ -201,6 +208,10 @@ export interface PageTile {
   title: string
   /** R2 object key, or null for a text-only tile. Not a display URL — the caller resolves that via imageUrl(). */
   imageKey: string | null
+  /** Empty unless the page's showTags is on — see resolveArticlesForPage's fetchTagsByArticleId, which skips the join entirely otherwise. */
+  tags: string[]
+  createdAt: Date
+  updatedAt: Date
 }
 
 function resolveTileImageKey(article: {
@@ -209,6 +220,29 @@ function resolveTileImageKey(article: {
 }): string | null {
   if (article.featuredPhotoKey) return article.featuredPhotoKey
   return extractImageKeys(article.content)[0] ?? null
+}
+
+/** Bulk tag-name fetch for a set of article ids — one query, no N+1 per tile. */
+async function fetchTagsByArticleId(
+  db: PagesDb,
+  articleIds: number[],
+): Promise<Map<number, string[]>> {
+  if (articleIds.length === 0) return new Map()
+  const rows = await db
+    .select({ articleId: articleTagsMap.articleId, name: articleTags.name })
+    .from(articleTagsMap)
+    .innerJoin(articleTags, eq(articleTagsMap.tagId, articleTags.id))
+    .where(inArray(articleTagsMap.articleId, articleIds))
+  const byArticle = new Map<number, string[]>()
+  for (const row of rows) {
+    const list = byArticle.get(row.articleId)
+    if (list) {
+      list.push(row.name)
+    } else {
+      byArticle.set(row.articleId, [row.name])
+    }
+  }
+  return byArticle
 }
 
 const SORT_ORDER = {
@@ -258,6 +292,8 @@ export async function resolveArticlesForPage(
         title: articles.title,
         featuredPhotoKey: articles.featuredPhotoKey,
         content: articles.content,
+        createdAt: articles.createdAt,
+        updatedAt: articles.updatedAt,
       })
       .from(articles)
       .where(
@@ -266,6 +302,12 @@ export async function resolveArticlesForPage(
           : and(idFilter, visibilityFilter),
       )
     const byId = new Map(rows.map((row) => [row.id, row]))
+    const tagsByArticleId = page.showTags
+      ? await fetchTagsByArticleId(
+          db,
+          rows.map((row) => row.id),
+        )
+      : new Map<number, string[]>()
     return page.articleIds
       .map((id) => byId.get(id))
       .filter((row): row is (typeof rows)[number] => row !== undefined)
@@ -273,6 +315,9 @@ export async function resolveArticlesForPage(
         publicId: row.publicId,
         title: row.title,
         imageKey: resolveTileImageKey(row),
+        tags: tagsByArticleId.get(row.id) ?? [],
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
       }))
   }
 
@@ -292,10 +337,13 @@ export async function resolveArticlesForPage(
 
   const rows = await db
     .select({
+      id: articles.id,
       publicId: articles.publicId,
       title: articles.title,
       featuredPhotoKey: articles.featuredPhotoKey,
       content: articles.content,
+      createdAt: articles.createdAt,
+      updatedAt: articles.updatedAt,
     })
     .from(articles)
     .where(
@@ -304,9 +352,18 @@ export async function resolveArticlesForPage(
         : and(filterCondition, visibilityFilter),
     )
     .orderBy(...SORT_ORDER[page.sortKey])
+  const tagsByArticleId = page.showTags
+    ? await fetchTagsByArticleId(
+        db,
+        rows.map((row) => row.id),
+      )
+    : new Map<number, string[]>()
   return rows.map((row) => ({
     publicId: row.publicId,
     title: row.title,
     imageKey: resolveTileImageKey(row),
+    tags: tagsByArticleId.get(row.id) ?? [],
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   }))
 }

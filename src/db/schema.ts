@@ -290,6 +290,12 @@ export const pages = pgTable(
       () => articleTags.id,
     ),
     sortKey: pageSortKey('sort_key').notNull().default('created_desc'),
+    // Per-tile display options for the public tile grid — independent of
+    // each other (unlike categoryId/tagId's exclusivity), so plain booleans
+    // rather than an enum.
+    showTags: boolean('show_tags').notNull().default(false),
+    showCreatedDate: boolean('show_created_date').notNull().default(false),
+    showUpdatedDate: boolean('show_updated_date').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
