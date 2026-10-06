@@ -40,18 +40,17 @@ jobs:
       - uses: actions/checkout@v4
 
       # S3 stand-in for R2 in the presign/upload tests, mirroring the minio
-      # service in docker-compose.test.yml. Runs via `docker run` because
-      # GitHub service containers cannot override the image command
-      # (minio/minio needs `server /data`). Pulled from quay.io, not Docker
-      # Hub — minio/minio there now requires a login (pull access denied),
-      # since MinIO moved public distribution off Docker Hub.
+      # service in docker-compose.test.yml: RustFS (not MinIO — MinIO pulled
+      # its public images from Docker Hub AND quay.io), pinned to a tag so an
+      # upstream `latest` can't vanish from under CI again. Keeps the
+      # `minio` container name and minioadmin credentials the tests expect.
       - name: Start MinIO
         run: |
           docker run -d --name minio -p 9000:9000 \
-            -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
-            quay.io/minio/minio server /data
+            -e RUSTFS_ACCESS_KEY=minioadmin -e RUSTFS_SECRET_KEY=minioadmin \
+            rustfs/rustfs:1.0.1
           for i in $(seq 1 30); do
-            if curl -sf http://localhost:9000/minio/health/live; then
+            if curl -sf http://localhost:9000/health; then
               exit 0
             fi
             sleep 1

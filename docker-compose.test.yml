@@ -18,17 +18,21 @@ services:
   # tests (tests/media.presign.e2e.test.ts) — the presigner points here via
   # R2_ENDPOINT. The test bucket is created by the test setup over the S3 API.
   minio:
-    # quay.io, not Docker Hub — minio/minio there now requires a login (pull
-    # access denied), since MinIO moved public distribution off Docker Hub.
-    image: quay.io/minio/minio
-    command: server /data
+    # RustFS, not MinIO: MinIO pulled its public images from both Docker Hub
+    # and quay.io (pull denied / unauthorized), so the service keeps its
+    # `minio` name and the tests' minioadmin credentials but runs a
+    # maintained S3-compatible server. Pinned — an unpinned `latest` is how
+    # the previous two images vanished from under CI. If you ran the old
+    # MinIO container, reset its stale volume once (RustFS runs unprivileged):
+    #   docker compose -f docker-compose.test.yml rm -sfv minio
+    image: rustfs/rustfs:1.0.1
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      RUSTFS_ACCESS_KEY: minioadmin
+      RUSTFS_SECRET_KEY: minioadmin
     ports:
       - "9000:9000"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
       interval: 5s
       timeout: 5s
       retries: 10
