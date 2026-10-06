@@ -130,3 +130,81 @@
   color: var(--admin-accent, #0645ad);
   text-decoration: underline;
 }
+
+/*
+ * Collapsible headings — an arrow in the left gutter folds away everything
+ * up to the next heading of the same or a higher level. Shared by the editor
+ * plugin (collapsible-headings.ts, which paints these classes with
+ * decorations) and the public page's script (collapsible-headings-dom.ts,
+ * which toggles them on the rendered HTML).
+ */
+.article-body :is(h1, h2, h3, h4, h5, h6) {
+  position: relative;
+}
+
+.article-body .collapsed-by-heading {
+  display: none;
+}
+
+.article-body .heading-toggle {
+  position: absolute;
+  /* em resolves against the heading's size (font-size: inherit), centering
+     the arrow on the first line at the body's 1.7 line-height. */
+  top: calc(0.85em - 0.625rem);
+  left: -1.5rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  font-size: inherit;
+  color: var(--admin-muted, #777);
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+/* Revealed on hover/focus, and always while its section is folded — so a
+   collapsed section is never silently invisible. */
+.article-body :is(h1, h2, h3, h4, h5, h6):hover > .heading-toggle,
+.article-body .heading-toggle:focus-visible,
+.article-body .is-collapsed > .heading-toggle {
+  opacity: 1;
+}
+
+/* No hover on touch devices: keep the arrow faintly visible instead. */
+@media (hover: none) {
+  .article-body .heading-toggle {
+    opacity: 0.55;
+  }
+}
+
+.article-body .heading-toggle::before {
+  content: "";
+  display: block;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin: 0 auto;
+  border: solid currentColor;
+  border-width: 0 2px 2px 0;
+  transform: translateY(-25%) rotate(45deg);
+}
+
+.article-body .heading-toggle[aria-expanded="false"]::before {
+  transform: rotate(-45deg);
+}
+
+/* Narrow screens: the article column has no room for a gutter outside it. */
+@media (max-width: 48rem) {
+  .article-body .heading-toggle {
+    left: -1.1rem;
+    width: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .article-body .heading-toggle {
+    transition-duration: 0.001ms;
+  }
+}

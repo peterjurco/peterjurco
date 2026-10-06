@@ -75,6 +75,15 @@ const ogImage = article.featuredPhotoKey
   </main>
 </BaseLayout>
 
+<script>
+  // Collapsible headings: ~1 KB of plain DOM code, not an editor island. The
+  // article stays fully expanded without JS.
+  import { initCollapsibleHeadings } from '../../lib/articles/collapsible-headings-dom'
+
+  const body = document.querySelector<HTMLElement>('.public-article .article-body')
+  if (body) initCollapsibleHeadings(body)
+</script>
+
 <style is:global>
   .public-article {
     position: relative;
